@@ -14,7 +14,7 @@
 # Change Log 
  
  
-## [0.0.3] - YYYY-MM-DD
+## [0.0.3] - 2022-12-06
 
 ### Added
 * `bunch.decorrelate`: randomly permutes x-x', y-y', z-z' pairs.
@@ -24,3 +24,7 @@
 
 ### Fixed
 * `plotting.plot_image` thresholding no longer changes input array.
+
+
+## [0.0.2] - 2022-11-30
+* Initial release
