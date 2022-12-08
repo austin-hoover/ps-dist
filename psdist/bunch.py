@@ -1,5 +1,6 @@
 """Functions for bunches (point clouds)."""
 import numpy as np
+
 from . import ap
 from . import utils
 
@@ -165,11 +166,11 @@ def histogram_bin_edges(X, bins=10, binrange=None):
 def histogram(X, bins=10, binrange=None, centers=False):
     """Multi-dimensional histogram."""
     edges = histogram_bin_edges(X, bins=bins, binrange=binrange)        
-    image, edges = np.histogramdd(X, bins=edges)
+    hist, edges = np.histogramdd(X, bins=edges)
     if centers:
-        return image, [utils.get_bin_centers(e) for e in edges]
+        return hist, [utils.get_centers(e) for e in edges]
     else:
-        return image, edges
+        return hist, edges
     
     
 def norm_xxp_yyp_zzp(X, scale_emittance=False):
