@@ -8,13 +8,20 @@ from . import utils
 
 
 def get_grid_coords(*coords):
-    """Return mesh coordinates from coordinate arrays along each axis."""
+    """Return list of grid coordinates from coordinate arrays along each axis.
+    
+    Parameters
+    ----------
+    coords : list of 1D arrays
+        Coordinates of each axis of regular grid. Example: [[1, 2, 3], [0, 1, 2]].
+    
+    Returns
+    -------
+    ndarray, shape (K, len(coords))
+        Coordinate array for all points in the grid. The total number of grid 
+        points is `K = np.prod([len(c) for c in coords])`.
+    """
     return np.vstack([C.ravel() for C in np.meshgrid(*coords, indexing='ij')]).T
-
-
-def get_bin_centers(edges):
-    """Compute bin centers from bin edges."""
-    return 0.5 * (edges[:-1] + edges[1:])
 
 
 def max_indices(f):
@@ -65,7 +72,7 @@ def project(f, axis=0):
     axis : list[int]
         The axes onto which the image is projected, i.e., the
         axes which are not summed over. Can be an int or list
-        or ints.
+        of ints. Array axes are swapped as required.
     
     Returns
     -------
@@ -153,7 +160,7 @@ def project2d_contour(f, axis=(0, 1), level=0.1, shell=None, fpr=None, normalize
     frac = np.sum(fpr[~mask]) / np.sum(fpr)
 
     # Copy the 3D mask into the two projected dimensions.
-    mask = utils.copy_into_new_dim(mask, (f.shape[axis[0]], f.shape[axis[1]]), axis=-1, copy=True)
+    mask = copy_into_new_dim(mask, (f.shape[axis[0]], f.shape[axis[1]]), axis=-1, copy=True)
     # Put the dimensions in the correct order. (Have not run this in a while... need
     # to check that it works.)
     isort = np.argsort(list(axis_proj) + list(axis))
@@ -166,6 +173,34 @@ def project2d_contour(f, axis=(0, 1), level=0.1, shell=None, fpr=None, normalize
     if return_frac:
         return proj, frac
     return proj
+
+
+def copy_into_new_dim(f, shape, axis=-1, method='broadcast', copy=False):
+    """Copy image into one or more new dimensions.
+    
+    The 'broadcast' method is faster since it uses views instead of copies. 
+    See 'https://stackoverflow.com/questions/32171917/how-to-copy-a-2d-array-into-a-3rd-dimension-n-times'
+    """
+    if type(shape) in [int, np.int32, np.int64]:
+        shape = (shape,)
+    if method == 'repeat':
+        for i in range(len(shape)):
+            f = np.repeat(np.expand_dims(f, axis), shape[i], axis=axis)
+        return f
+    elif method == 'broadcast':
+        if axis == 0:
+            new_shape = shape + f.shape
+        elif axis == -1:
+            new_shape = f.shape + shape
+        else:
+            raise ValueError('Cannot yet handle axis != 0, -1.')
+        for _ in range(len(shape)):
+            f = np.expand_dims(f, axis)
+        if copy:
+            return np.broadcast_to(f, new_shape).copy()
+        else:
+            return np.broadcast_to(f, new_shape)
+    return None
 
 
 def get_radii(coords, Sigma):
