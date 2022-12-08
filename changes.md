@@ -12,8 +12,16 @@
 
 
 # Change Log 
- 
- 
+
+
+## [0.0.4] - YYYY-MM-DD
+
+### Changed
+* Moved `copy_into_new_dim` function to `image` module.
+* Renamed `get_bin_centers` function to `get_centers`; added `get_edges` function, moved both to `utils` module.
+* Moved `stack_ragged`, `save_stacked_array`, and `load_stacked_arrays` to `data` module.
+
+
 ## [0.0.3] - 2022-12-06
 
 ### Added
