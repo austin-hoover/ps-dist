@@ -14,12 +14,15 @@
 # Change Log 
 
 
-## [0.0.4] - YYYY-MM-DD
+## [0.0.4] - 2022-12-09
 
 ### Changed
-* Moved `copy_into_new_dim` function to `image` module.
-* Renamed `get_bin_centers` function to `get_centers`; added `get_edges` function, moved both to `utils` module.
-* Moved `stack_ragged`, `save_stacked_array`, and `load_stacked_arrays` to `data` module.
+* `utils.copy_into_new_dim` &rarr; `image.copy_into_new_dim`.
+* `image.get_bin_centers` &rarr; `utils.get_centers`
+* Added `utils.get_edges`
+* `utils.save_stacked_array` &rarr; `data.save_stacked_array`.
+* `utils.load_stacked_arrays` &rarr; `data.load_stacked_arrays`.
+* `plotting.matrix_slice` &rarr; `plotting.slice_matrix`
 
 
 ## [0.0.3] - 2022-12-06
@@ -28,7 +31,7 @@
 * `bunch.decorrelate`: randomly permutes x-x', y-y', z-z' pairs.
 
 ### Changed
-* `dist` module renamed to `bunch`
+* `dist.py` &rarr; `bunch.py`
 
 ### Fixed
 * `plotting.plot_image` thresholding no longer changes input array.
