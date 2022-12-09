@@ -16,6 +16,9 @@
 
 ## [0.0.4] - 2022-12-09
 
+### Added
+* In `plotting.corner`, the 1D diagonal plots will fill in masked values.
+
 ### Changed
 * `utils.copy_into_new_dim` &rarr; `image.copy_into_new_dim`.
 * `image.get_bin_centers` &rarr; `utils.get_centers`
