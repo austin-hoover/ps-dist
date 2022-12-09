@@ -1,4 +1,4 @@
-"""Any input/output helpers."""
+"""Input/output helpers."""
 import numpy as np
 
 

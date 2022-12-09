@@ -1,4 +1,4 @@
-"""Functions for images."""
+"""Functions for n-dimensional images."""
 import numpy as np
 from tqdm import trange
 from tqdm import tqdm
@@ -35,7 +35,7 @@ def make_slice(n, axis=0, ind=0):
     Parameters
     ----------
     n : int
-        The length of the slice index. 
+        The number of elements in the slice index array.
     axis : list[int]
         The sliced axes.
     ind : list[int] or list[tuple]
@@ -178,8 +178,22 @@ def project2d_contour(f, axis=(0, 1), level=0.1, shell=None, fpr=None, normalize
 def copy_into_new_dim(f, shape, axis=-1, method='broadcast', copy=False):
     """Copy image into one or more new dimensions.
     
-    The 'broadcast' method is faster since it uses views instead of copies. 
     See 'https://stackoverflow.com/questions/32171917/how-to-copy-a-2d-array-into-a-3rd-dimension-n-times'
+    
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    shape : n-tuple of ints
+        The shape of the new dimensions.
+    axis : int (0 or -1)
+        If 0, the new dimensions will be inserted before the first axis. If -1, 
+        the new dimensions will be inserted after the last axis. I think
+        values other than 0 or -1 should work; this does not currently 
+        work for `method='broadcast'`.
+    method : {'repeat', 'broadcast'}
+        Whether to use `np.repeat` or `np.expand_dims` and `np.broadcast_to`. The
+        'broadcast' method is faster.
     """
     if type(shape) in [int, np.int32, np.int64]:
         shape = (shape,)

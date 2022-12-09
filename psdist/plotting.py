@@ -64,8 +64,8 @@ def auto_limits(X, sigma=None, **kws):
     
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
+    X : ndarray, shape (k, n)
+        Coordinate array for k points in n-dimensional space.
     sigma : float
         If a number is provided, it is used to set the limits relative to 
         the standard deviation of the distribution.
@@ -123,7 +123,7 @@ def plot_profile(
     Parameters
     ----------
     f : ndarray
-        A 2D image.
+        A two-dimensional image.
     xcoords, ycoords : list
         Coordinates of pixel centers.
     ax : matplotlib.pyplt.Axes
@@ -187,7 +187,7 @@ def plot_image(
     Parameters
     ----------
     f : ndarray
-        A 2D image.
+        A two-dimensional image.
     x, y : list
         Coordinates of pixel centers.
     ax : matplotlib.pyplt.Axes
@@ -329,13 +329,13 @@ def corner(
     return_mesh=False,
     **plot_kws,
 ):
-    """Plot 1D/2D projections in a corner plot.
+    """Plot one- and two-dimensional projections in a corner plot.
 
     Parameters
     ----------
     data : ndarray
-        If `data.ndim == 2`, we have a list of N points in D-dimensional space;
-        otherwise, we have a D-dimensional image, i.e., density array.
+        If `data.ndim == 2`, we have the coordinates of k points in n-dimensional 
+        space; otherwise, we have an n-dimensional image.
     kind : {'hist', 'scatter'}
         The kind of 2D plot to make if `data` is a list of points. 
             'hist': 2D histogram
@@ -466,7 +466,7 @@ def corner(
                         prof_kws=prof_kws,
                         **plot_kws,
                     )
-    # Multi-dimensional image
+    # Multidimensional image
     else:
         if coords is None:
             coords = [np.arange(s) for s in data.shape]
@@ -588,11 +588,12 @@ def slice_matrix(
     debug=False,
     **plot_kws
 ):
-    """Matrix of 2D images as two other dimensions are sliced.
+    """Matrix of 2D projections as two other dimensions are sliced.
     
     In the following, assume `axis_slice`=(0, 1) and `axis_view=(2, 3)`:
     
-    First, `f` is sliced using `ncols` evenly spaced indices along axis 0 and
+    First, `f` is projected onto the (0, 1, 2, 3) axes. The remaining 4D
+    array is sliced using `ncols` evenly spaced indices along axis 0 and
     `nrows` evenly spaced indices along axis 1. The resulting array has shape
     (`ncols`, `nrows`, `f.shape[2]`, `f.shape[3]`). For i in range(`ncols`) and
     j in range(`nrows`), we plot the 2D image `f[i, j, :, :]`. This is done in 
@@ -606,13 +607,11 @@ def slice_matrix(
     
     Fourth, `f` is projected onto axis (2, 3) and plotted in the lower-right p
     panel.
-    
-    ...that was probably not a great explanation.
-    
+        
     Parameters
     ----------
     f : ndarray
-        A four-dimensional image.
+        An n-dimensional image (n >= 4).
     axis_view : 2-tuple of int
         The dimensions to plot.
     axis_slice : 2-tuple of int
@@ -796,7 +795,7 @@ def interactive_proj2d(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional array.
+        An n-dimensional image (3 <= n <= 6).
     coords : list[ndarray]
         Coordinate arrays along each dimension. A square grid is assumed.
     default_ind : (i, j)
@@ -1147,7 +1146,7 @@ def interactive_proj1d(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional array.
+        An n-dimensional image (3 <= n <= 6).
     coords : list[ndarray]
         Grid coordinates for each dimension.
     default_ind : int
@@ -1359,7 +1358,15 @@ def interactive_proj2d_discrete(
     """This mirrors `interactive_proj2d` for point clouds.
     
     This is useful because we do not have to compute/store a 6D histogram. (It
-    currently works for 6D data, not ND data.)
+    currently works only for six-dimensional data.
+    
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+    limits : list[(min, max)]
+        Limits along each axis.
+    ...
     """
     n = X.shape[1]
     if limits is None:

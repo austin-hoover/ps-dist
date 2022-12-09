@@ -12,19 +12,19 @@ def get_edges(centers):
     return np.hstack([centers - 0.5 * delta, [centers[-1] + 0.5 * delta]])
 
 
-def symmetrize(M):
-    """Return a symmetrized version of M.
+def symmetrize(a):
+    """Return a symmetrized version of matrix.
     
-    M : A square upper or lower triangular matrix.
+    a : A square upper or lower triangular matrix.
     """
-    return M + M.T - np.diag(M.diagonal())
+    return a + a.T - np.diag(a.diagonal())
     
     
-def rand_rows(X, n):
-    """Return n random elements of X."""
+def rand_rows(X, k):
+    """Return k random elements of X."""
     Xsamp = np.copy(X)
-    if n < len(X):
-        idx = np.random.choice(Xsamp.shape[0], n, replace=False)
+    if k < len(X):
+        idx = np.random.choice(Xsamp.shape[0], k, replace=False)
         Xsamp = Xsamp[idx]
     return Xsamp
 

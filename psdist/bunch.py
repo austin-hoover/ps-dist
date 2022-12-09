@@ -5,19 +5,35 @@ from . import ap
 from . import utils
 
 
+def cov(X):
+    """Compute covariance matrix.
+    
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+    
+    Returns
+    -------
+    ndarray, shape (n, n)
+        The covariance matrix of second-order moments.
+    """
+    return np.cov(X.T)
+
+
 def apply(M, X):
     """Apply a linear transformation.
     
     Parameters
     ----------
-    M : ndarray, shape (d, d)
+    M : ndarray, shape (n, n)
         A matrix.
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
         
     Returns
     -------
-    ndarray, shape (n, d)
+    ndarray, shape (k, n)
         The transformed distribution.
     """
     return np.apply_along_axis(lambda v: np.matmul(M, v), 1, X)
@@ -25,13 +41,11 @@ def apply(M, X):
 
 def radial_extent(X, fraction=1.0):
     """Return radius of sphere containing fraction of points.
-    
-    (This has not been tested.)
-    
+        
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
     fraction : float
         Fraction of points in sphere.
         
@@ -40,12 +54,13 @@ def radial_extent(X, fraction=1.0):
     radius : float
         Radius of sphere containing `fraction` of points.
     """
+    k, n = X.shape
     radii = np.linalg.norm(X, axis=0)
     radii = np.sort(radii)
-    if (X.shape[0] * fraction < 1.0):
-        imax = X.shape[0] - 1
+    if (k * fraction < 1.0):
+        imax = k - 1
     else:
-        imax = int(np.round(X.shape[0] * fraction))
+        imax = int(np.round(k * fraction))
     try:
         radius = radii[imax]
     except:
@@ -58,34 +73,34 @@ def slice_box(X, axis=None, center=None, width=None):
     
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
     axis : tuple
         Slice axes. For example, (0, 1) will slice along the first and
         second axes of the array.
-    center : ndarray, shape (d,)
+    center : ndarray, shape (n,)
         The center of the box.
-    width : ndarray, shape (d,)
+    width : ndarray, shape (n,)
         The width of the box along each axis.
         
     Returns
     -------
-    ndarray, shape (m, d)
+    ndarray, shape (?, n)
         The points within the box.
     """
-    d = X.shape[1]
+    k, n = X.shape
     if axis is None:
-        axis = tuple(range(d))
+        axis = tuple(range(n))
     if type(axis) is not tuple:
         axis = (axis,)
     if center is None:
-        center = np.zeros(d)
+        center = np.zeros(n)
     if width is None:
         width = 1.1 * np.abs(np.max(X, axis=0) - np.min(X, axis=0))
     if type(center) in [int, float]:
-        center = np.full(d, center)
+        center = np.full(n, center)
     if type(width) in [int, float]:
-        width = np.full(d, width)
+        width = np.full(n, width)
     limits = list(zip(center - 0.5 * width, center + 0.5 * width))
     conditions = []
     for i, (umin, umax) in zip(axis, limits):
@@ -100,8 +115,8 @@ def slice_sphere(X, axis=0, r=None):
     
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
     axis : tuple
         Slice axes. For example, (0, 1) will slice along the first and
         second axes of the array.
@@ -110,10 +125,10 @@ def slice_sphere(X, axis=0, r=None):
 
     Returns
     -------
-    ndarray, shape (m, d)
+    ndarray, shape (?, n)
         The points within the sphere.
     """
-    n = X.shape[1]
+    k, n = X.shape
     if axis is None:
         axis = tuple(range(n))
     if r is None:
@@ -128,8 +143,8 @@ def slice_ellipsoid(X, axis=0, limits=None):
     
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
     axis : tuple
         Slice axes. For example, (0, 1) will slice along the first and
         second axes of the array.
@@ -138,10 +153,10 @@ def slice_ellipsoid(X, axis=0, limits=None):
 
     Returns
     -------
-    ndarray, shape (m, d)
+    ndarray, shape (?, n)
         Points within the ellipsoid.
     """
-    n = X.shape[1]
+    k, n = X.shape
     if axis is None:
         axis = tuple(range(n))
     if limits is None:
@@ -178,8 +193,8 @@ def norm_xxp_yyp_zzp(X, scale_emittance=False):
     
     Parameters
     ----------
-    X : ndarray, shape (N, 6)
-        Phase space coordinate array.
+    X : ndarray, shape (k, 6)
+        Coordinates of k points in six-dimensional phase space.
     scale_emittance : bool
         Whether to divide the coordinates by the square root of the rms emittance.
     
@@ -203,7 +218,18 @@ def norm_xxp_yyp_zzp(X, scale_emittance=False):
 
 def decorrelate(X):
     """Remove cross-plane correlations in the bunch by permuting 
-    (x, x'), (y, y'), (z, z') pairs."""
+    (x, x'), (y, y'), (z, z') pairs.
+    
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in six-dimensional phase space.
+    
+    Returns
+    -------
+    ndarray, shape (k, n)
+        The decorrelated coordinate array.
+    """
     if X.shape[1] ~= 6:
         raise ValueError('X must have 6 columns.')
     for i in (0, 2, 4):
