@@ -503,6 +503,8 @@ def corner(
             for i in range(n):
                 profile = psi.project(data, i)
                 profile = profile / np.max(profile)
+                if 'fill_value' in plot_kws:
+                    profile = np.ma.filled(profile, fill_value=plot_kws['fill_value'])
                 plot1d(coords[i], profile, ax=axes[i, i], kind=diag_kind, **diag_kws)                
     # Modify diagonal y axis limits.
     if diag:
