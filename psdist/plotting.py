@@ -572,7 +572,7 @@ def _annotate_matrix_slice(axes, islice, iview, dims, height=0.2,
     return axes    
 
 
-def matrix_slice(
+def slice_matrix(
     f, 
     axis_view=None, 
     axis_slice=None, 
