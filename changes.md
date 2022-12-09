@@ -24,6 +24,9 @@
 * `utils.load_stacked_arrays` &rarr; `data.load_stacked_arrays`.
 * `plotting.matrix_slice` &rarr; `plotting.slice_matrix`
 
+### Fixed
+* Limits on corner plot diagonals were not always correct.
+
 
 ## [0.0.3] - 2022-12-06
 
