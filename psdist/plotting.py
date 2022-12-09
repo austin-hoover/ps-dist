@@ -275,6 +275,7 @@ def _setup_corner(n, diag, labels, limits=None, **fig_kws):
     if labels is None:
         labels = n * [""]
     nrows = ncols = n if diag else n - 1
+    start = 1 if diag else 0
     fig_kws.setdefault("figwidth", 1.5 * nrows)
     fig_kws.setdefault("aligny", True)
     fig, axes = pplt.subplots(
@@ -303,8 +304,8 @@ def _setup_corner(n, diag, labels, limits=None, **fig_kws):
         for i in range(n):
             axes[i, i].format(yspineloc="neither")
     if limits is not None:
-        for i in range(ncols):
-            axes[:, i].format(xlim=limits[i])
+        for j in range(ncols):
+            axes[:, j].format(xlim=limits[j])
         for i in range(start, nrows):
             axes[i, :].format(ylim=limits[i])
     axes.format(xtickminor=True, ytickminor=True, xlocator=('maxn', 3), ylocator=('maxn', 3))
@@ -384,12 +385,14 @@ def corner(
     axes : proplot.gridspec
         Array of subplot axes.
     """
-    # Figure out if data is discrete points or N-D image
+    # Determine whether data is point cloud or image.
     n = data.ndim
     pts = False
     if n == 2:
         n = data.shape[1]
         pts = True
+        
+    # Parse arguments
     diag = diag_kind in ["line", "bar", "step"]
     start = 1 if diag else 0
     if diag_kws is None:
@@ -409,12 +412,17 @@ def corner(
         plot_kws.setdefault("ec", "None")
 
     # Create the figure.
+    if (not pts) and (coords is None):
+        coords = [np.arange(s) for s in data.shape]
     if autolim_kws is None:
         autolim_kws = dict()
     if fig_kws is None:
         fig_kws = dict()
-    if limits is None and pts:
-        limits = auto_limits(data, **autolim_kws)
+    if limits is None:
+        if pts:
+            limits = auto_limits(data, **autolim_kws)
+        else:
+            limits = [(c[0], c[-1]) for c in coords]
     fig, axes = _setup_corner(n, diag, labels, limits, **fig_kws)
 
     # Discrete points
@@ -468,8 +476,6 @@ def corner(
                     )
     # Multidimensional image
     else:
-        if coords is None:
-            coords = [np.arange(s) for s in data.shape]
         # Bivariate plots
         for ii, i in enumerate(range(start, axes.shape[0])):
             for j in range(ii + 1):
@@ -495,12 +501,14 @@ def corner(
         # Univariate plots
         if diag:
             for i in range(n):
-                h = psi.project(data, i)
-                plot1d(coords[i], h / np.max(h), ax=axes[i, i], kind=diag_kind, **diag_kws)
+                profile = psi.project(data, i)
+                profile = profile / np.max(profile)
+                plot1d(coords[i], profile, ax=axes[i, i], kind=diag_kind, **diag_kws)                
     # Modify diagonal y axis limits.
     if diag:
         for i in range(n):
             axes[i, i].set_ylim(0, 1.0 / diag_height_frac)
+    # Return items
     if return_fig:
         if return_mesh:
             return fig, axes, mesh
