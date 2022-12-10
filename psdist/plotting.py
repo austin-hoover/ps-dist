@@ -1103,10 +1103,10 @@ def interactive_proj1d(
         ind = [ind[k] for k in axis_slice]
         idx = psi.make_slice(f.ndim, axis_slice, ind)
         profile = psi.project(f[idx], axis_view)  
+        profile = profile / np.sum(profile)
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        # profile = profile / np.sum(profile)
         if kind == "bar":
             ax.bar(coords[axis_view], profile, **plot_kws)
         elif kind == "line":
@@ -1131,6 +1131,7 @@ def interactive_proj2d_discrete(
     slice_type="int",  # {'int', 'range'}
     dims=None,
     units=None,
+    prof_kws=None,
     **plot_kws,
 ):
     """This mirrors `interactive_proj2d` for point clouds.
@@ -1164,6 +1165,7 @@ def interactive_proj2d_discrete(
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
     plot_kws.setdefault("colorbar", True)
+    plot_kws["prof_kws"] = prof_kws
 
     # Widgets
     nbins_default = nbins
@@ -1171,7 +1173,7 @@ def interactive_proj2d_discrete(
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
     nbins = widgets.IntSlider(min=2, max=100, value=nbins_default, description='grid res')
     nbins_plot = widgets.IntSlider(min=2, max=200, value=nbins_default, description='plot res')
-    autobin = widgets.Checkbox(description='auto plot res', value=False)
+    autobin = widgets.Checkbox(description='auto plot res', value=True)
     log = widgets.Checkbox(description='log', value=False)
     prof = widgets.Checkbox(description='profiles', value=False)
     sliders, checks = [], []
@@ -1198,8 +1200,8 @@ def interactive_proj2d_discrete(
         sliders.append(slider)
         checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
 
-    # Hide/show sliders.
     def hide(button):
+        """Hide inactive sliders."""
         for k in range(n):
             # Hide elements for dimensions being plotted.
             valid = dims[k] not in (dim1.value, dim2.value)
@@ -1212,19 +1214,20 @@ def interactive_proj2d_discrete(
             # Make sliders respond to check boxes.
             if not checks[k].value:
                 sliders[k].layout.display = "none"
-                
-    for element in (dim1, dim2, *checks):
+            nbins_plot.layout.display = "none" if autobin.value else None
+               
+    # Make slider visiblity depend on checkmarks.
+    for element in (dim1, dim2, *checks, autobin):
         element.observe(hide, names="value")
         
     # Initial hide
+    nbins_plot.layout.display = "none"
     for k in range(n):
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
             
     def update(**kws):
-        log = kws['log']
-        prof = kws['prof']
         dim1 = kws['dim1']
         dim2 = kws['dim2']
         nbins = kws['nbins']
@@ -1239,6 +1242,7 @@ def interactive_proj2d_discrete(
                 if type(_ind) is int:
                     _ind = (_ind, _ind + 1)
                 ind.append(_ind)
+                
         # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
@@ -1260,6 +1264,7 @@ def interactive_proj2d_discrete(
             Xs = psb.slice_box(X, axis=axis_slice, center=center, width=width)
         else:
             Xs = X[:, :]
+            
         # Compute 2D histogram of remaining particles.
         _nbins = 'auto' if autobin else nbins_plot
         xedges = np.histogram_bin_edges(Xs[:, axis_view[0]], bins=_nbins, range=limits[axis_view[0]])
@@ -1267,9 +1272,11 @@ def interactive_proj2d_discrete(
         edges = [xedges, yedges]
         centers = [utils.get_centers(e) for e in edges]
         image, _, _ = np.histogram2d(Xs[:, axis_view[0]], Xs[:, axis_view[1]], bins=edges)
+        
+        # Update plot key word arguments.
+        plot_kws['norm'] = 'log' if kws['log'] else None
+        plot_kws['profx'] = plot_kws['profy'] = kws['prof']
         # Plot the image.
-        plot_kws['norm'] = 'log' if log else None
-        plot_kws['profx'] = plot_kws['profy'] = prof
         fig, ax = pplt.subplots()
         plot_image(image, x=centers[0], y=centers[1], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
