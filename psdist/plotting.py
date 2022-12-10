@@ -308,8 +308,9 @@ def _setup_corner(n, diag, labels, limits=None, **fig_kws):
     if limits is not None:
         for j in range(ncols):
             axes[:, j].format(xlim=limits[j])
+        _limits = limits if diag else limits[1:]
         for i in range(start, nrows):
-            axes[i, :].format(ylim=limits[i])
+            axes[i, :].format(ylim=_limits[i])
     axes.format(xtickminor=True, ytickminor=True, xlocator=('maxn', 3), ylocator=('maxn', 3))
     return fig, axes
 
