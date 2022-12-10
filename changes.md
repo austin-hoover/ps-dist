@@ -16,8 +16,9 @@
 
 ## [0.0.5] - Unreleased
 
-## Changed
+### Changed
 * Removed fix_vmax checkbox from `plotting.interactive_proj2d`.
+* Default is to use auto binning for `plotting.interactive_proj2d_discrete`.
 
 ### Fixed
 * Interactive plots can now handle arrays of any dimension.
