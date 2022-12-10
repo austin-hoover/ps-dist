@@ -1,4 +1,5 @@
 """Plotting routines for phase space distributions."""
+from ipywidgets import interact
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
@@ -848,12 +849,13 @@ def interactive_proj2d(
 
     # Widgets
     cmap = widgets.Dropdown(options=cmaps, description="cmap")
+    thresh_checkbox = widgets.Checkbox(value=True, description='thresh')
     thresh = widgets.FloatSlider(
-        value=-8.0,
+        value=-3.3,
         min=-8.0,
         max=0.0,
         step=0.1,
-        description="thresh",
+        description="thresh (log)",
         continuous_update=True,
     )
     discrete = widgets.Checkbox(value=False, description="discrete")
@@ -862,15 +864,6 @@ def interactive_proj2d(
     profiles = widgets.Checkbox(value=False, description="profiles")
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-    vmax = widgets.FloatSlider(
-        value=1.0,
-        min=0.0,
-        max=1.0,
-        step=0.01,
-        description="vmax",
-        continuous_update=True,
-    )
-    fix_vmax = widgets.Checkbox(value=False, description="fix vmax")
 
     # Sliders and checkboxes (for slicing). Each unplotted dimension has a 
     # checkbox which determine if that dimension is sliced. The slice
@@ -913,18 +906,17 @@ def interactive_proj2d(
             # Make sliders respond to check boxes.
             if not checks[k].value:
                 sliders[k].layout.display = "none"
-        # Hide vmax slider if fix_vmax checkbox is not checked.
-        vmax.layout.display = None if fix_vmax.value else "none"
+        # Hide other sliders based on checkboxes.
+        thresh.layout.display = None if thresh_checkbox.value else "none"
 
     # Update the slider list automatically.
-    for element in (dim1, dim2, *checks, fix_vmax):
+    for element in (dim1, dim2, *checks, thresh_checkbox):
         element.observe(hide, names="value")
     # Initial hide
     for k in range(n):
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
-    vmax.layout.display = "none"
 
     def update(**kws):
         """Update the figure."""
@@ -941,7 +933,7 @@ def interactive_proj2d(
                 return
         if dim1 == dim2:
             return
-        # Slice the distribution, but keep it n-dimensional.
+        # Slice and project the distribution.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
         for k in range(n):
@@ -950,21 +942,21 @@ def interactive_proj2d(
         ind = [ind[k] for k in axis_slice]
         idx = psi.make_slice(f.ndim, axis_slice, ind)
         _f = psi.project(f[idx], axis_view)
-        # Plot the projection onto the specified axes.
-        plot_kws.update(
-            {
-                "profx": kws['profiles'],
-                "profy": kws['profiles'],
-                "cmap": kws['cmap'],
-                "thresh": 10.0 ** kws['thresh'],
-                "thresh_type": "frac",
-                "norm": "log" if kws['log'] else None,
-                "vmax": kws['vmax'] if kws['fix_vmax'] else None,
-                "fill_value": 0,
-            }
-        )
+        # Update plotting key word arguments.
+        plot_kws['cmap'] = kws['cmap']
+        plot_kws['fill_value'] = 0
+        plot_kws['norm'] = 'log' if kws['log'] else None
+        plot_kws['profx'] = plot_kws['profy'] = kws['profiles']
+        plot_kws['thresh'] = (10.0**kws['thresh']) if kws['thresh_checkbox'] else None
+        # Plot the projection onto the specified axes. 
         fig, ax = pplt.subplots()
-        plot_image(_f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
+        plot_image(
+            _f,
+            x=coords[axis_view[0]], 
+            y=coords[axis_view[1]], 
+            ax=ax, 
+            **plot_kws
+        )
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
         
@@ -973,11 +965,10 @@ def interactive_proj2d(
         'cmap': cmap,
         'log': log,
         'profiles': profiles,
-        'fix_vmax': fix_vmax,
-        'vmax': vmax,
+        'thresh_checkbox': thresh_checkbox,
+        'thresh': thresh,
         'dim1': dim1,
         'dim2': dim2,
-        'thresh': thresh
     }
     for i, check in enumerate(checks, start=1):
         kws[f'check{i}'] = check
