@@ -6,6 +6,7 @@ import numpy as np
 import proplot as pplt
 from scipy import optimize as opt
 
+from . import bunch as psb
 from . import image as psi
 from . import utils
 
@@ -1172,8 +1173,8 @@ def interactive_proj2d_discrete(
     nbins_default = nbins
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-    nbins = widgets.IntSlider(min=1, max=100, value=nbins_default, description='grid res')
-    nbins_plot = widgets.IntSlider(min=1, max=100, value=nbins_default, description='plot res')
+    nbins = widgets.IntSlider(min=2, max=100, value=nbins_default, description='grid res')
+    nbins_plot = widgets.IntSlider(min=2, max=200, value=nbins_default, description='plot res')
     autobin = widgets.Checkbox(description='auto plot res', value=False)
     log = widgets.Checkbox(description='log', value=False)
     prof = widgets.Checkbox(description='profiles', value=False)
@@ -1224,81 +1225,66 @@ def interactive_proj2d_discrete(
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
-                                                  
-    def update(
-        log,
-        prof,
-        dim1,
-        dim2,
-        check1,
-        check2,
-        check3,
-        check4,
-        check5,
-        check6,
-        slider1,
-        slider2,
-        slider3,
-        slider4,
-        slider5,
-        slider6,
-        nbins,
-        nbins_plot,
-        autobin,
-    ):
-        if dim1 == dim2:
-            return
-        checks = [check1, check2, check3, check4, check5, check6]
-        sliders = [slider1, slider2, slider3, slider4, slider5, slider6]        
+            
+    def update(**kws):
+        log = kws['log']
+        prof = kws['prof']
+        dim1 = kws['dim1']
+        dim2 = kws['dim2']
+        nbins = kws['nbins']
+        nbins_plot = kws['nbins_plot']
+        autobin = kws['autobin']
+        ind, checks = [], []
+        for i in range(100):
+            if f'check{i}' in kws:
+                checks.append(kws[f'check{i}'])
+            if f'slider{i}' in kws:
+                _ind = kws[f'slider{i}']
+                if type(_ind) is int:
+                    _ind = (_ind, _ind + 1)
+                ind.append(_ind)
+        # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
                 return
-        checks = checks[:n]
-        sliders = sliders[:n]
-            
-        # Find particles within box.
+        if dim1 == dim2:
+            return
+                
+        # Slice the distribution
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        conditions = []
-        for i in range(n):
-            if i in axis_slice:
-                bin_width = np.abs(limits[i][1] - limits[i][0]) / nbins
-                ind = sliders[i]
-                if type(ind) is int:
-                    ind = (ind, ind + 1)
-                umin = limits[i][0] + ind[0] * bin_width
-                umax = limits[i][0] + ind[1] * bin_width
-            else:
-                umin = -np.inf
-                umax = +np.inf
-            conditions.append(X[:, i] > umin)
-            conditions.append(X[:, i] < umax)
-            idx = np.logical_and.reduce(conditions)
-        
+        edges = [np.linspace(umin, umax, nbins + 1) for (umin, umax) in limits]
+        if axis_slice:
+            center, width = [], []
+            for _axis in axis_slice:
+                _edges = edges[_axis]
+                imin, imax = ind[_axis]
+                width.append(_edges[imax] - _edges[imin])
+                center.append(0.5 * (_edges[imax] + _edges[imin]))
+            Xs = psb.slice_box(X, axis=axis_slice, center=center, width=width)
+        else:
+            Xs = X[:, :]
         # Compute 2D histogram of remaining particles.
-        _X = X[idx]
-        _X = _X[:, axis_view]
         _nbins = 'auto' if autobin else nbins_plot
-        xedges = np.histogram_bin_edges(_X[:, 0], bins=_nbins, range=limits[axis_view[0]])
-        yedges = np.histogram_bin_edges(_X[:, 1], bins=_nbins, range=limits[axis_view[1]])
+        xedges = np.histogram_bin_edges(Xs[:, axis_view[0]], bins=_nbins, range=limits[axis_view[0]])
+        yedges = np.histogram_bin_edges(Xs[:, axis_view[1]], bins=_nbins, range=limits[axis_view[1]])
         edges = [xedges, yedges]
-        im, _ = np.histogramdd(_X, bins=edges)
-        centers = [utils.bin_centers(e) for e in edges]
-        
-        # Plot image.
+        centers = [utils.get_centers(e) for e in edges]
+        image, _, _ = np.histogram2d(Xs[:, axis_view[0]], Xs[:, axis_view[1]], bins=edges)
+        # Plot the image.
         plot_kws['norm'] = 'log' if log else None
         plot_kws['profx'] = plot_kws['profy'] = prof
         fig, ax = pplt.subplots()
-        plot_image(im, x=centers[0], y=centers[1], ax=ax, **plot_kws)
+        plot_image(image, x=centers[0], y=centers[1], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
     kws = dict()
-    kws["dim1"] = dim1
-    kws["dim2"] = dim2
     kws["log"] = log
     kws["prof"] = prof
     kws["autobin"] = autobin
+    kws["dim1"] = dim1
+    kws["dim2"] = dim2
     for i, check in enumerate(checks, start=1):
         kws[f"check{i}"] = check
     for i, slider in enumerate(sliders, start=1):

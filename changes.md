@@ -29,6 +29,7 @@
 
 ### Fixed
 * Limits on corner plot diagonals were not always correct.
+* Interactive plots can now handle arrays of any dimension.
 
 
 ## [0.0.3] - 2022-12-06
