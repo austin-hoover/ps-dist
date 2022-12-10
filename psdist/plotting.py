@@ -805,7 +805,7 @@ def interactive_proj2d(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image (3 <= n <= 6).
+        An n-dimensional image.
     coords : list[ndarray]
         Coordinate arrays along each dimension. A square grid is assumed.
     default_ind : (i, j)
@@ -822,13 +822,12 @@ def interactive_proj2d(
     
     Returns
     -------
-    gui : ipywidgets.widgets.interaction.interactive
+    ipywidgets.widgets.interaction.interactive
         This widget can be displayed by calling `IPython.display.display(gui)`. 
     """
     n = f.ndim
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(n)]
-
     if dims is None:
         dims = [f"x{i + 1}" for i in range(n)]
     if units is None:
@@ -861,14 +860,6 @@ def interactive_proj2d(
     log = widgets.Checkbox(value=False, description="log")
     contour = widgets.Checkbox(value=False, description="contour")
     profiles = widgets.Checkbox(value=False, description="profiles")
-    scale = widgets.FloatSlider(
-        value=0.15,
-        min=0.0,
-        max=1.0,
-        step=0.01,
-        description="scale",
-        continuous_update=True,
-    )
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
     vmax = widgets.FloatSlider(
@@ -881,14 +872,16 @@ def interactive_proj2d(
     )
     fix_vmax = widgets.Checkbox(value=False, description="fix vmax")
 
-    # Sliders
+    # Sliders and checkboxes (for slicing). Each unplotted dimension has a 
+    # checkbox which determine if that dimension is sliced. The slice
+    # indices are determined by the slider.
     sliders, checks = [], []
     for k in range(n):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
                 max=f.shape[k],
-                value=f.shape[k] // 2,
+                value=(f.shape[k] // 2),
                 description=dims[k],
                 continuous_update=True,
             )
@@ -901,13 +894,13 @@ def interactive_proj2d(
                 continuous_update=True,
             )
         else:
-            raise ValueError("Invalid `slice_type`.")
+            raise ValueError("`slice_type` must be 'int' or 'range'.")
         slider.layout.display = "none"
         sliders.append(slider)
         checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
 
-    # Hide/show sliders.
     def hide(button):
+        """Hide/show sliders."""
         for k in range(n):
             # Hide elements for dimensions being plotted.
             valid = dims[k] not in (dim1.value, dim2.value)
@@ -923,6 +916,7 @@ def interactive_proj2d(
         # Hide vmax slider if fix_vmax checkbox is not checked.
         vmax.layout.display = None if fix_vmax.value else "none"
 
+    # Update the slider list automatically.
     for element in (dim1, dim2, *checks, fix_vmax):
         element.observe(hide, names="value")
     # Initial hide
@@ -932,213 +926,64 @@ def interactive_proj2d(
             sliders[k].layout.display = "none"
     vmax.layout.display = "none"
 
-    # I don't know how else to do this.
-    def _update3(
-        cmap,
-        log,
-        profiles,
-        fix_vmax,
-        vmax,
-        dim1,
-        dim2,
-        check1,
-        check2,
-        check3,
-        slider1,
-        slider2,
-        slider3,
-        thresh,
-    ):
-        checks = [check1, check2, check3]
-        sliders = [slider1, slider2, slider3]
+    def update(**kws):
+        """Update the figure."""
+        dim1, dim2 = kws['dim1'], kws['dim2']
+        ind, checks = [], []
+        for i in range(100):
+            if f'check{i}' in kws:
+                checks.append(kws[f'check{i}'])
+            if f'slider{i}' in kws:
+                ind.append(kws[f'slider{i}'])
+        # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
                 return
-        return _plot_figure(
-            dim1,
-            dim2,
-            checks,
-            sliders,
-            log,
-            profiles,
-            thresh,
-            cmap,
-            fix_vmax,
-            vmax,
-        )
-
-    def _update4(
-        cmap,
-        log,
-        profiles,
-        fix_vmax,
-        vmax,
-        dim1,
-        dim2,
-        check1,
-        check2,
-        check3,
-        check4,
-        slider1,
-        slider2,
-        slider3,
-        slider4,
-        thresh,
-    ):
-        checks = [check1, check2, check3, check4]
-        sliders = [slider1, slider2, slider3, slider4]
-        for dim, check in zip(dims, checks):
-            if check and dim in (dim1, dim2):
-                return
-        return _plot_figure(
-            dim1,
-            dim2,
-            checks,
-            sliders,
-            log,
-            profiles,
-            thresh,
-            cmap,
-            fix_vmax,
-            vmax,
-        )
-
-    def _update5(
-        cmap,
-        log,
-        profiles,
-        fix_vmax,
-        vmax,
-        dim1,
-        dim2,
-        check1,
-        check2,
-        check3,
-        check4,
-        check5,
-        slider1,
-        slider2,
-        slider3,
-        slider4,
-        slider5,
-        thresh,
-    ):
-        checks = [check1, check2, check3, check4, check5]
-        sliders = [slider1, slider2, slider3, slider4, slider5]
-        for dim, check in zip(dims, checks):
-            if check and dim in (dim1, dim2):
-                return
-        return _plot_figure(
-            dim1,
-            dim2,
-            checks,
-            sliders,
-            log,
-            profiles,
-            thresh,
-            cmap,
-            fix_vmax,
-            vmax,
-        )
-
-    def _update6(
-        cmap,
-        log,
-        profiles,
-        fix_vmax,
-        vmax,
-        dim1,
-        dim2,
-        check1,
-        check2,
-        check3,
-        check4,
-        check5,
-        check6,
-        slider1,
-        slider2,
-        slider3,
-        slider4,
-        slider5,
-        slider6,
-        thresh,
-    ):
-        checks = [check1, check2, check3, check4, check5, check6]
-        sliders = [slider1, slider2, slider3, slider4, slider5, slider6]
-        for dim, check in zip(dims, checks):
-            if check and dim in (dim1, dim2):
-                return
-        return _plot_figure(
-            dim1,
-            dim2,
-            checks,
-            sliders,
-            log,
-            profiles,
-            thresh,
-            cmap,
-            fix_vmax,
-            vmax,
-        )
-
-    update = {3: _update3, 4: _update4, 5: _update5, 6: _update6,}[n]
-
-    def _plot_figure(
-        dim1,
-        dim2,
-        checks,
-        sliders,
-        log,
-        profiles,
-        thresh,
-        cmap,
-        fix_vmax,
-        vmax,
-    ):
         if dim1 == dim2:
             return
+        # Slice the distribution, but keep it n-dimensional.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        ind = sliders
         for k in range(n):
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        H = f[psi.make_slice(f.ndim, axis_slice, ind)]
-        H = psi.project(H, axis_view)
-        H = np.ma.masked_less_equal(H, 10.0 ** thresh)
+        idx = psi.make_slice(f.ndim, axis_slice, ind)
+        _f = psi.project(f[idx], axis_view)
+        # Plot the projection onto the specified axes.
         plot_kws.update(
             {
-                "profx": profiles,
-                "profy": profiles,
-                "cmap": cmap,
-                "thresh": 10.0 ** thresh,
+                "profx": kws['profiles'],
+                "profy": kws['profiles'],
+                "cmap": kws['cmap'],
+                "thresh": 10.0 ** kws['thresh'],
                 "thresh_type": "frac",
-                "norm": "log" if log else None,
-                "vmax": vmax if fix_vmax else None,
+                "norm": "log" if kws['log'] else None,
+                "vmax": kws['vmax'] if kws['fix_vmax'] else None,
                 "fill_value": 0,
             }
         )
         fig, ax = pplt.subplots()
-        plot_image(H, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
+        plot_image(_f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
-
-    kws = dict()
-    kws["dim1"] = dim1
-    kws["dim2"] = dim2
+        
+    # Pass key word arguments for `update`.
+    kws = {
+        'cmap': cmap,
+        'log': log,
+        'profiles': profiles,
+        'fix_vmax': fix_vmax,
+        'vmax': vmax,
+        'dim1': dim1,
+        'dim2': dim2,
+        'thresh': thresh
+    }
     for i, check in enumerate(checks, start=1):
-        kws[f"check{i}"] = check
+        kws[f'check{i}'] = check
     for i, slider in enumerate(sliders, start=1):
-        kws[f"slider{i}"] = slider
-    kws["log"] = log
-    kws["profiles"] = profiles
-    kws["thresh"] = thresh
-    kws["fix_vmax"] = fix_vmax
-    kws["vmax"] = vmax
-    kws["cmap"] = cmap
-    gui = interactive(update, **kws)
-    return gui
+        kws[f'slider{i}'] = slider  
+    return interactive(update, **kws)
 
 
 def interactive_proj1d(
@@ -1149,6 +994,7 @@ def interactive_proj1d(
     dims=None,
     units=None,
     kind="bar",
+    fig_kws=None,
     **plot_kws,
 ):
     """1D projection of image `f` with interactive slicing.
@@ -1156,7 +1002,7 @@ def interactive_proj1d(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image (3 <= n <= 6).
+        An n-dimensional image.
     coords : list[ndarray]
         Grid coordinates for each dimension.
     default_ind : int
@@ -1168,6 +1014,8 @@ def interactive_proj1d(
         Dimension names and units.
     kind : {'bar', 'line'}
         The kind of plot to draw.
+    fig_kws : dict
+        Key word arguments passed to `proplot.subplots`. 
     **plot_kws
         Key word arguments passed to 1D plotting function.
         
@@ -1179,7 +1027,6 @@ def interactive_proj1d(
     n = f.ndim
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(n)]
-
     if dims is None:
         dims = [f"x{i + 1}" for i in range(n)]
     if units is None:
@@ -1188,6 +1035,9 @@ def interactive_proj1d(
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
     plot_kws.setdefault("color", "black")
+    if fig_kws is None:
+        fig_kws = dict()
+    fig_kws.setdefault('figsize', (4.5, 1.5))
 
     # Widgets
     dim1 = widgets.Dropdown(options=dims, index=default_ind, description="dim")
@@ -1217,8 +1067,8 @@ def interactive_proj1d(
         sliders.append(slider)
         checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
 
-    # Hide/show sliders.
     def hide(button):
+        """Hide/show sliders based on checkboxes."""
         for k in range(n):
             # Hide elements for dimensions being plotted.
             valid = dims[k] != dim1.value
@@ -1232,6 +1082,7 @@ def interactive_proj1d(
             if not checks[k].value:
                 sliders[k].layout.display = "none"
 
+    # Update the slider list automatically.
     for element in (dim1, *checks):
         element.observe(hide, names="value")
     # Initial hide
@@ -1239,120 +1090,47 @@ def interactive_proj1d(
         if k == default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
-
-    # I don't know how else to do this.
-    def _update2(
-        dim1, check1, check2, slider1, slider2,
-    ):
-        checks = [check1, check2]
-        sliders = [slider1, slider2]
+            
+    def update(**kws):
+        """Update the figure."""
+        dim1 = kws['dim1']
+        ind, checks = [], []
+        for i in range(100):
+            if f'check{i}' in kws:
+                checks.append(kws[f'check{i}'])
+            if f'slider{i}' in kws:
+                ind.append(kws[f'slider{i}'])
+        # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim == dim1:
                 return
-        return _plot_figure(dim1, checks, sliders)
-
-    def _update3(
-        dim1, check1, check2, check3, slider1, slider2, slider3,
-    ):
-        checks = [check1, check2, check3]
-        sliders = [slider1, slider2, slider3]
-        for dim, check in zip(dims, checks):
-            if check and dim == dim1:
-                return
-        return _plot_figure(dim1, checks, sliders)
-
-    def _update4(
-        dim1, check1, check2, check3, check4, slider1, slider2, slider3, slider4,
-    ):
-        checks = [check1, check2, check3, check4]
-        sliders = [slider1, slider2, slider3, slider4]
-        for dim, check in zip(dims, checks):
-            if check and dim == dim1:
-                return
-        return _plot_figure(dim1, checks, sliders)
-
-    def _update5(
-        dim1,
-        check1,
-        check2,
-        check3,
-        check4,
-        check5,
-        slider1,
-        slider2,
-        slider3,
-        slider4,
-        slider5,
-    ):
-        checks = [check1, check2, check3, check4, check5]
-        sliders = [slider1, slider2, slider3, slider4, slider5]
-        for dim, check in zip(dims, checks):
-            if check and dim == dim1:
-                return
-        return _plot_figure(dim1, checks, sliders)
-
-    def _update6(
-        dim1,
-        check1,
-        check2,
-        check3,
-        check4,
-        check5,
-        check6,
-        slider1,
-        slider2,
-        slider3,
-        slider4,
-        slider5,
-        slider6,
-    ):
-        checks = [check1, check2, check3, check4, check5, check6]
-        sliders = [slider1, slider2, slider3, slider4, slider5, slider6]
-        for dim, check in zip(dims, checks):
-            if check and dim == dim1:
-                return
-        return _plot_figure(dim1, checks, sliders)
-
-    update_dict = {
-        2: _update2,
-        3: _update3,
-        4: _update4,
-        5: _update5,
-        6: _update6,
-    }
-    update = update_dict[n]
-
-    def _plot_figure(dim1, checks, sliders):
+        # Slice, then project onto the specified axis.
         axis_view = dims.index(dim1)
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        ind = sliders
         for k in range(n):
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        _f = f[psi.make_slice(f.ndim, axis_slice, ind)]
-        p = psi.project(_f, axis_view)
-
-        fig, ax = pplt.subplots(figsize=(4.5, 1.5))
+        idx = psi.make_slice(f.ndim, axis_slice, ind)
+        profile = psi.project(f[idx], axis_view)  
+        # Plot the projection.
+        fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        x = coords[axis_view]
-        y = p / np.sum(p)
+        # profile = profile / np.sum(profile)
         if kind == "bar":
-            ax.bar(x, y, **plot_kws)
+            ax.bar(coords[axis_view], profile, **plot_kws)
         elif kind == "line":
-            ax.plot(x, y, **plot_kws)
+            ax.plot(coords[axis_view], profile, **plot_kws)
         elif kind == "step":
-            ax.plot(x, y, drawstyle="steps-mid", **plot_kws)
+            ax.plot(coords[axis_view], profile, drawstyle="steps-mid", **plot_kws)
         plt.show()
 
-    kws = dict()
-    kws["dim1"] = dim1
+    kws = {'dim1': dim1}
     for i, check in enumerate(checks, start=1):
         kws[f"check{i}"] = check
     for i, slider in enumerate(sliders, start=1):
         kws[f"slider{i}"] = slider
-    gui = interactive(update, **kws)
-    return gui
+    return interactive(update, **kws)
 
 
 def interactive_proj2d_discrete(
