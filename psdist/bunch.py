@@ -87,27 +87,23 @@ def slice_box(X, axis=None, center=None, width=None):
     -------
     ndarray, shape (?, n)
         The points within the box.
-    """
+    """    
     k, n = X.shape
-    if axis is None:
-        axis = tuple(range(n))
-    if type(axis) is not tuple:
+    if type(axis) is int:
         axis = (axis,)
-    if center is None:
-        center = np.zeros(n)
-    if width is None:
-        width = 1.1 * np.abs(np.max(X, axis=0) - np.min(X, axis=0))
     if type(center) in [int, float]:
         center = np.full(n, center)
     if type(width) in [int, float]:
         width = np.full(n, width)
+    center = np.array(center)
+    width = np.array(width)            
     limits = list(zip(center - 0.5 * width, center + 0.5 * width))
     conditions = []
-    for i, (umin, umax) in zip(axis, limits):
-        conditions.append(X[:, i] > umin)
-        conditions.append(X[:, i] < umax)
+    for j, (umin, umax) in zip(axis, limits):
+        conditions.append(X[:, j] > umin)
+        conditions.append(X[:, j] < umax)
     idx = np.logical_and.reduce(conditions)
-    return X[idx]
+    return X[idx, :]
 
 
 def slice_sphere(X, axis=0, r=None):
@@ -230,7 +226,7 @@ def decorrelate(X):
     ndarray, shape (k, n)
         The decorrelated coordinate array.
     """
-    if X.shape[1] ~= 6:
+    if X.shape[1] != 6:
         raise ValueError('X must have 6 columns.')
     for i in (0, 2, 4):
         idx = np.random.permutation(np.arange(X.shape[0]))
