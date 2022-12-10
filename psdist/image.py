@@ -47,11 +47,19 @@ def make_slice(n, axis=0, ind=0):
     idx : tuple
         The slice index array.
     """
+    # Make list if only one axis provided.
     if type(axis) is int:
         axis = [axis]
+        # Can also provide only one axis but provide a tuple for ind, which
+        # selects a range along that axis.
+        if type(ind) is tuple:
+            ind = [ind]
+    # Make list if only one ind provided.
     if type(ind) is int:
         ind = [ind]
+    # Initialize the slice index to select all elements.
     idx = n * [slice(None)]
+    # If any indices were provided, add them to `idx`.
     for k, i in zip(axis, ind):
         if i is None:
             continue
@@ -59,6 +67,7 @@ def make_slice(n, axis=0, ind=0):
             idx[k] = slice(i[0], i[1])
         else:
             idx[k] = i
+    # Must return a tuple.
     return tuple(idx)
 
 
