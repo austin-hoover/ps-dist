@@ -813,7 +813,6 @@ def interactive_proj2d(
         Default x and y index to plot.
     slice_type : {'int', 'range'}
         Whether to slice one index along the axis or a range of indices. 
-        (The latest version of `ipywidgets` lets you drag range sliders.)
     dims, units : list[str], shape (n,)
         Dimension names and units.
     prof_kws : dict
@@ -1010,7 +1009,6 @@ def interactive_proj1d(
         Default index to plot.
     slice_type : {'int', 'range'}
         Whether to slice one index along the axis or a range of indices. 
-        (The latest version of `ipywidgets` lets you drag range sliders.)
     dims, units : list[str], shape (n,)
         Dimension names and units.
     kind : {'bar', 'line'}
@@ -1137,7 +1135,7 @@ def interactive_proj1d(
 def interactive_proj2d_discrete(
     X,
     limits=None,
-    nbins=10,
+    nbins=30,
     default_ind=(0, 1),
     slice_type="int",  # {'int', 'range'}
     dims=None,
@@ -1145,17 +1143,24 @@ def interactive_proj2d_discrete(
     **plot_kws,
 ):
     """This mirrors `interactive_proj2d` for point clouds.
-    
-    This is useful because we do not have to compute/store a 6D histogram. (It
-    currently works only for six-dimensional data.
-    
+        
     Parameters
     ----------
     X : ndarray, shape (k, n)
         Coordinates of k points in n-dimensional space.
     limits : list[(min, max)]
         Limits along each axis.
-    ...
+    nbins : int
+        Default number of bins for slicing/viewing. Both can be changed with
+        sliders.
+    default_ind : (i, j)
+        Default view axis.
+    slice_type : {'int', 'range'}
+        Whether to slice one index along the axis or a range of indices. 
+    dims, units : list[str], shape (n,)
+        Dimension names and units.
+    **plot_kws
+        Key word arguments passed to `plot_image`.
     """
     n = X.shape[1]
     if limits is None:
