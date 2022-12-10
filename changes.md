@@ -14,7 +14,7 @@
 # Change Log 
 
 
-## [0.0.5] - Unreleased
+## [0.0.5] - 2022-12-10
 
 ### Changed
 * Removed fix_vmax checkbox from `plotting.interactive_proj2d`.
