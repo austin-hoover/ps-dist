@@ -30,12 +30,13 @@ def max_indices(f):
 
 
 def make_slice(n, axis=0, ind=0):
-    """Return a slice index array.
+    """Return planar slice index array.
     
     Parameters
     ----------
     n : int
-        The number of elements in the slice index array.
+        The number of elements in the slice index array. (The number of dimensions
+        in the array to be sliced.)
     axis : list[int]
         The sliced axes.
     ind : list[int] or list[tuple]
@@ -44,8 +45,9 @@ def make_slice(n, axis=0, ind=0):
         
     Returns
     -------
-    idx : tuple
-        The slice index array.
+    idx : n-tuple
+        The slice index array. A slice of the array `f` may then be accessed as
+        `f[idx]`.
     """
     # Make list if only one axis provided.
     if type(axis) is int:
@@ -67,8 +69,57 @@ def make_slice(n, axis=0, ind=0):
             idx[k] = slice(i[0], i[1])
         else:
             idx[k] = i
-    # Must return a tuple.
     return tuple(idx)
+    
+    
+def make_slice_ellipsoid(f, axis, rmin=0.0, rmax=1.0):
+    """Compute an ellipsoid slice.
+    
+    Ellipsoid is computed from the covariance matrix of `f`. 
+    
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    axis : list[int]
+        Specificies the subspace in which the ellipsoid slices are computed. 
+        Example: in x-y-z space, we may define a circle in x-y. This could
+        select points within a cylinder in x-y-z.
+    rmin, rmax : float
+        We select the region between two nested ellipsoids with "radius"
+        rmin and rmax. The radius is r = x^T Sigma^-1 x, where Sigma is 
+        the covariance matrix and x is the coordinate vector. r = 1 is
+        the covariance ellipsoid.
+    
+    Returns
+    -------
+    np.ma.masked_array
+        A version of `f` in which elements outside the slice are masked.
+    """
+    raise NotImplementedError
+    
+    
+def make_slice_contour(f, axis, lmin=0.0, lmax=1.0):
+    """Compute a contour slice.
+    
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    axis : list[int]
+        Specificies the subspace in which the contours are computed. (See
+        `make_slice_ellipsoid`.)
+    lmin, lmax : float
+        `f`is projected onto `axis` and the projection `fpr` is normalized to 
+        the range [0, 1]. Then, we find the points in this subspace such that 
+        `fpr` is within the range [lmin, lmax]. 
+    
+    Returns
+    -------
+    np.ma.masked_array
+        A version of `f` in which elements outside the slice are masked.
+    """
+    raise NotImplementedError
 
 
 def project(f, axis=0):
@@ -110,25 +161,24 @@ def project(f, axis=0):
     return proj
 
 
-def project1d_contour(f, axis=0, level=0.1, shell=None, fpr=None, normalize=True, return_frac=False):
-    """Return 1D projection of the elements of `f` above a threshold in the non-projected dimensions.
-    
+def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None, normalize=True, return_frac=False):
+    """Apply contour slice in n-1 dimensions, then project onto the other dimension.
+        
     Parameters
     ----------
     f : ndarray
         An n-dimensional image.
     axis : int
         The projection axis.
-    level : float
-        Elements of `f` below this value are masked.
-    shell : float (> level)
-        Elements of `f` above this value are masked. (Defaults to `np.inf`.)
+    lmin, lmax : float
+        See `make_slice_contour`.
     fpr : ndarray, shape [f.shape[i] for i in range(f.ndim) if i != axis]
-        Projection of `f` onto the other dimensions. (Helpful if it is expensive to compute).
+        The (n-1)-dimensional projection of `f` onto all dimensions other than `axis`. This
+        is an optional parameter; if not provided, it will be computed within the function.
     normalize : bool
         Whether to normalize the projection (so that its sum is unity).
     return_frac : bool
-        Whether to return the fractional density encapsulated by specified region of `f`.
+        Whether to return the fractional density of `f` selected by the slice.
     
     Returns
     -------
@@ -138,13 +188,10 @@ def project1d_contour(f, axis=0, level=0.1, shell=None, fpr=None, normalize=True
     axis_proj = [i for i in range(f.ndim) if i != axis]
     if fpr is None:
         fpr = project(f, axis_proj)
-    fpr = fpr / np.max(fpr)
-    if shell is None:
-        shell = np.inf
-        
-    idx = np.where(np.logical_and(fpr > level, fpr < shell))
-    frac = np.sum(fpr[idx]) / np.sum(fpr)
-    idx = make_slice(f.ndim, axis_proj, idx)    
+    fpr = fpr / np.max(fpr)        
+    ind = np.where(np.logical_and(fpr >= lmin, fpr <= lmax))
+    frac = np.sum(fpr[ind]) / np.sum(fpr)
+    idx = make_slice(f.ndim, axis_proj, ind)    
     p = np.sum(f[idx], axis=int(axis == 0))
     if normalize:
         p = p / np.sum(p)
@@ -153,25 +200,22 @@ def project1d_contour(f, axis=0, level=0.1, shell=None, fpr=None, normalize=True
     return p
 
 
-def project2d_contour(f, axis=(0, 1), level=0.1, shell=None, fpr=None, normalize=True, return_frac=False):
-    """Return 2D projection of the elements of `f` above a threshold in the non-projected dimensions.
+def project2d_contour(f, axis=(0, 1), lmin=0.0, lmax=1.0, fpr=None, normalize=True, return_frac=False):
+    """Apply contour slice in n-2 dimensions, then project onto the other two dimensions.
     
     The parameters are defined in `project1d_contour`.
     """
-    # Compute the 3D mask.
+    # Compute a 3D mask.
     axis_proj = [i for i in range(f.ndim) if i not in axis]
     if fpr is None:
         fpr = project(f, axis_proj)
     fpr = fpr / np.max(fpr)
-    if shell is None:
-        shell = np.inf
-    mask = np.logical_or(fpr < level, fpr > shell)
+    mask = np.logical_or(fpr < lmin, fpr > lmax)
     frac = np.sum(fpr[~mask]) / np.sum(fpr)
 
     # Copy the 3D mask into the two projected dimensions.
     mask = copy_into_new_dim(mask, (f.shape[axis[0]], f.shape[axis[1]]), axis=-1, copy=True)
-    # Put the dimensions in the correct order. (Have not run this in a while... need
-    # to check that it works.)
+    # Put the dimensions in the correct order.
     isort = np.argsort(list(axis_proj) + list(axis))
     mask = np.moveaxis(mask, isort, np.arange(5))
     # Project the masked `f` onto the specified axis.    
