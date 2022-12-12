@@ -13,10 +13,14 @@
 
 # Change Log 
 
-## [0.0.6] - Unreleased
+## [0.0.6] - 2022-12-11
+
+### Added
+* Signatures for `image.make_slice_contour` and `image.make_slice_ellipsoid`; they are not yet implemented.
 
 ### Changed
-* Contour slices now take parameters `lmin` and `lmax`, which determine the thresholding window. This is very general, and can be used to define either filled or shell slices. (This is currently only done in `image.project1d_contour` and `image.project2d_contour`. I have written the signature for a function `image.make_slice_contour`, but the function is not implemented yet. I haven't figured out how to construct the correct mask in the general case.)
+* Contour slices now take parameters `lmin` and `lmax`, which determine the thresholding window. This can be used to define either filled or shell slices.
+* Internal changes to `image.project1d_contour` and `image.project2d_contour`.
 
 ### Fixed
 * Corner plot limits were incorrect when diag=False.
