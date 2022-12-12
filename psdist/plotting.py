@@ -1104,7 +1104,8 @@ def interactive_proj1d(
         ind = [ind[k] for k in axis_slice]
         idx = psi.make_slice(f.ndim, axis_slice, ind)
         profile = psi.project(f[idx], axis_view)  
-        profile = profile / np.sum(profile)
+        if np.max(profile) > 0:
+            profile = profile / np.sum(profile)
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
