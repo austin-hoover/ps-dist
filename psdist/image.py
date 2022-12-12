@@ -29,7 +29,7 @@ def max_indices(f):
     return np.unravel_index(np.argmax(f), f.shape) 
 
 
-def make_slice(n, axis=0, ind=0):
+def make_slice(n=1, axis=0, ind=0):
     """Return planar slice index array.
     
     Parameters
@@ -62,17 +62,18 @@ def make_slice(n, axis=0, ind=0):
     # Initialize the slice index to select all elements.
     idx = n * [slice(None)]
     # If any indices were provided, add them to `idx`.
-    for k, i in zip(axis, ind):
-        if i is None:
+    for k, item in zip(axis, ind):
+        if item is None:
             continue
-        elif type(i) is tuple and len(i) == 2:
-            idx[k] = slice(i[0], i[1])
+        elif type(item) is tuple and len(item) == 2:
+            idx[k] = slice(item[0], item[1])
         else:
-            idx[k] = i
+            # Could be int or list of ints
+            idx[k] = item
     return tuple(idx)
     
     
-def make_slice_ellipsoid(f, axis, rmin=0.0, rmax=1.0):
+def make_slice_ellipsoid(f, axis=None, rmin=0.0, rmax=1.0):
     """Compute an ellipsoid slice.
     
     Ellipsoid is computed from the covariance matrix of `f`. 
@@ -96,12 +97,14 @@ def make_slice_ellipsoid(f, axis, rmin=0.0, rmax=1.0):
     np.ma.masked_array
         A version of `f` in which elements outside the slice are masked.
     """
+    # Will need to compute an (n-m)-dimensional mask (m = len(axis)), then
+    # copy the mask into the remaining dimensions with `copy_into_new_dim`.
     raise NotImplementedError
     
     
-def make_slice_contour(f, axis, lmin=0.0, lmax=1.0):
+def make_slice_contour(f, axis=None, lmin=0.0, lmax=1.0):
     """Compute a contour slice.
-    
+        
     Parameters
     ----------
     f : ndarray
@@ -119,6 +122,8 @@ def make_slice_contour(f, axis, lmin=0.0, lmax=1.0):
     np.ma.masked_array
         A version of `f` in which elements outside the slice are masked.
     """
+    # Will need to compute an (n-m)-dimensional mask (m = len(axis)), then
+    # copy the mask into the remaining dimensions with `copy_into_new_dim`.
     raise NotImplementedError
 
 
@@ -161,74 +166,85 @@ def project(f, axis=0):
     return proj
 
 
-def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None, normalize=True, return_frac=False):
-    """Apply contour slice in n-1 dimensions, then project onto the other dimension.
+def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None):
+    """Apply contour slice in n-1 dimensions, then project onto the remaining dimension.
         
     Parameters
     ----------
     f : ndarray
         An n-dimensional image.
     axis : int
-        The projection axis.
+        The 1D projection axis.
     lmin, lmax : float
-        See `make_slice_contour`.
+        Min and max contour levels of the (n-1)-dimensional projection of `f`, 
+        normalized the the range [0, 1].
     fpr : ndarray, shape [f.shape[i] for i in range(f.ndim) if i != axis]
-        The (n-1)-dimensional projection of `f` onto all dimensions other than `axis`. This
-        is an optional parameter; if not provided, it will be computed within the function.
-    normalize : bool
-        Whether to normalize the projection (so that its sum is unity).
-    return_frac : bool
-        Whether to return the fractional density of `f` selected by the slice.
+        The (n-1)-dimensional projection of `f` onto all dimensions other than `axis`. 
+        (If not provided, it will be computed within the function.)
     
     Returns
     -------
-    p : ndarray, shape f.shape[axis]
-        The 1D projection within the specified boundary.
+    ndarray, shape (f.shape[axis],)
+        The 1D projection of the slice.
     """
     axis_proj = [i for i in range(f.ndim) if i != axis]
     if fpr is None:
-        fpr = project(f, axis_proj)
+        fpr = project(f, axis=axis_proj)
     fpr = fpr / np.max(fpr)        
-    ind = np.where(np.logical_and(fpr >= lmin, fpr <= lmax))
-    frac = np.sum(fpr[ind]) / np.sum(fpr)
-    idx = make_slice(f.ndim, axis_proj, ind)    
-    p = np.sum(f[idx], axis=int(axis == 0))
-    if normalize:
-        p = p / np.sum(p)
-    if return_frac:
-        return p, frac
-    return p
+    idx = make_slice(
+        n=f.ndim, 
+        axis=axis_proj, 
+        ind=np.where(np.logical_and(fpr >= lmin, fpr <= lmax)),
+    )    
+    # `f[idx]` will give a two-dimensional array. Normally we need to sum over 
+    # the first axis. If `axis == 0`, we need to sum over the second axis.
+    return np.sum(f[idx], axis=int(axis==0))
 
 
-def project2d_contour(f, axis=(0, 1), lmin=0.0, lmax=1.0, fpr=None, normalize=True, return_frac=False):
-    """Apply contour slice in n-2 dimensions, then project onto the other two dimensions.
+def project2d_contour(f, axis=(0, 1), lmin=0.0, lmax=1.0, fpr=None):
+    """Apply contour slice in n-2 dimensions, then project onto the remaining two dimensions.
     
-    The parameters are defined in `project1d_contour`.
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    axis : tuple
+        The 2D projection axis.
+    lmin, lmax : float
+        Min and max contour levels of the (n-2)-dimensional projection of `f`, 
+        normalized the the range [0, 1].
+    fpr : ndarray, shape [f.shape[i] for i in range(f.ndim) if i != axis]
+        The (n-1)-dimensional projection of `f` onto all dimensions other than `axis`. 
+        (If not provided, it will be computed within the function.)
+   
+    Returns
+    -------
+    ndarray, shape (f.shape[axis[0]], f.shape[axis[1]])
+        The 2D projection of the slice.
     """
-    # Compute a 3D mask.
-    axis_proj = [i for i in range(f.ndim) if i not in axis]
+    axis_proj = [k for k in range(f.ndim) if k not in axis]
     if fpr is None:
-        fpr = project(f, axis_proj)
+        fpr = project(f, axis=axis_proj)
     fpr = fpr / np.max(fpr)
-    mask = np.logical_or(fpr < lmin, fpr > lmax)
-    frac = np.sum(fpr[~mask]) / np.sum(fpr)
+    idx = make_slice(f.ndim, axis_proj, np.where(np.logical_and(fpr >= lmin, fpr <= lmax)))
+    # `f[idx]` will give a three-dimensional array. Normally we need to sum over 
+    # the first axis. If `axis == (0, 1)`, we need to sum over the third axis.
+    # If `axis == (0, n - 1), we need to sum over the second axis.
+    _axis_proj = (1, 2)
+    if axis == (0, 1):
+        _axis_proj = (0, 1)
+    elif axis == (0, f.ndim - 1):
+        _axis_proj = (0, 2)
+    # Two elements of `idx` will be `slice(None)`; these are the elements in `axis`.
+    # These will always be in order. So, if `axis[0] > axis[1]`, we need to flip
+    # `axis_proj`. Need a way to handle this automatically, especially if we 
+    # are going to consider m-dimensional projections after applying a contour
+    # slice in (n-m) dimensions.
+    if axis[0] > axis[1]:
+        _axis_proj = tuple(reversed(_axis_proj))
+    return project(f[idx], axis=_axis_proj)
 
-    # Copy the 3D mask into the two projected dimensions.
-    mask = copy_into_new_dim(mask, (f.shape[axis[0]], f.shape[axis[1]]), axis=-1, copy=True)
-    # Put the dimensions in the correct order.
-    isort = np.argsort(list(axis_proj) + list(axis))
-    mask = np.moveaxis(mask, isort, np.arange(5))
-    # Project the masked `f` onto the specified axis.    
-    proj = project(np.ma.masked_array(f, mask=mask), axis=axis)
-    
-    if normalize:
-        proj = proj / np.sum(proj)
-    if return_frac:
-        return proj, frac
-    return proj
-
-
-def copy_into_new_dim(f, shape, axis=-1, method='broadcast', copy=False):
+def copy_into_new_dim(f, shape=None, axis=-1, method='broadcast', copy=False):
     """Copy image into one or more new dimensions.
     
     See 'https://stackoverflow.com/questions/32171917/how-to-copy-a-2d-array-into-a-3rd-dimension-n-times'
@@ -243,7 +259,7 @@ def copy_into_new_dim(f, shape, axis=-1, method='broadcast', copy=False):
         If 0, the new dimensions will be inserted before the first axis. If -1, 
         the new dimensions will be inserted after the last axis. I think
         values other than 0 or -1 should work; this does not currently 
-        work for `method='broadcast'`.
+        work, at least for `method='broadcast'`, last I checked.
     method : {'repeat', 'broadcast'}
         Whether to use `np.repeat` or `np.expand_dims` and `np.broadcast_to`. The
         'broadcast' method is faster.
