@@ -179,7 +179,7 @@ def histogram(X, bins=10, binrange=None, centers=False):
     edges = histogram_bin_edges(X, bins=bins, binrange=binrange)        
     hist, edges = np.histogramdd(X, bins=edges)
     if centers:
-        return hist, [utils.get_centers(e) for e in edges]
+        return hist, [utils.centers_from_edges(e) for e in edges]
     else:
         return hist, edges
     

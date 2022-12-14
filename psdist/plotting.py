@@ -439,7 +439,7 @@ def corner(
         for i in range(n):
             heights, _edges = np.histogram(data[:, i], bins, limits[i], density=True)
             heights = heights / np.max(heights)
-            _centers = utils.bin_centers(_edges)
+            _centers = utils.centers_from_edges(_edges)
             edges.append(_edges)
             centers.append(_centers)
             if diag:
@@ -1269,7 +1269,7 @@ def interactive_proj2d_discrete(
         xedges = np.histogram_bin_edges(Xs[:, axis_view[0]], bins=_nbins, range=limits[axis_view[0]])
         yedges = np.histogram_bin_edges(Xs[:, axis_view[1]], bins=_nbins, range=limits[axis_view[1]])
         edges = [xedges, yedges]
-        centers = [utils.get_centers(e) for e in edges]
+        centers = [utils.centers_from_edges(e) for e in edges]
         image, _, _ = np.histogram2d(Xs[:, axis_view[0]], Xs[:, axis_view[1]], bins=edges)
         
         # Update plot key word arguments.

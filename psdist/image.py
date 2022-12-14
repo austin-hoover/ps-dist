@@ -5,6 +5,8 @@ from tqdm import tqdm
 from scipy import ndimage
 
 from . import utils
+from .utils import edges_from_centers
+from .utils import centers_from_edges
 
 
 def get_grid_coords(*coords):
@@ -13,7 +15,7 @@ def get_grid_coords(*coords):
     Parameters
     ----------
     coords : list of 1D arrays
-        Coordinates of each axis of regular grid. Example: [[1, 2, 3], [0, 1, 2]].
+        Coordinates along each axis of regular grid. Example: [[1, 2, 3], [0, 1, 2]].
     
     Returns
     -------
@@ -387,3 +389,6 @@ def cov(f, coords, disp=False):
     if disp:
         print('Done.')
     return Sigma, means
+
+
+

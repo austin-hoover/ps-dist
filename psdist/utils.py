@@ -1,13 +1,13 @@
 import numpy as np
 
 
-def get_centers(edges):
-    """Compute bin centers from bin edges."""
+def centers_from_edges(edges):
+    """Compute bin centers from evenly spaced bin edges."""
     return 0.5 * (edges[:-1] + edges[1:])
 
 
-def get_edges(centers):
-    """Compute bin edges from bin centers."""
+def edges_from_centers(centers):
+    """Compute bin edges from evenly spaced bin centers."""
     delta = np.diff(centers)[0]
     return np.hstack([centers - 0.5 * delta, [centers[-1] + 0.5 * delta]])
 
