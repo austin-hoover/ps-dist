@@ -847,6 +847,7 @@ def interactive_proj2d(
         cmaps = ["viridis", "dusk_r", "mono_r", "plasma"]
     plot_kws.setdefault("colorbar", True)
     plot_kws["prof_kws"] = prof_kws
+    plot_kws["thresh_type"] = 'frac'
 
     # Widgets
     cmap = widgets.Dropdown(options=cmaps, description="cmap")
