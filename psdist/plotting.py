@@ -520,29 +520,10 @@ def corner(
     return axes
 
 
-def _setup_matrix_slice(nrows=9, ncols=9, space=0.1, gap=2.0, **fig_kws):
-    """Set up matrix_slice figure axes."""
-    if fig_kws is None:
-        fig_kws = dict()
-    fig_kws.setdefault("figwidth", 8.5)
-    fig_kws.setdefault("share", False)
-    fig_kws.setdefault("xticks", [])
-    fig_kws.setdefault("yticks", [])
-    fig_kws.setdefault("xspineloc", "neither")
-    fig_kws.setdefault("yspineloc", "neither")
-    hspace = nrows * [space]
-    wspace = ncols * [space]
-    hspace[-1] = wspace[-1] = gap
-    fig, axes = pplt.subplots(
-        ncols=ncols + 1, nrows=nrows + 1, hspace=hspace, wspace=wspace, **fig_kws
-    )
-    return fig, axes
-
-
 def _annotate_slice_matrix(
-    axes, islice, iview, dims, height=0.2, length=2.5, textlength=0.15, arrowprops=None
+    axes, axis_slice, axis_view, dims, height=0.2, length=2.5, text_length=0.15, arrowprops=None
 ):
-    """Add labels to the axes of matrix_slice figure."""
+    """Helper function: add labels to the axes of slice_matrix figure."""
     nrows = axes.shape[0] - 1
     ncols = axes.shape[1] - 1
     if arrowprops is None:
@@ -560,26 +541,26 @@ def _annotate_slice_matrix(
         ax.annotate(
             "",
             xy=(0.5 + sign * length, _height),
-            xytext=(0.5 + sign * textlength, _height),
+            xytext=(0.5 + sign * text_length, _height),
             arrowprops=arrowprops,
             **annotate_kws,
         )
-        ax.annotate(dims[islice[0]], xy=(0.5, _height), **annotate_kws)
+        ax.annotate(dims[axis_slice[0]], xy=(0.5, _height), **annotate_kws)
 
         ax = axes[nrows // 2, -1]
         _height = -height
         ax.annotate(
             "",
             xy=(_height, 0.5 + sign * length),
-            xytext=(_height, 0.5 + sign * textlength),
+            xytext=(_height, 0.5 + sign * text_length),
             arrowprops=arrowprops,
             **annotate_kws,
         )
-        ax.annotate(dims[islice[1]], xy=(_height, 0.5), **annotate_kws)
+        ax.annotate(dims[axis_slice[1]], xy=(_height, 0.5), **annotate_kws)
 
     ax = axes[0, 0]
     ax.annotate(
-        dims[iview[0]],
+        dims[axis_view[0]],
         color="white",
         xy=(0.5, 0.13),
         xycoords="axes fraction",
@@ -587,7 +568,7 @@ def _annotate_slice_matrix(
         verticalalignment="center",
     )
     ax.annotate(
-        dims[iview[1]],
+        dims[axis_view[1]],
         color="white",
         xy=(0.12, 0.5),
         xycoords="axes fraction",
@@ -609,6 +590,9 @@ def slice_matrix(
     gap=2.0,
     pad=0.0,
     fig_kws=None,
+    annotate=True,
+    label_height=0.22,
+    plot_marginals=True,
     plot_kws_marginal_only=None,
     debug=False,
     **plot_kws,
@@ -658,6 +642,10 @@ def slice_matrix(
         the shape=10 and pad=0.1, we would start from 1 and end at 9.
     fig_kws : dict
         Key word arguments for `pplt.subplots`.
+    annotate : bool
+        Whether to add dimension labels/arrows to the figure.
+    plot_marginals : bool
+        Whether to plot the 3D and 2D marginal distributions.
     plot_kws_marginal_only : dict
         Key word arguments for the lower-left and upper-right panels, which
         plot the 3D marginal distributions.
@@ -665,6 +653,8 @@ def slice_matrix(
         Whether to print debugging messages.
     annotate : bool
         Whether to label the axes.
+    label_height : float
+        Tweaks the position of the slice dimension labels.
     **plot_kws
         Key word arguments for `plot_image`.
 
@@ -754,13 +744,30 @@ def slice_matrix(
         plot_kws_marginal_only.setdefault(key, plot_kws[key])
     if fig_kws is None:
         fig_kws = dict()
-
-    fig, axes = _setup_matrix_slice(
-        nrows=nrows, ncols=ncols, space=space, gap=gap, **fig_kws
+    fig_kws.setdefault("figwidth", ncols * (8.5 / 13.0))
+    fig_kws.setdefault("share", False)
+    fig_kws.setdefault("xticks", [])
+    fig_kws.setdefault("yticks", [])
+    fig_kws.setdefault("xspineloc", "neither")
+    fig_kws.setdefault("yspineloc", "neither")
+        
+    # Create the figure.
+    hspace = nrows * [space]
+    wspace = ncols * [space]
+    if plot_marginals:
+        hspace[-1] = wspace[-1] = gap
+    else:
+        hspace = hspace[:-1]
+        wspace = wspace[:-1]
+    fig, axes = pplt.subplots(
+        ncols=(ncols + 1 if plot_marginals else ncols), 
+        nrows=(nrows + 1 if plot_marginals else nrows), 
+        hspace=hspace, 
+        wspace=wspace, 
+        **fig_kws
     )
-    if dims is not None:
-        axes = _annotate_slice_matrix(axes, axis_slice, axis_view, _dims)
-
+    
+    # Plot the projections:
     for i in range(nrows):
         for j in range(ncols):
             ax = axes[nrows - 1 - i, j]
@@ -772,29 +779,70 @@ def slice_matrix(
                 ax=ax,
                 **plot_kws,
             )
-    for i, ax in enumerate(reversed(axes[:-1, -1])):
+    if plot_marginals:
+        for i, ax in enumerate(reversed(axes[:-1, -1])):
+            plot_image(
+                _fy[:, :, i],
+                x=_coords[axis_view[0]],
+                y=_coords[axis_view[1]],
+                ax=ax,
+                **plot_kws_marginal_only,
+            )
+        for i, ax in enumerate(axes[-1, :-1]):
+            plot_image(
+                _fx[:, :, i],
+                x=_coords[axis_view[0]],
+                y=_coords[axis_view[1]],
+                ax=ax,
+                **plot_kws_marginal_only,
+            )
         plot_image(
-            _fy[:, :, i],
+            _fxy,
             x=_coords[axis_view[0]],
             y=_coords[axis_view[1]],
-            ax=ax,
+            ax=axes[-1, -1],
             **plot_kws_marginal_only,
         )
-    for i, ax in enumerate(axes[-1, :-1]):
-        plot_image(
-            _fx[:, :, i],
-            x=_coords[axis_view[0]],
-            y=_coords[axis_view[1]],
-            ax=ax,
-            **plot_kws_marginal_only,
+        
+    # Add labels:
+    if annotate and dims is not None:
+        # Label the view dimensions.
+        annotate_kws = dict(
+            color='white',
+            xycoords='axes fraction',
+            horizontalalignment='center',
+            verticalalignment='center',
         )
-    plot_image(
-        _fxy,
-        x=_coords[axis_view[0]],
-        y=_coords[axis_view[1]],
-        ax=axes[-1, -1],
-        **plot_kws_marginal_only,
-    )
+        for i, xy in enumerate([(0.5, 0.13), (0.12, 0.5)]):
+            axes[0, 0].annotate(_dims[axis_view[i]], xy=xy, **annotate_kws)
+            
+        # Label the slice dimensions. Print dimension labels with arrows like this:
+        # "<----- x ----->" on the bottom and right side of the main panel.
+        arrow_length = 2.5  # arrow length
+        text_length = 0.15  # controls space between dimension label and start of arrow  
+        annotate_kws = dict(
+            xycoords='axes fraction',
+            horizontalalignment='center',
+            verticalalignment='center',
+        )     
+        ilast = -2 if plot_marginals else -1  # index of last ax in main panel
+        anchors = (axes[ilast, ncols // 2], axes[nrows // 2, ilast])
+        anchors[0].annotate(_dims[axis_slice[0]], xy=(0.5, -label_height), **annotate_kws)
+        anchors[1].annotate(_dims[axis_slice[1]], xy=(1.0 + label_height, 0.5), **annotate_kws)
+        annotate_kws['arrowprops'] = dict(arrowstyle='->', color='black')
+        for arrow_direction in (1.0, -1.0):    
+            anchors[0].annotate(
+                "",
+                xy=(0.5 + arrow_direction * arrow_length, -label_height),
+                xytext=(0.5 + arrow_direction * text_length, -label_height),
+                **annotate_kws,
+            )
+            anchors[1].annotate(
+                "",
+                xy=(1.0 + label_height, 0.5 + arrow_direction * arrow_length),
+                xytext=(1.0 + label_height, 0.5 + arrow_direction * text_length),
+                **annotate_kws,
+            )
     return axes
 
 
