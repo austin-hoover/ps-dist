@@ -157,8 +157,8 @@ def plot1d(x, y, ax=None, flipxy=False, kind="step", **kws):
 
 def image_profiles(
     f,
-    xcoords=None,
-    ycoords=None,
+    x=None,
+    y=None,
     ax=None,
     profx=True,
     profy=True,
@@ -172,7 +172,7 @@ def image_profiles(
     ----------
     f : ndarray
         A two-dimensional image.
-    xcoords, ycoords : list
+    x, y : list
         Coordinates of pixel centers.
     ax : matplotlib.pyplt.Axes
         The axis on which to plot.
@@ -185,10 +185,10 @@ def image_profiles(
     **plot_kws
         Key word arguments for the 1D plotting function.
     """
-    if xcoords is None:
-        xcoords = np.arange(f.shape[1])
-    if ycoords is None:
-        ycoords = np.arange(f.shape[0])
+    if x is None:
+        x = np.arange(f.shape[1])
+    if y is None:
+        y = np.arange(f.shape[0])
     plot_kws.setdefault("lw", 0.75)
     plot_kws.setdefault("color", "white")
 
@@ -199,16 +199,16 @@ def image_profiles(
         return profile
 
     px, py = [_normalize(np.sum(f, axis=i)) for i in (1, 0)]
-    yy = ycoords[0] + scale * np.abs(ycoords[-1] - ycoords[0]) * px
-    xx = xcoords[0] + scale * np.abs(xcoords[-1] - xcoords[0]) * py
-    yy -= np.min(yy) - ycoords[0]
-    xx -= np.min(xx) - xcoords[0]
-    for i, (x, y) in enumerate(zip([xcoords, ycoords], [yy, xx])):
+    signal_y = y[0] + scale * np.abs(y[-1] - y[0]) * px
+    signal_x = x[0] + scale * np.abs(x[-1] - x[0]) * py
+    signal_y -= np.min(signal_y) - y[0]
+    signal_x -= np.min(signal_x) - x[0]
+    for i, (xvals, yvals) in enumerate(zip([x, y], [signal_y, signal_x])):
         if i == 0 and not profx:
             continue
         if i == 1 and not profy:
             continue
-        plot1d(x, y, ax=ax, flipxy=i, kind=kind, **plot_kws)
+        plot1d(xvals, yvals, ax=ax, flipxy=i, kind=kind, **plot_kws)
     return ax
 
 
@@ -342,7 +342,7 @@ def image(
     mesh = ax.pcolormesh(x, y, f.T, **plot_kws)
     if profx or profy:
         image_profiles(
-            f, xcoords=x, ycoords=y, ax=ax, profx=profx, profy=profy, **prof_kws
+            f, x=x, y=y, ax=ax, profx=profx, profy=profy, **prof_kws
         )
     if return_mesh:
         return ax, mesh
