@@ -2,6 +2,7 @@
 from ipywidgets import interact
 from ipywidgets import interactive
 from ipywidgets import widgets
+from matplotlib import patches
 from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
@@ -10,6 +11,49 @@ from scipy import optimize as opt
 from . import bunch as psb
 from . import image as psi
 from . import utils
+
+
+# General
+# ------------------------------------------------------------------------------
+def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **ellipse_kws):
+    """Plot ellipse with semi-axes `c1`,`c2` tilted `angle`radians below the x axis."""
+    ellipse_kws.setdefault("fill", False)
+    width = 2.0 * c1
+    height = 2.0 * c2
+    return ax.add_patch(
+        patches.Ellipse(center, width, height, -np.degrees(angle), **kws)
+    )
+
+
+def rms_ellipse_dims(Sigma, axis=(0, 1)):
+    """Return dimensions of projected rms ellipse.
+
+    Parameters
+    ----------
+    Sigma : ndarray, shape (2n, 2n)
+        The phase space covariance matrix.
+    axis : 2-tuple
+        The axis on which to project the covariance ellipsoid. Example: if the
+        axes are {x, xp, y, yp}, and axis=(0, 2), then the four-dimensional
+        ellipsoid is projected onto the x-y plane.
+    ax : plt.Axes
+        The ax on which to plot.
+
+    Returns
+    -------
+    c1, c2 : float
+        The ellipse semi-axis widths.
+    angle : float
+        The tilt angle below the x axis [radians].
+    """
+    i, j = axis
+    sii, sjj, sij = Sigma[i, i], Sigma[j, j], Sigma[i, j]
+    angle = -0.5 * np.arctan2(2 * sij, sii - sjj)
+    sin, cos = np.sin(angle), np.cos(angle)
+    sin2, cos2 = sin**2, cos**2
+    c1 = np.sqrt(abs(sii * cos2 + sjj * sin2 - 2 * sij * sin * cos))
+    c2 = np.sqrt(abs(sii * sin2 + sjj * cos2 + 2 * sij * sin * cos))
+    return c1, c2, angle
 
 
 def linear_fit(x, y):
@@ -110,7 +154,7 @@ def plot1d(x, y, ax=None, flipxy=False, kind="step", **kws):
     return funcs[kind](x, y, **kws)
 
 
-def plot_profile(
+def image_profiles(
     f,
     xcoords=None,
     ycoords=None,
@@ -167,7 +211,43 @@ def plot_profile(
     return ax
 
 
-def plot_image(
+def image_rms_ellipse(
+    f, x=None, y=None, ax=None, levels=1, center_at_mean=True, **ellipse_kws
+):
+    """Compute and plot the rms ellipse.
+
+    Parameters
+    ----------
+    f : ndarray
+        A two-dimensional image.
+    x, y : list
+        Coordinates of pixel centers.
+    ax : matplotlib.pyplt.Axes
+        The axis on which to plot.
+    levels : number of list of numbers
+        If a number, plot the rms ellipse inflated by the number. If a list
+        of numbers, repeat for each number.
+    center_at_mean : bool
+        Whether to center the ellipse at the image centroid.
+
+    Returns
+    -------
+    ax
+    """
+    # Find center
+    mux = np.average(x, weights=np.sum(f, axis=1))
+    muy = np.average(y, weights=np.sum(f, axis=0))
+    center = (mux, muy) if center_at_mean else (0.0, 0.0)
+    Sigma = psi.cov(f, [x, y])
+    c1, c2, angle = rms_ellipse_dims(Sigma)
+    if type(levels) in [int, float]:
+        levels = [levels]
+    for level in levels:
+        ellipse(c1=c1, c2=c2, angle=angle, ax=ax, **ellipse_kws)
+    return ax
+
+
+def image(
     f,
     x=None,
     y=None,
@@ -198,15 +278,11 @@ def plot_image(
     profx, profy : bool
         Whether to plot the x/y profile.
     prof_kws : dict
-        Key words arguments for `plot_profile`.
+        Key words arguments for `image_profiles`.
     thresh : float
         Set elements below this value to zero.
     thresh_type : {'abs', 'frac'}
         If 'frac', `thresh` is a fraction of the maximum element in `f`.
-    'contour' : bool
-        Whether to plot a contour on top of the image.
-    contour_kws : dict
-        Key word arguments for `ax.contour`.
     return_mesh : bool
         Whether to return a mesh from `ax.pcolormesh`.
     fill_value : float
@@ -261,10 +337,8 @@ def plot_image(
     if y.ndim == 2:
         y = y.T
     mesh = ax.pcolormesh(x, y, f.T, **plot_kws)
-    if contour:
-        ax.contour(x, y, f.T, **contour_kws)
     if profx or profy:
-        plot_profile(
+        image_profiles(
             f, xcoords=x, ycoords=y, ax=ax, profx=profx, profy=profy, **prof_kws
         )
     if return_mesh:
@@ -376,7 +450,7 @@ def corner(
         'edges', only plot profiles in the left column and bottom row of
         the figure. This is a good option if not using diagonal subplots.
     prof_kws : dict
-        Key word arguments passed to `plot_profiles`.
+        Key word arguments passed to `image_profiless`.
     return_fig : bool
         Whether to return `fig` in addition to `axes`.
     return_mesh : bool
@@ -466,7 +540,7 @@ def corner(
                         profx = i == axes.shape[0] - 1
                     else:
                         profx = profy = prof
-                    plot_image(
+                    image(
                         _im,
                         x=centers[j],
                         y=centers[ii + 1],
@@ -487,10 +561,10 @@ def corner(
                     profx = i == axes.shape[0] - 1
                 else:
                     profx = profy = prof
-                image = psi.project(data, (j, ii + 1))
-                image = image / np.max(image)
-                ax, mesh = plot_image(
-                    image,
+                _image = psi.project(data, (j, ii + 1))
+                _image = _image / np.max(image)
+                ax, mesh = image(
+                    _image,
                     x=coords[j],
                     y=coords[ii + 1],
                     ax=ax,
@@ -521,7 +595,14 @@ def corner(
 
 
 def _annotate_slice_matrix(
-    axes, axis_slice, axis_view, dims, height=0.2, length=2.5, text_length=0.15, arrowprops=None
+    axes,
+    axis_slice,
+    axis_view,
+    dims,
+    height=0.2,
+    length=2.5,
+    text_length=0.15,
+    arrowprops=None,
 ):
     """Helper function: add labels to the axes of slice_matrix figure."""
     nrows = axes.shape[0] - 1
@@ -656,7 +737,7 @@ def slice_matrix(
     label_height : float
         Tweaks the position of the slice dimension labels.
     **plot_kws
-        Key word arguments for `plot_image`.
+        Key word arguments for `image`.
 
     Returns
     -------
@@ -750,7 +831,7 @@ def slice_matrix(
     fig_kws.setdefault("yticks", [])
     fig_kws.setdefault("xspineloc", "neither")
     fig_kws.setdefault("yspineloc", "neither")
-        
+
     # Create the figure.
     hspace = nrows * [space]
     wspace = ncols * [space]
@@ -760,19 +841,19 @@ def slice_matrix(
         hspace = hspace[:-1]
         wspace = wspace[:-1]
     fig, axes = pplt.subplots(
-        ncols=(ncols + 1 if plot_marginals else ncols), 
-        nrows=(nrows + 1 if plot_marginals else nrows), 
-        hspace=hspace, 
-        wspace=wspace, 
-        **fig_kws
+        ncols=(ncols + 1 if plot_marginals else ncols),
+        nrows=(nrows + 1 if plot_marginals else nrows),
+        hspace=hspace,
+        wspace=wspace,
+        **fig_kws,
     )
-    
+
     # Plot the projections:
     for i in range(nrows):
         for j in range(ncols):
             ax = axes[nrows - 1 - i, j]
             idx = psi.make_slice(_f.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)])
-            plot_image(
+            image(
                 psi.project(_f[idx], axis_view),
                 x=_coords[axis_view[0]],
                 y=_coords[axis_view[1]],
@@ -781,7 +862,7 @@ def slice_matrix(
             )
     if plot_marginals:
         for i, ax in enumerate(reversed(axes[:-1, -1])):
-            plot_image(
+            image(
                 _fy[:, :, i],
                 x=_coords[axis_view[0]],
                 y=_coords[axis_view[1]],
@@ -789,48 +870,52 @@ def slice_matrix(
                 **plot_kws_marginal_only,
             )
         for i, ax in enumerate(axes[-1, :-1]):
-            plot_image(
+            image(
                 _fx[:, :, i],
                 x=_coords[axis_view[0]],
                 y=_coords[axis_view[1]],
                 ax=ax,
                 **plot_kws_marginal_only,
             )
-        plot_image(
+        image(
             _fxy,
             x=_coords[axis_view[0]],
             y=_coords[axis_view[1]],
             ax=axes[-1, -1],
             **plot_kws_marginal_only,
         )
-        
+
     # Add labels:
     if annotate and dims is not None:
         # Label the view dimensions.
         annotate_kws = dict(
-            color='white',
-            xycoords='axes fraction',
-            horizontalalignment='center',
-            verticalalignment='center',
+            color="white",
+            xycoords="axes fraction",
+            horizontalalignment="center",
+            verticalalignment="center",
         )
         for i, xy in enumerate([(0.5, 0.13), (0.12, 0.5)]):
             axes[0, 0].annotate(_dims[axis_view[i]], xy=xy, **annotate_kws)
-            
+
         # Label the slice dimensions. Print dimension labels with arrows like this:
         # "<----- x ----->" on the bottom and right side of the main panel.
         arrow_length = 2.5  # arrow length
-        text_length = 0.15  # controls space between dimension label and start of arrow  
+        text_length = 0.15  # controls space between dimension label and start of arrow
         annotate_kws = dict(
-            xycoords='axes fraction',
-            horizontalalignment='center',
-            verticalalignment='center',
-        )     
+            xycoords="axes fraction",
+            horizontalalignment="center",
+            verticalalignment="center",
+        )
         ilast = -2 if plot_marginals else -1  # index of last ax in main panel
         anchors = (axes[ilast, ncols // 2], axes[nrows // 2, ilast])
-        anchors[0].annotate(_dims[axis_slice[0]], xy=(0.5, -label_height), **annotate_kws)
-        anchors[1].annotate(_dims[axis_slice[1]], xy=(1.0 + label_height, 0.5), **annotate_kws)
-        annotate_kws['arrowprops'] = dict(arrowstyle='->', color='black')
-        for arrow_direction in (1.0, -1.0):    
+        anchors[0].annotate(
+            _dims[axis_slice[0]], xy=(0.5, -label_height), **annotate_kws
+        )
+        anchors[1].annotate(
+            _dims[axis_slice[1]], xy=(1.0 + label_height, 0.5), **annotate_kws
+        )
+        annotate_kws["arrowprops"] = dict(arrowstyle="->", color="black")
+        for arrow_direction in (1.0, -1.0):
             anchors[0].annotate(
                 "",
                 xy=(0.5 + arrow_direction * arrow_length, -label_height),
@@ -1012,9 +1097,7 @@ def interactive_proj2d(
         plot_kws["thresh"] = (10.0 ** kws["thresh"]) if kws["thresh_checkbox"] else None
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
-        plot_image(
-            _f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws
-        )
+        image(_f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
@@ -1211,7 +1294,7 @@ def interactive_proj2d_discrete(
     dims, units : list[str], shape (n,)
         Dimension names and units.
     **plot_kws
-        Key word arguments passed to `plot_image`.
+        Key word arguments passed to `image`.
     """
     n = X.shape[1]
     if limits is None:
@@ -1347,7 +1430,7 @@ def interactive_proj2d_discrete(
         plot_kws["profx"] = plot_kws["profy"] = kws["prof"]
         # Plot the image.
         fig, ax = pplt.subplots()
-        plot_image(image, x=centers[0], y=centers[1], ax=ax, **plot_kws)
+        image(image, x=centers[0], y=centers[1], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
