@@ -232,3 +232,23 @@ def decorrelate(X):
         idx = np.random.permutation(np.arange(X.shape[0]))
         X[:, i:i+2] = X[idx, i:i+2]
     return X
+
+
+def downsample(X, samples=None):
+    """Remove a random selection of points.
+    
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional phase space.
+    samples : int or float
+        The number of samples to keep If less than 1, specifies
+        the fraction of points.
+    
+    Returns
+    -------
+    ndarray, shape (<= k, n)
+        The downsampled coordinate array.
+    """
+    idx = utils.random_selection(np.arange(X.shape[0]), samples)
+    return X[idx, :]

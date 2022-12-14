@@ -356,8 +356,9 @@ def corner(
     labels : list[str]
         The axis labels.
     samples : int or float
-        Number of samples to use in scatter plots. If less than 1, specifies
-        the fraction of points.
+        Number of samples to use in bivariate plots. If less than 1, specifies
+        the fraction of points. All one-dimensional histograms are computed
+        before downsampling.
     diag_height_frac : float
         Reduce the height of 1D profiles (diagonal subplots) relative to the 
         y axis height.
@@ -445,12 +446,7 @@ def corner(
                 plot1d(_centers, heights, ax=axes[i, i], kind=diag_kind, **diag_kws)
 
         # Take random sample of points.
-        idx = np.arange(data.shape[0])
-        if samples is not None and samples < data.shape[0]:
-            if samples < 1:
-                # Convert from fraction of points to number of points.
-                samples = samples * data.shape[0]
-            idx = utils.rand_rows(idx, int(samples))
+        idx = utils.random_selection(np.arange(X.shape[0]), samples)        
 
         # Bivariate plots
         for ii, i in enumerate(range(start, axes.shape[0])):
