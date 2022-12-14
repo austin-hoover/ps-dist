@@ -14,15 +14,15 @@ def edges_from_centers(centers):
 
 def symmetrize(array):
     """Return a symmetrized version of array.
-    
+
     array : A square upper or lower triangular matrix.
     """
     return array + array.T - np.diag(array.diagonal())
-    
-    
+
+
 def random_selection(array, k):
     """Return k random elements of array without replacement.
-    
+
     If 0 < k < 1, we select `k * len(array)` elements.
     """
     array_copy = np.copy(array)
