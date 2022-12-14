@@ -15,9 +15,10 @@ from . import utils
 
 # General
 # ------------------------------------------------------------------------------
-def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **ellipse_kws):
+def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **kws):
     """Plot ellipse with semi-axes `c1`,`c2` tilted `angle`radians below the x axis."""
-    ellipse_kws.setdefault("fill", False)
+    kws.setdefault('fill',False)
+    kws.setdefault('color', 'black')
     width = 2.0 * c1
     height = 2.0 * c2
     return ax.add_patch(
@@ -243,7 +244,9 @@ def image_rms_ellipse(
     if type(levels) in [int, float]:
         levels = [levels]
     for level in levels:
-        ellipse(c1=c1, c2=c2, angle=angle, ax=ax, **ellipse_kws)
+        _c1 = c1 * level
+        _c1 = c1 * level
+        ellipse((c1 * level), (c2 * level), angle=angle, center=center, ax=ax, **ellipse_kws)
     return ax
 
 
