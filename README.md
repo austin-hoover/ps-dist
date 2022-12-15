@@ -2,4 +2,4 @@
 
 Analysis/visualization of phase space distributions.
 
-https://pypi.org/search/?q=psdist
+https://pypi.org/project/psdist/
