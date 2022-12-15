@@ -301,7 +301,7 @@ def image(
     fill_value=None,
     mask_zero=False,
     floor=None,
-    rms_ellipse=None,
+    rms_ellipse=False,
     rms_ellipse_kws=None,
     divide_by_max=False,
     return_mesh=False,
@@ -646,7 +646,7 @@ def corner(
                 else:
                     profx = profy = prof
                 _image = psi.project(data, (j, ii + 1))
-                _image = _image / np.max(image)
+                _image = _image / np.max(_image)
                 ax, mesh = image(
                     _image,
                     x=coords[j],
