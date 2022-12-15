@@ -11,14 +11,16 @@ from scipy import optimize as opt
 from . import bunch as psb
 from . import image as psi
 from . import utils
+from .utils import centers_from_edges
+from .utils import edges_from_centers
 
 
 # General
 # ------------------------------------------------------------------------------
 def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **kws):
     """Plot ellipse with semi-axes `c1`,`c2` tilted `angle`radians below the x axis."""
-    kws.setdefault('fill',False)
-    kws.setdefault('color', 'black')
+    kws.setdefault("fill", False)
+    kws.setdefault("color", "black")
     width = 2.0 * c1
     height = 2.0 * c2
     return ax.add_patch(
@@ -137,17 +139,23 @@ def auto_limits(X, sigma=None, **kws):
         mins = means - 0.5 * widths
         maxs = means + 0.5 * widths
     mins, maxs = process_limits(mins, maxs, **kws)
-    return [(lo, hi) for lo, hi in zip(mins, maxs)] 
+    return [(lo, hi) for lo, hi in zip(mins, maxs)]
 
 
 def hist2d(X, axis=(0, 1), limits=None, bins=None, ax=None, **plot_kws):
     """Convenience function for 2D histogram with auto-binning.
-    
-    For more options, I recommend seaborn.histplot.
-    """    
-    hist, edges = psb.histogram(X[:, axis], bins=bins, binrange=limits)
-    return image(hist, x=edges[0], y=edges[1], ax=ax, **plot_kws)
 
+    For more options, I recommend seaborn.histplot.
+    """
+    hist, edges = psb.histogram(X[:, axis], bins=bins, binrange=limits)
+    ax = image(
+        hist,
+        x=centers_from_edges(edges[0]),
+        y=centers_from_edges(edges[1]),
+        ax=ax,
+        **plot_kws,
+    )
+    return hist, edges
 
 
 # Images
@@ -247,6 +255,7 @@ def image_rms_ellipse(
     -------
     ax
     """
+    print(len(x), len(y), f.shape)
     # Find center
     mux = np.average(x, weights=np.sum(f, axis=1))
     muy = np.average(y, weights=np.sum(f, axis=0))
@@ -258,7 +267,9 @@ def image_rms_ellipse(
     for level in levels:
         _c1 = c1 * level
         _c1 = c1 * level
-        ellipse((c1 * level), (c2 * level), angle=angle, center=center, ax=ax, **ellipse_kws)
+        ellipse(
+            (c1 * level), (c2 * level), angle=angle, center=center, ax=ax, **ellipse_kws
+        )
     return ax
 
 
@@ -278,6 +289,8 @@ def image(
     fill_value=None,
     mask_zero=False,
     floor=None,
+    rms_ellipse=None,
+    rms_ellipse_kws=None,
     **plot_kws,
 ):
     """Plot a 2D image.
@@ -306,6 +319,12 @@ def image(
         Whether to mask zero values of `f`.
     floor : float
         Add `floor * min(f[f > 0])` to `f`.
+    rms_ellipse : bool, number, or list of numbers
+        If a number (or list of numbers) is provided, plot the rms ellipse
+        inflated by the number (or list of numbers). The ellipse is computed
+        after all processing above.
+    rms_ellipse_kws : dict
+        Key word arguments for `image_rms_ellipse`.
     **plot_kws
         Key word arguments for `ax.pcolormesh`.
     """
@@ -336,11 +355,6 @@ def image(
             if "colorbar_kw" not in plot_kws:
                 plot_kws["colorbar_kw"] = dict()
             plot_kws["colorbar_kw"]["formatter"] = "log"
-    if contour_kws is None:
-        contour_kws = dict()
-    contour_kws.setdefault("color", "white")
-    contour_kws.setdefault("lw", 1.0)
-    contour_kws.setdefault("alpha", 0.5)
     if prof_kws is None:
         prof_kws = dict()
     if x is None:
@@ -352,15 +366,26 @@ def image(
     if y.ndim == 2:
         y = y.T
     mesh = ax.pcolormesh(x, y, f.T, **plot_kws)
+    if rms_ellipse:
+        if rms_ellipse_kws is None:
+            rms_ellipse_kws = dict()
+        image_rms_ellipse(f, x=x, y=y, ax=ax, levels=rms_ellipse, **rms_ellipse_kws)
     if profx or profy:
-        image_profiles(
-            f, x=x, y=y, ax=ax, profx=profx, profy=profy, **prof_kws
-        )
+        image_profiles(f, x=x, y=y, ax=ax, profx=profx, profy=profy, **prof_kws)
     if return_mesh:
         return ax, mesh
     else:
         return ax
-
+    
+    
+def _set_corner_limits(axes, limits, diag=False):
+    for i in range(axes.shape[1]):
+        axes[:, i].format(xlim=limits[i])
+    start = int(diag)
+    for i, lim in enumerate(limits[1:], start=start):
+        axes[i, :(i + 1 - start)].format(ylim=lim)
+    return axes
+    
 
 def _setup_corner(n, diag, labels, limits=None, **fig_kws):
     """Set up corner plot axes."""
@@ -396,11 +421,7 @@ def _setup_corner(n, diag, labels, limits=None, **fig_kws):
         for i in range(n):
             axes[i, i].format(yspineloc="neither")
     if limits is not None:
-        for j in range(ncols):
-            axes[:, j].format(xlim=limits[j])
-        _limits = limits if diag else limits[1:]
-        for i in range(start, nrows):
-            axes[i, :].format(ylim=_limits[i])
+        _set_corner_limits(axes, limits, diag=diag)
     axes.format(
         xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3)
     )
@@ -423,6 +444,7 @@ def corner(
     prof_kws=None,
     return_fig=False,
     return_mesh=False,
+    axes=None,
     **plot_kws,
 ):
     """Plot one- and two-dimensional projections in a corner plot.
@@ -471,15 +493,21 @@ def corner(
     return_mesh : bool
         Whether to also return a mesh from one of the pcolor plots. This is
         useful if you want to put a colorbar on the figure later.
+    axes : proplot.gridspec
+        Plot on an existing figure.
     **plot_kws
         Key word arguments passed to 2D plotting function.
 
     Returns
     -------
-    fig : proplot.figure
-        Proplot figure object.
     axes : proplot.gridspec
         Array of subplot axes.
+    Optional:
+        fig : proplot.figure
+            Proplot figure object.
+        mesh : matplotlib.collections.QuadMesh
+            Mesh from the latest call of `pcolormesh`. This is helpful if you want a
+            global colorbar.
     """
     # Determine whether data is point cloud or image.
     n = data.ndim
@@ -489,41 +517,60 @@ def corner(
         pts = True
 
     # Parse arguments
-    diag = diag_kind in ['line', 'bar', 'step']
+    diag = diag_kind in ["line", "bar", "step"]
     start = 1 if diag else 0
     if diag_kws is None:
         diag_kws = dict()
-    diag_kws.setdefault('color', 'black')
-    diag_kws.setdefault('lw', 1.0)
+    diag_kws.setdefault("color", "black")
+    diag_kws.setdefault("lw", 1.0)
     if pts:
-        if kind == 'scatter':
-            plot_kws.setdefault('s', 6)
-            plot_kws.setdefault('c', "black")
-            plot_kws.setdefault('marker', ".")
-            plot_kws.setdefault('ec', "none")
-            if 'color' in plot_kws:
-                plot_kws['c'] = plot_kws.pop('color')
-            if 'ms' in plot_kws:
-                plot_kws['s'] = plot_kws.pop('ms')
-        elif kind == 'hist':
-            plot_kws.setdefault('ec', 'None')
-            plot_kws.setdefault('mask_zero', True)
+        if kind == "scatter":
+            plot_kws.setdefault("s", 6)
+            plot_kws.setdefault("c", "black")
+            plot_kws.setdefault("marker", ".")
+            plot_kws.setdefault("ec", "none")
+            if "color" in plot_kws:
+                plot_kws["c"] = plot_kws.pop("color")
+            if "ms" in plot_kws:
+                plot_kws["s"] = plot_kws.pop("ms")
+            if "cmap" in plot_kws:
+                plot_kws.pop("cmap")
+        elif kind == "hist":
+            plot_kws.setdefault("ec", "None")
+            plot_kws.setdefault("mask_zero", True)
     else:
-        plot_kws.setdefault('ec', 'None')
+        plot_kws.setdefault("ec", "None")
 
-    # Create the figure.
+    # Compute ax limits.
     if (not pts) and (coords is None):
         coords = [np.arange(s) for s in data.shape]
     if autolim_kws is None:
         autolim_kws = dict()
-    if fig_kws is None:
-        fig_kws = dict()
     if limits is None:
         if pts:
             limits = auto_limits(data, **autolim_kws)
         else:
             limits = [(c[0], c[-1]) for c in coords]
-    fig, axes = _setup_corner(n, diag, labels, limits, **fig_kws)
+
+    # Create the figure.
+    if axes is None:
+        if fig_kws is None:
+            fig_kws = dict()
+        fig, axes = _setup_corner(n, diag, labels, limits, **fig_kws)
+    else:
+        # We are plotting on an existing figure. Expand the existing ax limits
+        # based on our new data.
+        if axes.shape[1] == n:
+            old_limits = [axes[i, i].get_xlim() for i in range(n)]
+        else:
+            old_limits = [axes[-1, i].get_xlim() for i in range(n - 1)] + [axes[-1, 0].get_ylim()]
+        limits = [
+            (min(old_lim[0], lim[0]), max(old_lim[1], lim[1]))
+            for old_lim, lim in zip(old_limits, limits)
+        ]
+        _set_corner_limits(axes, limits, diag=(axes.shape[1] == n))
+        # Don't return fig because we do not have access to it.
+        return_fig = False
 
     # Discrete points
     if pts:
