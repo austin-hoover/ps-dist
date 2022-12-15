@@ -13,6 +13,12 @@
 
 # Change Log 
 
+## [0.0.8] - 2022-12-15
+
+### Fixed
+* `plotting.image_profiles` was flipping axis limits sometimes... this patch is a temporary fix.
+
+
 ## [0.0.7] - 2022-12-15
 
 ### Added
