@@ -13,6 +13,31 @@
 
 # Change Log 
 
+## [0.0.7] - Unreleased
+
+### Added
+* `bunch.downsample` — removes a random selection of points.
+* `image.enclosing_ellipsoid` — scales rms ellipsoid until it contains some fraction of points.
+* `plotting.corner` can now act on existing axes (allowing more than one data set to be plotted).
+* `plotting.ellipse` — convenience function to plot an ellipse.
+* `plotting.image_rms_ellipse` — computes rms ellipse from image and plots it.
+
+### Changed
+* `bunch.radial_extent` &rarr; `bunch.enclosing_sphere`.
+* Removed contour parameter from `plotting.plot_image'.
+* `plotting.plot_image` &rarr; `plotting.image`.
+* `plotting.plot_profile` &rarr; `plotting.image_profiles`.
+* `utils.rand_rows` &rarr; `utils.random_selection`.
+* `utils.get_centers` &rarr; `utils.centers_from_edges`.
+* `utils.get_edges` &rarr; `utils.edges_from_centers`.
+
+### Fixed
+* `image.cov` is now much faster for high-dimensional images.
+* Fixed bug in `plotting.image_profiles`.
+* Threshold slider in `plotting.interactive_proj2d` now applies a fractional threshold instead of an absolute threshold.
+* Allow k=None in `utils.random_selection`
+
+
 ## [0.0.6] - 2022-12-11
 
 ### Added
