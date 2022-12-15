@@ -21,6 +21,38 @@ def cov(X):
     return np.cov(X.T)
 
 
+def corr(X):
+    """Compute correlation matrix.
+
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+
+    Returns
+    -------
+    ndarray, shape (n, n)
+        The correlation matrix.
+    """
+    return utils.cov2corr(np.cov(X.T))
+
+
+def mean(X):
+    """Compute mean (centroid).
+
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+
+    Returns
+    -------
+    ndarray, shape (n,)
+        The centroid coordinates.
+    """
+    return np.mean(X, axis=0)
+    
+
 def apply(M, X):
     """Apply a linear transformation.
 
@@ -39,33 +71,60 @@ def apply(M, X):
     return np.apply_along_axis(lambda v: np.matmul(M, v), 1, X)
 
 
-def radial_extent(X, fraction=1.0):
-    """Return radius of sphere containing fraction of points.
+def enclosing_sphere(X, axis=None, fraction=1.0):
+    """Scales sphere until it contains some fraction of points.
 
     Parameters
     ----------
     X : ndarray, shape (k, n)
         Coordinates of k points in n-dimensional space.
+    axis : tuple
+        The distribution is projected onto this axis before proceeding. The
+        ellipsoid is defined in this subspace.
     fraction : float
         Fraction of points in sphere.
 
     Returns
     -------
     radius : float
-        Radius of sphere containing `fraction` of points.
+        The sphere radius.
     """
-    k, n = X.shape
-    radii = np.linalg.norm(X, axis=0)
+    if axis is None:
+        axis = tuple(range(X.shape[1]))
+    _X = X[:, axis]
+    radii = np.linalg.norm(_X, axis=1)
     radii = np.sort(radii)
-    if k * fraction < 1.0:
-        imax = k - 1
-    else:
-        imax = int(np.round(k * fraction))
-    try:
-        radius = radii[imax]
-    except:
-        radius = 0.0
-    return radius
+    i = int(np.round(_X.shape[0] * fraction)) - 1
+    return radii[i]
+
+
+def enclosing_ellipsoid(X, axis=None, fraction=1.0):
+    """Scale the rms ellipsoid until it contains some fraction of points.
+    
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+    axis : tuple
+        The distribution is projected onto this axis before proceeding. The
+        ellipsoid is defined in this subspace.
+    fraction : float
+        Fraction of points enclosed.
+
+    Returns
+    -------
+    float
+        The ellipsoid "radius" (x^T Sigma^-1 x) relative to the rms ellipsoid.
+    """
+    if axis is None:
+        axis = tuple(range(X.shape[1]))
+    _X = X[:, axis]
+    Sigma = np.cov(_X.T)
+    Sigma_inv = np.linalg.inv(Sigma)
+    radii = np.apply_along_axis(lambda v: np.sqrt(np.linalg.multi_dot([v.T, Sigma_inv, v])), 1, _X)
+    radii = np.sort(radii)
+    i = int(np.round(_X.shape[0] * fraction)) - 1
+    return radii[i]
 
 
 def slice_box(X, axis=None, center=None, width=None):
