@@ -25,13 +25,14 @@ def random_selection(array, k):
 
     If 0 < k < 1, we select `k * len(array)` elements.
     """
-    array_copy = np.copy(array)
-    if 0 < k < array_copy.shape[0]:
-        if k < 1:
-            k = k * array_copy.shape[0]
-        idx = np.random.choice(array_copy.shape[0], int(k), replace=False)
-        array_copy = array_copy[idx]
-    return array_copy
+    if k is None:
+        return array
+    if k < 0 or k >= array.shape[0]:
+        raise ValueError('Number of samples must be < number of points.')
+    if 0 < k < 1:
+        k = k * array.shape[0]
+    idx = np.random.choice(array.shape[0], int(k), replace=False)
+    return array[idx]
 
 
 def cov2corr(cov_mat):
