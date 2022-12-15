@@ -71,6 +71,32 @@ def linear_fit(x, y):
     return yfit, slope, intercept
 
 
+def plot1d(x, y, ax=None, flipxy=False, kind="step", **kws):
+    """Convenience function for one-dimensional line/step/bar plots."""
+    funcs = {
+        "line": ax.plot,
+        "bar": ax.bar,
+        "step": ax.plot,
+    }
+    if kind == "step":
+        kws.setdefault("drawstyle", "steps-mid")
+    if flipxy:
+        x, y = y, x
+        funcs["bar"] = ax.barh
+    return funcs[kind](x, y, **kws)
+
+
+def rms_ellipse(Sigma=None, center=None, level=None, ax=None, **ellipse_kws):
+    if type(level) not in [list, tuple, np.ndarray]:
+        level = [level]
+    c1, c2, angle = rms_ellipse_dims(Sigma)
+    for level in level:
+        _c1 = c1 * level
+        _c2 = c2 * level
+        ellipse(_c1, _c2, angle=angle, center=center, ax=ax, **ellipse_kws)
+    return ax
+
+
 # Bunches
 # ------------------------------------------------------------------------------
 def process_limits(mins, maxs, pad=0.0, zero_center=False):
@@ -142,7 +168,7 @@ def auto_limits(X, sigma=None, **kws):
     return [(lo, hi) for lo, hi in zip(mins, maxs)]
 
 
-def hist2d(X, axis=(0, 1), limits=None, bins=None, ax=None, **plot_kws):
+def hist2d(X, axis=(0, 1), limits=None, bins='auto', ax=None, **plot_kws):
     """Convenience function for 2D histogram with auto-binning.
 
     For more options, I recommend seaborn.histplot.
@@ -160,19 +186,14 @@ def hist2d(X, axis=(0, 1), limits=None, bins=None, ax=None, **plot_kws):
 
 # Images
 # ------------------------------------------------------------------------------
-def plot1d(x, y, ax=None, flipxy=False, kind="step", **kws):
-    """Convenience function for one-dimensional line/step/bar plots."""
-    funcs = {
-        "line": ax.plot,
-        "bar": ax.bar,
-        "step": ax.plot,
-    }
-    if kind == "step":
-        kws.setdefault("drawstyle", "steps-mid")
-    if flipxy:
-        x, y = y, x
-        funcs["bar"] = ax.barh
-    return funcs[kind](x, y, **kws)
+def threshold(f, lmin=0.0, frac=True):
+    """Return copy of image with threshold applied."""
+    f = f.copy()
+    f_max = np.max(f)
+    if frac:
+        lmin *= f_max
+    f[f < lmin] = 0
+    return f
 
 
 def image_profiles(
@@ -230,10 +251,10 @@ def image_profiles(
             continue
         plot1d(xvals, yvals, ax=ax, flipxy=i, kind=kind, **plot_kws)
     return ax
-
-
+        
+    
 def image_rms_ellipse(
-    f, x=None, y=None, ax=None, levels=1, center_at_mean=True, **ellipse_kws
+    f, x=None, y=None, ax=None, level=1, center_at_mean=True, **ellipse_kws
 ):
     """Compute and plot the rms ellipse.
 
@@ -245,32 +266,17 @@ def image_rms_ellipse(
         Coordinates of pixel centers.
     ax : matplotlib.pyplt.Axes
         The axis on which to plot.
-    levels : number of list of numbers
+    level : number of list of numbers
         If a number, plot the rms ellipse inflated by the number. If a list
         of numbers, repeat for each number.
     center_at_mean : bool
         Whether to center the ellipse at the image centroid.
-
-    Returns
-    -------
-    ax
     """
-    print(len(x), len(y), f.shape)
-    # Find center
     mux = np.average(x, weights=np.sum(f, axis=1))
     muy = np.average(y, weights=np.sum(f, axis=0))
     center = (mux, muy) if center_at_mean else (0.0, 0.0)
     Sigma = psi.cov(f, [x, y])
-    c1, c2, angle = rms_ellipse_dims(Sigma)
-    if type(levels) in [int, float]:
-        levels = [levels]
-    for level in levels:
-        _c1 = c1 * level
-        _c1 = c1 * level
-        ellipse(
-            (c1 * level), (c2 * level), angle=angle, center=center, ax=ax, **ellipse_kws
-        )
-    return ax
+    return rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
 
 def image(
@@ -291,6 +297,7 @@ def image(
     floor=None,
     rms_ellipse=None,
     rms_ellipse_kws=None,
+    divide_by_max=False,
     **plot_kws,
 ):
     """Plot a 2D image.
@@ -319,12 +326,12 @@ def image(
         Whether to mask zero values of `f`.
     floor : float
         Add `floor * min(f[f > 0])` to `f`.
-    rms_ellipse : bool, number, or list of numbers
-        If a number (or list of numbers) is provided, plot the rms ellipse
-        inflated by the number (or list of numbers). The ellipse is computed
-        after all processing above.
+    rms_ellipse : bool
+        Whether to plot rms ellipse.
     rms_ellipse_kws : dict
         Key word arguments for `image_rms_ellipse`.
+    divide_by_mas : bool
+        Whether to divide the image by its maximum element.
     **plot_kws
         Key word arguments for `ax.pcolormesh`.
     """
@@ -334,6 +341,10 @@ def image(
     log = "norm" in plot_kws and plot_kws["norm"] == "log"
 
     f = f.copy()
+    if divide_by_max:
+        f_max = np.max(f)
+        if f_max > 0.0:
+            f = f / f_max
     if fill_value is not None:
         f = np.ma.filled(f, fill_value=fill_value)
     if thresh is not None:
@@ -369,7 +380,7 @@ def image(
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
-        image_rms_ellipse(f, x=x, y=y, ax=ax, levels=rms_ellipse, **rms_ellipse_kws)
+        image_rms_ellipse(f, x=x, y=y, ax=ax, **rms_ellipse_kws)
     if profx or profy:
         image_profiles(f, x=x, y=y, ax=ax, profx=profx, profy=profy, **prof_kws)
     if return_mesh:
@@ -606,7 +617,7 @@ def corner(
                         profx = i == axes.shape[0] - 1
                     else:
                         profx = profy = prof
-                    image(
+                    ax = image(
                         _im,
                         x=centers[j],
                         y=centers[ii + 1],
@@ -919,7 +930,7 @@ def slice_matrix(
         for j in range(ncols):
             ax = axes[nrows - 1 - i, j]
             idx = psi.make_slice(_f.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)])
-            image(
+            ax = image(
                 psi.project(_f[idx], axis_view),
                 x=_coords[axis_view[0]],
                 y=_coords[axis_view[1]],
@@ -928,7 +939,7 @@ def slice_matrix(
             )
     if plot_marginals:
         for i, ax in enumerate(reversed(axes[:-1, -1])):
-            image(
+            ax = image(
                 _fy[:, :, i],
                 x=_coords[axis_view[0]],
                 y=_coords[axis_view[1]],
@@ -936,14 +947,14 @@ def slice_matrix(
                 **plot_kws_marginal_only,
             )
         for i, ax in enumerate(axes[-1, :-1]):
-            image(
+            ax = image(
                 _fx[:, :, i],
                 x=_coords[axis_view[0]],
                 y=_coords[axis_view[1]],
                 ax=ax,
                 **plot_kws_marginal_only,
             )
-        image(
+        ax = image(
             _fxy,
             x=_coords[axis_view[0]],
             y=_coords[axis_view[1]],
@@ -1163,7 +1174,7 @@ def interactive_proj2d(
         plot_kws["thresh"] = (10.0 ** kws["thresh"]) if kws["thresh_checkbox"] else None
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
-        image(_f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
+        ax = image(_f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
@@ -1487,7 +1498,7 @@ def interactive_proj2d_discrete(
         )
         edges = [xedges, yedges]
         centers = [utils.centers_from_edges(e) for e in edges]
-        image, _, _ = np.histogram2d(
+        hist, _, _ = np.histogram2d(
             Xs[:, axis_view[0]], Xs[:, axis_view[1]], bins=edges
         )
 
@@ -1496,7 +1507,7 @@ def interactive_proj2d_discrete(
         plot_kws["profx"] = plot_kws["profy"] = kws["prof"]
         # Plot the image.
         fig, ax = pplt.subplots()
-        image(image, x=centers[0], y=centers[1], ax=ax, **plot_kws)
+        ax = image(hist, x=centers[0], y=centers[1], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
