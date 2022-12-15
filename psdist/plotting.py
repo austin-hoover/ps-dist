@@ -298,15 +298,13 @@ def image(
     prof_kws=None,
     thresh=None,
     thresh_type="abs",
-    contour=False,
-    contour_kws=None,
-    return_mesh=False,
     fill_value=None,
     mask_zero=False,
     floor=None,
     rms_ellipse=None,
     rms_ellipse_kws=None,
     divide_by_max=False,
+    return_mesh=False,
     **plot_kws,
 ):
     """Plot a 2D image.
@@ -327,8 +325,6 @@ def image(
         Set elements below this value to zero.
     thresh_type : {'abs', 'frac'}
         If 'frac', `thresh` is a fraction of the maximum element in `f`.
-    return_mesh : bool
-        Whether to return a mesh from `ax.pcolormesh`.
     fill_value : float
         If not None, fills in masked values of `f`.
     mask_zero : bool
@@ -339,8 +335,10 @@ def image(
         Whether to plot rms ellipse.
     rms_ellipse_kws : dict
         Key word arguments for `image_rms_ellipse`.
-    divide_by_mas : bool
+    divide_by_max : bool
         Whether to divide the image by its maximum element.
+    return_mesh : bool
+        Whether to return a mesh from `ax.pcolormesh`.
     **plot_kws
         Key word arguments for `ax.pcolormesh`.
     """
