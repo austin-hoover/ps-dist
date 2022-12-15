@@ -13,28 +13,32 @@
 
 # Change Log 
 
-## [0.0.7] - Unreleased
+## [0.0.7] - 2022-12-15
 
 ### Added
 * `bunch.downsample` — removes a random selection of points.
-* `image.enclosing_ellipsoid` — scales rms ellipsoid until it contains some fraction of points.
+* `image.enclosing_ellipsoid` — scales covariance ellipsoid until it contains some fraction of points.
+* `image.enclosing_sphere` — scales sphere until it contains some fraction of points.
 * `plotting.corner` can now act on existing axes (allowing more than one data set to be plotted).
 * `plotting.ellipse` — convenience function to plot an ellipse.
+* `plotting.rms_ellipse` — plots rms ellipse at various levels given covariance matr
 * `plotting.image_rms_ellipse` — computes rms ellipse from image and plots it.
+* 'divide_by_max' parameter in `plotting.image`
+* Started an examples notebook.
 
 ### Changed
-* `bunch.radial_extent` &rarr; `bunch.enclosing_sphere`.
-* Removed contour parameter from `plotting.plot_image'.
+* Removed contour parameter from `plotting.plot_image`.
 * `plotting.plot_image` &rarr; `plotting.image`.
 * `plotting.plot_profile` &rarr; `plotting.image_profiles`.
-* `utils.rand_rows` &rarr; `utils.random_selection`.
+* `plotting.image_profiles` now as arguments 'x', and 'y' instead of 'xcoords' and 'ycoords'.
 * `utils.get_centers` &rarr; `utils.centers_from_edges`.
 * `utils.get_edges` &rarr; `utils.edges_from_centers`.
+* `utils.rand_rows` &rarr; `utils.random_selection`.
 
 ### Fixed
-* `image.cov` is now much faster for high-dimensional images.
-* Fixed bug in `plotting.image_profiles`.
+* `image.cov is now much faster for high-dimensional images.
 * Threshold slider in `plotting.interactive_proj2d` now applies a fractional threshold instead of an absolute threshold.
+* Fixed naming conflict in `plotting.interactive_proj2d_discrete`.
 * Allow k=None in `utils.random_selection`
 
 
