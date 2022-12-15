@@ -25,13 +25,15 @@ def random_selection(array, k):
 
     If 0 < k < 1, we select `k * len(array)` elements.
     """
+    if type(array) in (list, tuple):
+        array = np.array(array)
     if k is None:
         return array
-    if k < 0 or k >= len(array):
+    if k < 0 or k >= array.shape[0]:
         raise ValueError('Number of samples must be < number of points.')
     if 0 < k < 1:
-        k = k * len(array)
-    idx = np.random.choice(len(array), int(k), replace=False)
+        k = k * array.shape[0]
+    idx = np.random.choice(array.shape[0], int(k), replace=False)
     return array[idx]
 
 
