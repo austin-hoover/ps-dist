@@ -69,8 +69,10 @@ def linear_fit(x, y):
     return yfit, slope, intercept
 
 
+# Bunches
+# ------------------------------------------------------------------------------
 def process_limits(mins, maxs, pad=0.0, zero_center=False):
-    """Make all position coordinates have the same limits (same for momentum coordinates).
+    """Make all position coordinates share the same limits (same for momentum coordinates).
 
     Parameters
     ----------
@@ -135,7 +137,17 @@ def auto_limits(X, sigma=None, **kws):
         mins = means - 0.5 * widths
         maxs = means + 0.5 * widths
     mins, maxs = process_limits(mins, maxs, **kws)
-    return [(lo, hi) for lo, hi in zip(mins, maxs)]
+    return [(lo, hi) for lo, hi in zip(mins, maxs)] 
+
+
+def hist2d(X, axis=(0, 1), limits=None, bins=None, ax=None, **plot_kws):
+    """Convenience function for 2D histogram with auto-binning.
+    
+    For more options, I recommend seaborn.histplot.
+    """    
+    hist, edges = psb.histogram(X[:, axis], bins=bins, binrange=limits)
+    return image(hist, x=edges[0], y=edges[1], ax=ax, **plot_kws)
+
 
 
 # Images
@@ -477,23 +489,27 @@ def corner(
         pts = True
 
     # Parse arguments
-    diag = diag_kind in ["line", "bar", "step"]
+    diag = diag_kind in ['line', 'bar', 'step']
     start = 1 if diag else 0
     if diag_kws is None:
         diag_kws = dict()
-    diag_kws.setdefault("color", "black")
-    diag_kws.setdefault("lw", 1.0)
-    if pts and kind == "scatter":
-        plot_kws.setdefault("s", 6)
-        plot_kws.setdefault("c", "black")
-        plot_kws.setdefault("marker", ".")
-        plot_kws.setdefault("ec", "none")
-        if "color" in plot_kws:
-            plot_kws["c"] = plot_kws.pop("color")
-        if "ms" in plot_kws:
-            plot_kws["s"] = plot_kws.pop("ms")
-    elif (pts and kind == "hist") or not pts:
-        plot_kws.setdefault("ec", "None")
+    diag_kws.setdefault('color', 'black')
+    diag_kws.setdefault('lw', 1.0)
+    if pts:
+        if kind == 'scatter':
+            plot_kws.setdefault('s', 6)
+            plot_kws.setdefault('c', "black")
+            plot_kws.setdefault('marker', ".")
+            plot_kws.setdefault('ec', "none")
+            if 'color' in plot_kws:
+                plot_kws['c'] = plot_kws.pop('color')
+            if 'ms' in plot_kws:
+                plot_kws['s'] = plot_kws.pop('ms')
+        elif kind == 'hist':
+            plot_kws.setdefault('ec', 'None')
+            plot_kws.setdefault('mask_zero', True)
+    else:
+        plot_kws.setdefault('ec', 'None')
 
     # Create the figure.
     if (not pts) and (coords is None):
@@ -526,7 +542,7 @@ def corner(
                 plot1d(_centers, heights, ax=axes[i, i], kind=diag_kind, **diag_kws)
 
         # Take random sample of points.
-        idx = utils.random_selection(np.arange(X.shape[0]), samples)
+        idx = utils.random_selection(np.arange(data.shape[0]), samples)
 
         # Bivariate plots
         for ii, i in enumerate(range(start, axes.shape[0])):
