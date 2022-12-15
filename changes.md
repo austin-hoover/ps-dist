@@ -15,9 +15,12 @@
 
 ## [0.0.9] - Unreleased
 
+### Added
+* Updated examples
+
 ### Fixed
-    * Fixed typo in `plotting.corner`. There was a lingering variable named 'image', which produced an error after changing the function `plot_image` to `image`. 
-    * `utils.random_selection` can now take lists as input.
+* Fixed typo in `plotting.corner`. There was a lingering variable named 'image', which produced an error after changing the function `plot_image` to `image`. 
+* `utils.random_selection` can now take lists as input.
 
 
 ## [0.0.8] - 2022-12-15
