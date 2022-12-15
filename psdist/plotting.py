@@ -226,6 +226,8 @@ def image_profiles(
     **plot_kws
         Key word arguments for the 1D plotting function.
     """
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
     if x is None:
         x = np.arange(f.shape[1])
     if y is None:
@@ -250,6 +252,13 @@ def image_profiles(
         if i == 1 and not profy:
             continue
         plot1d(xvals, yvals, ax=ax, flipxy=i, kind=kind, **plot_kws)
+        
+    # Sometimes the axis flips and I'm not sure why... fix like this for now.
+    if np.sign(np.diff(xlim)[0]) != np.sign(np.diff(ax.get_xlim())[0]):
+        ax.format(xlim=tuple(reversed(ax.get_xlim())))
+    if np.sign(np.diff(ylim)[0]) != np.sign(np.diff(ax.get_ylim())[0]):
+        ax.format(ylim=tuple(reversed(ax.get_ylim())))
+        
     return ax
         
     
