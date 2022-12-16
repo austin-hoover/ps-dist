@@ -279,16 +279,16 @@ def decorrelate(X):
     Parameters
     ----------
     X : ndarray, shape (k, n)
-        Coordinates of k points in six-dimensional phase space.
+        Coordinates of k points in n-dimensional phase space.
 
     Returns
     -------
     ndarray, shape (k, n)
-        The decorrelated coordinate array.
+        The decorrelated coordinates.
     """
-    if X.shape[1] != 6:
-        raise ValueError("X must have 6 columns.")
-    for i in (0, 2, 4):
+    if X.shape[1] % 2 != 0:
+        raise ValueError("X must have even number of columns.")
+    for i in range(0, X.shape[1], 2):
         idx = np.random.permutation(np.arange(X.shape[0]))
         X[:, i : i + 2] = X[idx, i : i + 2]
     return X
