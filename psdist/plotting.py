@@ -755,10 +755,11 @@ def slice_matrix(
     gap=2.0,
     pad=0.0,
     fig_kws=None,
-    annotate=True,
-    label_height=0.22,
     plot_marginals=True,
     plot_kws_marginal_only=None,
+    return_indices=False,
+    annotate=True,
+    label_height=0.22,
     debug=False,
     **plot_kws,
 ):
@@ -807,25 +808,28 @@ def slice_matrix(
         the shape=10 and pad=0.1, we would start from 1 and end at 9.
     fig_kws : dict
         Key word arguments for `pplt.subplots`.
-    annotate : bool
-        Whether to add dimension labels/arrows to the figure.
     plot_marginals : bool
         Whether to plot the 3D and 2D marginal distributions.
     plot_kws_marginal_only : dict
         Key word arguments for the lower-left and upper-right panels, which
         plot the 3D marginal distributions.
-    debug : bool
-        Whether to print debugging messages.
+    return_indices : bool
+        Whether to return the slice indices.
     annotate : bool
-        Whether to label the axes.
+        Whether to add dimension labels/arrows to the figure.
     label_height : float
         Tweaks the position of the slice dimension labels.
+    debug : bool
+        Whether to print debugging messages.
     **plot_kws
         Key word arguments for `image`.
 
     Returns
     -------
-    axes
+    axes : Axes
+        The plot axes.
+    ind_slice : 2-tuple of lists (optional)
+        The slice indices along `axis_slice`. Returned if `return_indices` is True.
     """
     # Setup
     # -------------------------------------------------------------------------
@@ -862,6 +866,7 @@ def slice_matrix(
         _pad = int(_pad * s)
         ii = np.linspace(_pad, s - 1 - _pad, n).astype(int)
         ind_slice.append(ii)
+    ind_slice = tuple(ind_slice)
 
     if debug:
         print("Slice indices:")
@@ -1012,6 +1017,8 @@ def slice_matrix(
                 xytext=(1.0 + label_height, 0.5 + arrow_direction * text_length),
                 **annotate_kws,
             )
+    if return_indices:
+        return axes, ind_slice
     return axes
 
 
