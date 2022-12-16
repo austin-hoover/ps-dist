@@ -86,7 +86,7 @@ def plot1d(x, y, ax=None, flipxy=False, kind="step", **kws):
     return funcs[kind](x, y, **kws)
 
 
-def rms_ellipse(Sigma=None, center=None, level=None, ax=None, **ellipse_kws):
+def rms_ellipse(Sigma=None, center=None, level=1.0, ax=None, **ellipse_kws):
     if type(level) not in [list, tuple, np.ndarray]:
         level = [level]
     c1, c2, angle = rms_ellipse_dims(Sigma)
@@ -263,7 +263,7 @@ def image_profiles(
         
     
 def image_rms_ellipse(
-    f, x=None, y=None, ax=None, level=1, center_at_mean=True, **ellipse_kws
+    f, x=None, y=None, ax=None, level=1.0, center_at_mean=True, **ellipse_kws
 ):
     """Compute and plot the rms ellipse.
 
@@ -678,71 +678,6 @@ def corner(
     return axes
 
 
-def _annotate_slice_matrix(
-    axes,
-    axis_slice,
-    axis_view,
-    dims,
-    height=0.2,
-    length=2.5,
-    text_length=0.15,
-    arrowprops=None,
-):
-    """Helper function: add labels to the axes of slice_matrix figure."""
-    nrows = axes.shape[0] - 1
-    ncols = axes.shape[1] - 1
-    if arrowprops is None:
-        arrowprops = dict()
-    arrowprops.setdefault("arrowstyle", "->")
-    arrowprops.setdefault("color", "black")
-    annotate_kws = dict(
-        xycoords="axes fraction",
-        horizontalalignment="center",
-        verticalalignment="center",
-    )
-    for sign in (1.0, -1.0):
-        ax = axes[-1, ncols // 2]
-        _height = height + 1.0
-        ax.annotate(
-            "",
-            xy=(0.5 + sign * length, _height),
-            xytext=(0.5 + sign * text_length, _height),
-            arrowprops=arrowprops,
-            **annotate_kws,
-        )
-        ax.annotate(dims[axis_slice[0]], xy=(0.5, _height), **annotate_kws)
-
-        ax = axes[nrows // 2, -1]
-        _height = -height
-        ax.annotate(
-            "",
-            xy=(_height, 0.5 + sign * length),
-            xytext=(_height, 0.5 + sign * text_length),
-            arrowprops=arrowprops,
-            **annotate_kws,
-        )
-        ax.annotate(dims[axis_slice[1]], xy=(_height, 0.5), **annotate_kws)
-
-    ax = axes[0, 0]
-    ax.annotate(
-        dims[axis_view[0]],
-        color="white",
-        xy=(0.5, 0.13),
-        xycoords="axes fraction",
-        horizontalalignment="center",
-        verticalalignment="center",
-    )
-    ax.annotate(
-        dims[axis_view[1]],
-        color="white",
-        xy=(0.12, 0.5),
-        xycoords="axes fraction",
-        horizontalalignment="center",
-        verticalalignment="center",
-    )
-    return axes
-
-
 def slice_matrix(
     f,
     axis_view=None,
@@ -1036,7 +971,7 @@ def interactive_proj2d(
     frac_thresh=None,
     **plot_kws,
 ):
-    """Interactive plot of 2D projection of distribution `f`.
+    """2D partial projection of image with interactive slicing.
 
     The distribution is projected onto the specified axes. Sliders provide the
     option to slice the distribution before projecting.
@@ -1220,7 +1155,7 @@ def interactive_proj1d(
     fig_kws=None,
     **plot_kws,
 ):
-    """1D projection of image `f` with interactive slicing.
+    """2D partial projection of image interactive slicing.
 
     Parameters
     ----------
@@ -1367,7 +1302,7 @@ def interactive_proj2d_discrete(
     prof_kws=None,
     **plot_kws,
 ):
-    """This mirrors `interactive_proj2d` for point clouds.
+    """2D partial projection of bunch with interactive slicing.
 
     Parameters
     ----------
