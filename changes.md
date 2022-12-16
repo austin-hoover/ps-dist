@@ -13,10 +13,11 @@
 
 # Change Log 
 
-## [0.0.9] - Unreleased
+## [0.0.9] - 2022-12-15
 
 ### Added
 * Updated examples
+* 'return_indices' parameter in `plotting.slice_matrix` to return slice indices.
 
 ### Fixed
 * Fixed typo in `plotting.corner`. There was a lingering variable named 'image', which produced an error after changing the function `plot_image` to `image`. 
