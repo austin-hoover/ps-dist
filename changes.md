@@ -11,7 +11,13 @@
 * Item 1 -->
 
 
-# Change Log 
+# Change Log
+
+## [0.0.10] - 2022-12-21
+
+### Added
+* Added version numbers to packages in. requirements.txt
+* `bunch.decorrelate` now works with 2n-dimensional bunches instead of only six-dimensional bunches.
 
 ## [0.0.9] - 2022-12-15
 
