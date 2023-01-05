@@ -419,3 +419,38 @@ def corr(f, coords=None):
         The correlation matrix.
     """
     return utils.cov2corr(cov(f, coords))
+
+
+def sample_grid(f, coords, samples=1):
+    """Sample uniformly within each histogram bin.
+    
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional histogram.
+    coords : list[ndarray]
+        Coordinates along each axis of the image.
+    samples : int
+        The number of samples to draw.
+        
+    Returns
+    -------
+    ndarray, shape (samples, n)
+        Samples drawn from the distribution.
+    """
+    f_sum = np.sum(f)
+    edges = [edges_from_centers(c) for c in coords]
+    X = []
+    for idx in np.ndindex(f.shape):
+        n_points = samples * f[idx] / f_sum
+        if np.mod(n_points, 1.0) > np.random.uniform(0.0, 1.0):
+            n_points = int(np.floor(n_points) + 1)
+        else:
+            n_points = int(np.floor(n_points))
+        if n_points < 1:
+            continue
+        lb = [_edges[i] for i, _edges in zip(idx, edges)]
+        ub = [_edges[i + 1] for i, _edges in zip(idx, edges)]
+        point = np.random.uniform(lb, ub, size=(n_points, f.ndim))
+        X.append(point)
+    return np.vstack(X)
