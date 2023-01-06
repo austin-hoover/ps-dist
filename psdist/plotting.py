@@ -73,17 +73,21 @@ def linear_fit(x, y):
 
 def lineplot(x, y, ax=None, flipxy=False, kind="step", **kws):
     """Convenience function for one-dimensional line/step/bar plots."""
-    funcs = {
-        "line": ax.plot,
-        "bar": ax.bar,
-        "step": ax.plot,
-    }
-    if kind == "step":
-        kws.setdefault("drawstyle", "steps-mid")
-    if flipxy:
-        x, y = y, x
-        funcs["bar"] = ax.barh
-    return funcs[kind](x, y, **kws)
+    if kind not in ['bar', 'line', 'step']:
+        raise ValueError('Invalid `kind`.')
+    if kind == 'step':
+        kws.setdefault('drawstyle', 'steps-mid')
+    func = None
+    if kind == 'bar':
+        if flipxy:
+            func = ax.barh
+        else:
+            func = ax.bar
+    elif kind in ['line', 'step']:
+        if flipxy:
+            func = ax.plotx
+        else:
+            func = ax.plot
 
 
 def rms_ellipse(Sigma=None, center=None, level=1.0, ax=None, **ellipse_kws):
