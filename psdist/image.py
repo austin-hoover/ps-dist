@@ -422,8 +422,8 @@ def corr(f, coords=None):
 
 
 def sample_grid(f, coords, samples=1):
-    """Sample uniformly within each histogram bin.
-    
+    """Sample from histogram.
+        
     Parameters
     ----------
     f : ndarray
@@ -438,19 +438,12 @@ def sample_grid(f, coords, samples=1):
     ndarray, shape (samples, n)
         Samples drawn from the distribution.
     """
-    f_sum = np.sum(f)
     edges = [edges_from_centers(c) for c in coords]
-    X = []
-    for idx in np.ndindex(f.shape):
-        n_points = samples * f[idx] / f_sum
-        if np.mod(n_points, 1.0) > np.random.uniform(0.0, 1.0):
-            n_points = int(np.floor(n_points) + 1)
-        else:
-            n_points = int(np.floor(n_points))
-        if n_points < 1:
-            continue
-        lb = [_edges[i] for i, _edges in zip(idx, edges)]
-        ub = [_edges[i + 1] for i, _edges in zip(idx, edges)]
-        point = np.random.uniform(lb, ub, size=(n_points, f.ndim))
-        X.append(point)
-    return np.vstack(X)
+    f_sum = np.sum(f)
+    idx = np.random.choice(np.arange(f.size), size=samples, replace=True, p=(f.ravel() / f_sum))
+    idx = np.unravel_index(idx, shape=f.shape)
+    lbs, ubs = [], []
+    for i in range(f.ndim):
+        lbs.append(edges[i][idx[i]])
+        ubs.append(edges[i][idx[i] + 1])
+    return np.random.uniform(lbs, ubs).T
