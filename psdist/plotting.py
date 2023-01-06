@@ -71,7 +71,7 @@ def linear_fit(x, y):
     return yfit, slope, intercept
 
 
-def plot1d(x, y, ax=None, flipxy=False, kind="step", **kws):
+def lineplot(x, y, ax=None, flipxy=False, kind="step", **kws):
     """Convenience function for one-dimensional line/step/bar plots."""
     funcs = {
         "line": ax.plot,
@@ -251,7 +251,7 @@ def image_profiles(
             continue
         if i == 1 and not profy:
             continue
-        plot1d(xvals, yvals, ax=ax, flipxy=i, kind=kind, **plot_kws)
+        lineplot(xvals, yvals, ax=ax, flipxy=i, kind=kind, **plot_kws)
         
     # Sometimes the axis flips and I'm not sure why... fix like this for now.
     if np.sign(np.diff(xlim)[0]) != np.sign(np.diff(ax.get_xlim())[0]):
@@ -604,7 +604,7 @@ def corner(
             edges.append(_edges)
             centers.append(_centers)
             if diag:
-                plot1d(_centers, heights, ax=axes[i, i], kind=diag_kind, **diag_kws)
+                lineplot(_centers, heights, ax=axes[i, i], kind=diag_kind, **diag_kws)
 
         # Take random sample of points.
         idx = utils.random_selection(np.arange(data.shape[0]), samples)
@@ -665,7 +665,7 @@ def corner(
                 profile = profile / np.max(profile)
                 if "fill_value" in plot_kws:
                     profile = np.ma.filled(profile, fill_value=plot_kws["fill_value"])
-                plot1d(coords[i], profile, ax=axes[i, i], kind=diag_kind, **diag_kws)
+                lineplot(coords[i], profile, ax=axes[i, i], kind=diag_kind, **diag_kws)
     # Modify diagonal y axis limits.
     if diag:
         for i in range(n):
