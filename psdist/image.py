@@ -423,7 +423,7 @@ def corr(f, coords=None):
 
 def sample_grid(f, coords, samples=1):
     """Sample from histogram.
-        
+
     Parameters
     ----------
     f : ndarray
@@ -432,18 +432,20 @@ def sample_grid(f, coords, samples=1):
         Coordinates along each axis of the image.
     samples : int
         The number of samples to draw.
-        
+
     Returns
     -------
     ndarray, shape (samples, n)
         Samples drawn from the distribution.
     """
+    if f.ndim == 1:
+        coords = [coords]
     edges = [edges_from_centers(c) for c in coords]
     f_sum = np.sum(f)
-    idx = np.random.choice(np.arange(f.size), size=samples, replace=True, p=(f.ravel() / f_sum))
+    idx = np.random.choice(
+        np.arange(f.size), size=samples, replace=True, p=(f.ravel() / f_sum)
+    )
     idx = np.unravel_index(idx, shape=f.shape)
-    lbs, ubs = [], []
-    for i in range(f.ndim):
-        lbs.append(edges[i][idx[i]])
-        ubs.append(edges[i][idx[i] + 1])
-    return np.random.uniform(lbs, ubs).T
+    lb = [edges[axis][idx[axis]] for axis in range(f.ndim)]
+    ub = [edges[axis][idx[axis] + 1] for axis in range(f.ndim)]
+    return np.squeeze(np.random.uniform(lb, ub).T)
