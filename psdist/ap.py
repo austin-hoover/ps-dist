@@ -83,19 +83,19 @@ def twiss(Sigma):
     return params
 
 
-def rotation_mat(angle):
+def rotation_matrix(angle):
     """2 x 2 clockwise rotation matrix (angle in radians)."""
     c, s = np.cos(angle), np.sin(angle)
     return np.array([[c, s], [-s, c]])
 
 
-def rotation_mat_4x4(angle):
+def rotation_matrix_4x4(angle):
     """4 x 4 matrix to rotate [x, x', y, y'] clockwise in the x-y plane (angle in radians)."""
     c, s = np.cos(angle), np.sin(angle)
     return np.array([[c, 0, s, 0], [0, c, 0, s], [-s, 0, c, 0], [0, -s, 0, c]])
 
 
-def phase_adv_mat(*phase_advances):
+def phase_adv_matrix(*phase_advances):
     """Phase advance matrix (clockwise rotation in each phase plane).
     
     Parameters
@@ -112,11 +112,11 @@ def phase_adv_mat(*phase_advances):
     R = np.zeros((2 * n, 2 * n))
     for i, phase_advance in enumerate(phase_advances):
         i = i * 2
-        R[i : i + 2, i : i + 2] = rotation_mat(phase_advance)
+        R[i : i + 2, i : i + 2] = rotation_matrix(phase_advance)
     return R
 
 
-def norm_mat_2x2(alpha, beta):
+def norm_matrix_2x2(alpha, beta):
     """2 x 2 normalization matrix for u-u'.
     
     Parameters
@@ -134,7 +134,7 @@ def norm_mat_2x2(alpha, beta):
     return np.array([[beta, 0.0], [-alpha, 1.0]]) / np.sqrt(beta)
 
 
-def norm_mat(*twiss_params):
+def norm_matrix(*twiss_params):
     """2n x 2n block-diagonal normalization matrix from Twiss parameters.
         
     Parameters
@@ -151,7 +151,7 @@ def norm_mat(*twiss_params):
     V = np.zeros((2 * n, 2 * n))
     for i in range(n):
         j = i * 2
-        V[j : j + 2, j : j + 2] = norm_mat_2x2(*twiss_params[j : j + 2])
+        V[j : j + 2, j : j + 2] = norm_matrix_2x2(*twiss_params[j : j + 2])
     return V
 
 
