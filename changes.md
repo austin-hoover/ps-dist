@@ -1,10 +1,10 @@
 # Change Log
 
 
-## Next release
+## [0.0.11] - 2023-01-09
 
 * Added `image.sample_grid`: draws random samples from n-dimensional histogram.
-* Renamed `plotting.plo1d` &rarr; `plotting.lineplot`
+* Renamed `plotting.plot1d` &rarr; `plotting.lineplot`
 
 
 ## [0.0.10] - 2022-12-21
