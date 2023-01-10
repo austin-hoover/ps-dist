@@ -546,7 +546,7 @@ def corner(
         pts = True
 
     # Parse arguments
-    diag = diag_kind in ["line", "bar", "step"]
+    diag = diag_kind in ["line", "bar", "step", "linefilled", "stepfilled"]
     start = 1 if diag else 0
     if diag_kws is None:
         diag_kws = dict()
