@@ -71,23 +71,29 @@ def linear_fit(x, y):
     return yfit, slope, intercept
 
 
-def lineplot(x, y, ax=None, flipxy=False, kind="step", **kws):
-    """Convenience function for one-dimensional line/step/bar plots."""
-    if kind not in ['bar', 'line', 'step']:
-        raise ValueError('Invalid kind')
-    if kind == 'step':
-        kws['drawstyle'] = 'steps-mid'
+def lineplot(x, y, ax=None, flipxy=False, kind='line', **kws):
+    """Convenience function for one-dimensional line/step/bar plots."""      
     func = ax.plot
-    if kind == 'bar':
-        if flipxy:
-            func = ax.barh
-        else:
-            func = ax.bar
-    elif kind in ['line', 'step']:
+    if kind in ['line', 'step']:
         if flipxy:
             func = ax.plotx
         else:
             func = ax.plot
+        if kind == 'step':
+            kws.setdefault('drawstyle', 'steps-mid')
+    elif kind in ['linefilled', 'stepfilled']:
+        if flipxy:
+            func = ax.fill_betweenx
+        else:
+            func = ax.fill_between
+        kws.setdefault('alpha', 1.0)
+        if kind == 'stepfilled':
+            kws.setdefault('step', 'mid')
+    elif kind == 'bar':
+        if flipxy:
+            func = ax.barh
+        else:
+            func = ax.bar
     return func(x, y, **kws)
 
 

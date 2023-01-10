@@ -1,6 +1,10 @@
 # Change Log
 
 
+# [0.0.12] — Unreleased
+* Added 'linefilled' and 'stepfilled' plot kinds in convenience function `plotting.lineplot`.
+
+
 ## [0.0.11] - 2023-01-09
 
 * Added `image.sample_grid`: draws random samples from n-dimensional histogram.
