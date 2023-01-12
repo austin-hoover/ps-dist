@@ -3,6 +3,7 @@
 
 # [0.0.12] — Unreleased
 * Added 'linefilled' and 'stepfilled' plot kinds in convenience function `plotting.lineplot`.
+* Speed up `image.sample_grid`: ignore bins with zero probability.
 
 
 ## [0.0.11] - 2023-01-09
