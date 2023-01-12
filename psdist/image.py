@@ -441,10 +441,11 @@ def sample_grid(f, coords, samples=1):
     if f.ndim == 1:
         coords = [coords]
     edges = [edges_from_centers(c) for c in coords]
-    f_sum = np.sum(f)
-    idx = np.random.choice(
-        np.arange(f.size), size=samples, replace=True, p=(f.ravel() / f_sum)
-    )
+    
+    idx = np.flatnonzero(f)
+    pdf = f.ravel()[idx]
+    pdf = pdf / np.sum(pdf)
+    idx = np.random.choice(idx, samples, replace=True, p=pdf)
     idx = np.unravel_index(idx, shape=f.shape)
     lb = [edges[axis][idx[axis]] for axis in range(f.ndim)]
     ub = [edges[axis][idx[axis] + 1] for axis in range(f.ndim)]
