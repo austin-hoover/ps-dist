@@ -9,6 +9,9 @@ from .utils import edges_from_centers
 from .utils import centers_from_edges
 
 
+# Analysis
+# ------------------------------------------------------------------------------
+
 def get_grid_coords(*coords):
     """Return list of grid coordinates from coordinate arrays along each axis.
 
@@ -30,6 +33,159 @@ def max_indices(f):
     """Return the indices of the maximum element of `f`."""
     return np.unravel_index(np.argmax(f), f.shape)
 
+
+def get_radii(coords, Sigma):
+    """Return "radii" (x^T Sigma^-1^T x) from grid coordinates and covariance matrix.
+
+    This is quite slow when n > 4 due to creating a mesh grid.
+
+    Parameters
+    ----------
+    coords : list[ndarray], length n
+        Coordinate array for each dimension of the regular grid.
+    Sigma : ndarray, shape (n, n)
+        Covariance matrix of some distribution on the grid.
+
+    Returns
+    -------
+    R : ndarray
+        "Radius" x^T Sigma^-1^T x at each point in grid.
+    """
+    COORDS = np.meshgrid(*coords, indexing="ij")
+    shape = tuple([len(c) for c in coords])
+    R = np.zeros(shape)
+    Sigma_inv = np.linalg.inv(Sigma)
+    for ii in tqdm(np.ndindex(shape)):
+        vec = np.array([C[ii] for C in COORDS])
+        R[ii] = np.sqrt(np.linalg.multi_dot([vec.T, Sigma_inv, vec]))
+    return R
+
+
+def radial_density(f, R, radii, dr=None):
+    """Return average density within ellipsoidal shells.
+
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    R : ndarray, same shape as `f`.
+        Gives the "radius" at each pixel in f.
+    radii : ndarray, shape (k,)
+        Radii at which to evaluate the density.
+    dr : float
+        The shell width.
+
+    Returns
+    -------
+    fr : ndarray, shape (k,)
+        The average density within each ellipsoidal shell.
+    """
+    if dr is None:
+        dr = 0.5 * np.max(R) / (len(R) - 1)
+    fr = []
+    for r in tqdm(radii):
+        f_masked = np.ma.masked_where(np.logical_or(R < r, R > r + dr), f)
+        # mean density within this shell...
+        fr.append(np.mean(f_masked))
+    return np.array(fr)
+
+
+def mean(f, coords=None):
+    """Compute the n-dimensional mean.
+
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    coords : list[ndarray]
+        Coordinates along each axis of the image.
+
+    Returns
+    -------
+    ndarray, shape (n,)
+        The n-dimensional mean.
+    """
+    if coords is None:
+        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+    return np.array([np.average(C, weights=f) for C in np.meshgrid(*coords, indexing='ij')])
+
+
+def cov(f, coords=None):
+    """Compute the n x n covariance matrix.
+
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    coords : list[ndarray]
+        Coordinates along each axis of the image.
+
+    Returns
+    -------
+    ndarray, shape (n, n)
+        The covariance matrix.
+    """
+
+    def cov_2x2(_f, _coords):
+        COORDS = np.meshgrid(*_coords, indexing="ij")
+        Sigma = np.zeros((_f.ndim, _f.ndim))
+        _f_sum = np.sum(_f)
+        if _f_sum > 0:
+            mean = np.array([np.average(C, weights=_f) for C in COORDS])
+            for i in range(_f.ndim):
+                for j in range(i + 1):
+                    X = COORDS[i] - mean[i]
+                    Y = COORDS[j] - mean[j]
+                    EX = np.sum(_f * X) / _f_sum
+                    EY = np.sum(_f * Y) / _f_sum
+                    EXY = np.sum(_f * X * Y) / _f_sum
+                    Sigma[i, j] = Sigma[j, i] = EXY - EX * EY
+        return Sigma
+
+    if coords is None:
+        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+
+    n = f.ndim
+    if n < 3:
+        return cov_2x2(f, coords)
+
+    Sigma = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i):
+            axis = (i, j)
+            _image = project(f, axis=axis)
+            _coords = [coords[k] for k in axis]
+            # Compute 2 x 2 covariance matrix from this projection.
+            _sigma = cov_2x2(_image, _coords)
+            # Update elements of n x n covariance matrix. This will update
+            # some elements multiple times, but it should not matter.
+            Sigma[i, i] = _sigma[0, 0]
+            Sigma[j, j] = _sigma[1, 1]
+            Sigma[i, j] = Sigma[j, i] = _sigma[0, 1]
+    return Sigma
+
+
+def corr(f, coords=None):
+    """Compute the n x n correlation matrix.
+
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    coords : list[ndarray]
+        Coordinates along each axis of the image.
+
+    Returns
+    -------
+    ndarray, shape (n, n)
+        The correlation matrix.
+    """
+    return utils.cov2corr(cov(f, coords))
+
+
+
+# Transformation
+# ------------------------------------------------------------------------------
 
 def make_slice(n=1, axis=0, ind=0):
     """Return planar slice index array.
@@ -291,137 +447,84 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
     return None
 
 
-def get_radii(coords, Sigma):
-    """Return "radii" (x^T Sigma^-1^T x) from grid coordinates and covariance matrix.
-
-    This is quite slow when n > 4 due to creating a mesh grid.
-
-    Parameters
-    ----------
-    coords : list[ndarray], length n
-        Coordinate array for each dimension of the regular grid.
-    Sigma : ndarray, shape (n, n)
-        Covariance matrix of some distribution on the grid.
-
-    Returns
-    -------
-    R : ndarray
-        "Radius" x^T Sigma^-1^T x at each point in grid.
-    """
-    COORDS = np.meshgrid(*coords, indexing="ij")
-    shape = tuple([len(c) for c in coords])
-    R = np.zeros(shape)
-    Sigma_inv = np.linalg.inv(Sigma)
-    for ii in tqdm(np.ndindex(shape)):
-        vec = np.array([C[ii] for C in COORDS])
-        R[ii] = np.sqrt(np.linalg.multi_dot([vec.T, Sigma_inv, vec]))
-    return R
+def _normalize(f, norm='volume', pixel_volume=1.0):
+    factor = 1.0
+    if norm == 'volume':
+        if pixel_volume == 1.0:
+            factor = np.sum(f)
+        else:
+            factor = np.sum(f * pixel_volume)
+    elif norm == 'max':
+        factor = np.max(f)
+    return f / factor
 
 
-def radial_density(f, R, radii, dr=None):
-    """Return average density within ellipsoidal shells.
-
-    Parameters
-    ----------
-    f : ndarray
-        An n-dimensional image.
-    R : ndarray, same shape as `f`.
-        Gives the "radius" at each pixel in f.
-    radii : ndarray, shape (k,)
-        Radii at which to evaluate the density.
-    dr : float
-        The shell width.
-
-    Returns
-    -------
-    fr : ndarray, shape (k,)
-        The average density within each ellipsoidal shell.
-    """
-    if dr is None:
-        dr = 0.5 * np.max(R) / (len(R) - 1)
-    fr = []
-    for r in tqdm(radii):
-        f_masked = np.ma.masked_where(np.logical_or(R < r, R > r + dr), f)
-        # mean density within this shell...
-        fr.append(np.mean(f_masked))
-    return np.array(fr)
+def _threshold(f, lmin=None, frac=False):
+    if lmin:
+        if frac:
+            f_max = np.max(f)
+            lmin = lmin * f_max
+        f[f < lmin] = 0.0
+    return f
 
 
-def cov(f, coords=None):
-    """Compute the n x n covariance matrix.
+def _clip(f, lmin=None, lmax=None, frac=False):
+    if not (lmin or lmax):
+        return f
+    if frac:
+        f_max = np.max(f)
+        if lmin:
+            lmin = f_max * lmin
+        if lmax:
+            lmax = f_max * lmax
+    return np.clip(f, lmin, lmax)
 
+
+def process(
+    f,
+    fill_value=None,
+    thresh=None, thresh_type='abs',
+    clip=None, clip_type='abs',
+    norm=None,
+    pixel_volume=1.0,
+):
+    """Return processed image.
+    
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
-    coords : list[ndarray]
-        Coordinates along each axis of the image.
-
-    Returns
-    -------
-    ndarray, shape (n, n)
-        The covariance matrix.
+        A two-dimensional image.
+    fill_value : float
+        Fill masked elements of `f` with this value.
+    mask_nonpositive : bool
+        Masks mask non-positive values of `f`.
+    thresh : float
+        Set elements below this value to zero.
+    clip: (lmin, lmax)
+        Clip (limit) elements to within the range [lmin, lmax].
+    thresh_type, clip_type : {'abs', 'frac'}
+        Whether `thresh` and `clip` refer to absolute values or fractions
+        of the maximum element of `f`.
+    norm : {None, 'max', 'volume'}
+        Whether to normalize the image by its volume or maximum element.
+    pixel_volume : float
+        Needed if normalizing by volume.
     """
+    if fill_value:
+        f = np.ma.filled(f, fill_value=fill_value)
+    if thresh:
+        f = _threshold(f, thresh, frac=(thresh_type=='frac'))
+    if clip:
+        f = _clip(f, clip[0], clip[1], frac=(clip_type=='frac'))
+    if norm:
+        f = _normalize(f, norm=norm, pixel_volume=pixel_volume)
+    return f
 
-    def cov_2x2(_f, _coords):
-        COORDS = np.meshgrid(*_coords, indexing="ij")
-        Sigma = np.zeros((_f.ndim, _f.ndim))
-        mean = np.zeros(_f.ndim)
-        _f_sum = np.sum(_f)
-        if _f_sum > 0:
-            mean = np.array([np.average(C, weights=_f) for C in COORDS])
-            for i in range(_f.ndim):
-                for j in range(i + 1):
-                    X = COORDS[i] - mean[i]
-                    Y = COORDS[j] - mean[j]
-                    EX = np.sum(_f * X) / _f_sum
-                    EY = np.sum(_f * Y) / _f_sum
-                    EXY = np.sum(_f * X * Y) / _f_sum
-                    Sigma[i, j] = Sigma[j, i] = EXY - EX * EY
-        return Sigma
+            
+# Sampling
+# ------------------------------------------------------------------------------
 
-    if coords is None:
-        coords = [np.arange(s) for s in f.shape]
-
-    n = f.ndim
-    if n < 3:
-        return cov_2x2(f, coords)
-
-    Sigma = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i):
-            axis = (i, j)
-            _image = project(f, axis=axis)
-            _coords = [coords[k] for k in axis]
-            # Compute 2 x 2 covariance matrix from this projection.
-            _sigma = cov_2x2(_image, _coords)
-            # Update elements of n x n covariance matrix. This will update
-            # some elements multiple times, but it should not matter.
-            Sigma[i, i] = _sigma[0, 0]
-            Sigma[j, j] = _sigma[1, 1]
-            Sigma[i, j] = Sigma[j, i] = _sigma[0, 1]
-    return Sigma
-
-
-def corr(f, coords=None):
-    """Compute the n x n correlation matrix.
-
-    Parameters
-    ----------
-    f : ndarray
-        An n-dimensional image.
-    coords : list[ndarray]
-        Coordinates along each axis of the image.
-
-    Returns
-    -------
-    ndarray, shape (n, n)
-        The correlation matrix.
-    """
-    return utils.cov2corr(cov(f, coords))
-
-
-def sample_grid(f, coords, samples=1):
+def sample_grid(f, coords=None, samples=1):
     """Sample from histogram.
 
     Parameters
@@ -438,7 +541,9 @@ def sample_grid(f, coords, samples=1):
     ndarray, shape (samples, n)
         Samples drawn from the distribution.
     """
-    if f.ndim == 1:
+    if coords is None:
+        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+    elif f.ndim == 1:
         coords = [coords]
     edges = [edges_from_centers(c) for c in coords]
     

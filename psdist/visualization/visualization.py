@@ -9,18 +9,17 @@ import proplot as pplt
 import scipy.optimize
 import scipy.stats
 
-from .. import bunch as psb
-from .. import image as psi
-from .. import utils
+from ..image import project as project_image
+from ..utils import random_selection
 from ..utils import centers_from_edges
-from ..utils import edges_from_centers
 
-from . import bunch as _vis_bunch
+from . import discrete as _vis_discrete
 from . import image as _vis_image
 
 
 # General
 # ------------------------------------------------------------------------------
+
 def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **kws):
     """Plot ellipse with semi-axes `c1`,`c2` tilted `angle`radians below the x axis."""
     kws.setdefault("fill", False)
@@ -30,6 +29,11 @@ def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **kws):
     return ax.add_patch(
         patches.Ellipse(center, width, height, -np.degrees(angle), **kws)
     )
+
+
+def circle(r=1.0, center=(0.0, 0.0), ax=None, **kws):
+    """Plot a circle."""
+    return ellipse(r, r, center=center, ax=ax, **kws)
 
 
 def rms_ellipse_dims(Sigma, axis=(0, 1)):
@@ -296,7 +300,7 @@ def corner(
         autolim_kws = dict()
     if limits is None:
         if pts:
-            limits = _vis_bunch.auto_limits(data, **autolim_kws)
+            limits = _vis_discrete.auto_limits(data, **autolim_kws)
         else:
             limits = [(c[0], c[-1]) for c in coords]
 
@@ -330,14 +334,14 @@ def corner(
         for i in range(n):
             heights, _edges = np.histogram(data[:, i], bins, limits[i], density=True)
             heights = heights / np.max(heights)
-            _centers = utils.centers_from_edges(_edges)
+            _centers = centers_from_edges(_edges)
             edges.append(_edges)
             centers.append(_centers)
             if diag:
                 plot1d(_centers, heights, ax=axes[i, i], kind=diag_kind, **diag_kws)
 
         # Take random sample of points.
-        idx = utils.random_selection(np.arange(data.shape[0]), samples)
+        idx = random_selection(np.arange(data.shape[0]), samples)
 
         # Bivariate plots
         for ii, i in enumerate(range(start, axes.shape[0])):
@@ -375,7 +379,7 @@ def corner(
                     profx = i == axes.shape[0] - 1
                 else:
                     profx = profy = prof
-                _image = psi.project(data, (j, ii + 1))
+                _image = project_image(data, (j, ii + 1))
                 _image = _image / np.max(_image)
                 ax, mesh = _vis_image.plot2d(
                     _image, coords=(coords[j], coords[ii + 1]),
@@ -390,7 +394,7 @@ def corner(
         # Univariate plots
         if diag:
             for i in range(n):
-                profile = psi.project(data, i)
+                profile = project_image(data, i)
                 profile = profile / np.max(profile)
                 if 'process_kws' in plot_kws and 'fill_value' in plot_kws['process_kws']:
                     profile = np.ma.filled(profile, fill_value=plot_kws['fill_value'])

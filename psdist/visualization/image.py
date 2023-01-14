@@ -1,5 +1,7 @@
-"""Plotting routines for phase space images."""
+"""Plotting routines for 2n-dimensional phase space images."""
+from matplotlib import pyplot as plt
 import numpy as np
+import proplot as pplt
 
 from .. import image as psi
 from . import visualization as vis
@@ -99,6 +101,7 @@ def plot2d(
     prof_kws=None,
     process_kws=None,
     offset=None,
+    mask=False,
     rms_ellipse=False,
     rms_ellipse_kws=None,
     return_mesh=False,
@@ -128,6 +131,11 @@ def plot2d(
         Whether to return a mesh from `ax.pcolormesh`.
     process_kws : dict
         Key word arguments passed to `psdist.image.process`.
+    offset : float
+        Adds `min(f) * offset` to the image. Helpful to get rid of zeros for
+        logarithmic color scales.
+    mask : bool
+        Whether to plot pixels at or below zero.
     **kws
         Key word arguments passed to plotting function.
     """
@@ -137,7 +145,6 @@ def plot2d(
     # Process key word arguments.
     if process_kws is None:
         process_kws = dict()
-    process_kws.setdefault('copy', True)
     
     if rms_ellipse_kws is None:
         rms_ellipse_kws = dict()
@@ -158,6 +165,7 @@ def plot2d(
     kws.setdefault('colorbar_kw', dict())
     
     # Process the image.
+    f = f.copy()
     f = psi.process(f, **process_kws)
     if offset is not None:
         if np.count_nonzero(f):
@@ -165,8 +173,10 @@ def plot2d(
         f = f + offset
         
     # Make sure there are no more zero elements if norm='log'.
-    if 'norm' in kws and kws['norm'] == 'log':
+    log = 'norm' in kws and kws['norm'] == 'log'
+    if log:
         kws['colorbar_kw']['formatter'] = 'log'
+    if mask or log:
         f = np.ma.masked_less_equal(f, 0)
            
     # Plot.

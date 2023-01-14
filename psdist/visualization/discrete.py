@@ -1,7 +1,10 @@
-"""Plotting routines for phase space bunches."""
+"""Plotting routines for discrete sets of points in 2n-dimensional phase space."""
+from matplotlib import pyplot as plt
 import numpy as np
+import proplot as pplt
 
-from .. import bunch as _bunch
+from .. import image as _image
+from .. import discrete as _discrete
 
 from . import visualization as vis
 from . import image as _vis_image
@@ -77,9 +80,7 @@ def plot_rms_ellipse(
     center_at_mean : bool
         Whether to center the ellipse at the image centroid.
     """
-    center = np.mean(X[:, axis], axis=0) 
-    if center_at_mean:
-        center = np.zeros(2)
+    center = np.mean(X[:, axis], axis=0) if center_at_mean else (0.0, 0.0)
     Sigma = np.cov(X[:, axis].T)
     return vis.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
@@ -103,7 +104,7 @@ def scatter(X, axis=(0, 1), ax=None, **kws):
     return ax.scatter(X[:, axis[0]], X[:, axis[1]], **kws)
 
 
-def hist(X, axis=(0, 1), bins='auto', binrange=None, ax=None, **kws):
+def hist(X, axis=(0, 1), bins='auto', limits=None, ax=None, **kws):
     """Convenience function for 2D histogram with auto-binning.
 
     For more options, I recommend seaborn.histplot.
@@ -120,11 +121,11 @@ def hist(X, axis=(0, 1), bins='auto', binrange=None, ax=None, **kws):
     **kws 
         Key word arguments passed to `plotting.image`.
     """
-    f, coords = _bunch.histogram(X[:, axis], bins=bins, binrange=binrange, centers=True)
+    f, coords = _discrete.histogram(X[:, axis], bins=bins, limits=limits, centers=True)
     return _vis_image.plot2d(f, coords=coords, ax=ax, **kws)
     
         
-def kde(X, axis=(0, 1), ax=None, kde_kws=None, **kws):
+def kde(X, axis=(0, 1), ax=None, coords=None, res=100, kde_kws=None, **kws):
     """Plot kernel density estimation (KDE).
     
     Parameters
@@ -135,15 +136,26 @@ def kde(X, axis=(0, 1), ax=None, kde_kws=None, **kws):
         The dimensions to plot.
     ax : Axes
         The axis on which to plot.
+    coords : [xcoords, ycoords]
+        Coordinates along each axis of a two-dimensional regular grid on which to
+        evaluate the density.
+    res : int
+        If coords is not provided, determines the evaluation grid resolution.
     kde_kws : dict
         Key word arguments passed to `psdist.bunch.kde`.
     **kws
         Key word arguments passed to `psdist.visualization.image.plot2`.
     """
+    _X = X[:, axis]
     if kde_kws is None:
         kde_kws = dict()
-    kde_kws.setdefault('axis', (0, 1))
-    density, coords = _bunch.kde(X[:, axis], **kde_kws)
+    if coords is None:
+        lb = np.min(_X, axis=0)
+        ub = np.max(_X, axis=0)
+        coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
+    estimator = _discrete.gaussian_kde(_X, **kde_kws)
+    density = estimator.evaluate(_image.get_grid_coords(*coords).T)
+    density = np.reshape(density, [len(c) for c in coords])
     return _vis_image.plot2d(density, coords=coords, ax=ax, **kws)
 
 
@@ -156,8 +168,8 @@ def plot2d(
     ax=None,
     **kws
 ):
-    if kind in ['hist', 'kde']:
-        kws.setdefault('process_kws', dict(mask_zero=True))
+    if kind == 'hist':
+        kws.setdefault('mask', True)
     func = None
     if kind == 'hist':
         func = hist
@@ -171,7 +183,7 @@ def plot2d(
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
-        plot_rms_ellipse(axis=axis, ax=ax, **rms_ellipse_kws)
+        plot_rms_ellipse(X, axis=axis, ax=ax, **rms_ellipse_kws)
     
     
 def jointplot():
