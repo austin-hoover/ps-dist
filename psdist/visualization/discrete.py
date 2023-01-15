@@ -1,4 +1,6 @@
 """Plotting routines for discrete sets of points in 2n-dimensional phase space."""
+from ipywidgets import interactive
+from ipywidgets import widgets
 from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
@@ -200,7 +202,7 @@ def plot2d_interactive_slice(
     limits=None,
     nbins=30,
     default_ind=(0, 1),
-    slice_type="int",  # {'int', 'range'}
+    slice_type='int',
     dims=None,
     units=None,
     prof_kws=None,
@@ -224,7 +226,7 @@ def plot2d_interactive_slice(
     dims, units : list[str], shape (n,)
         Dimension names and units.
     **plot_kws
-        Key word arguments passed to `image`.
+        Key word arguments passed to `plot2d`.
     """
     n = X.shape[1]
     if limits is None:
@@ -236,8 +238,11 @@ def plot2d_interactive_slice(
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
-    plot_kws.setdefault("colorbar", True)
-    plot_kws["prof_kws"] = prof_kws
+        
+    # Set default plot arguments.
+    plot_kws.setdefault('kind', 'hist')
+    plot_kws.setdefault('colorbar', True)
+    plot_kws['prof_kws'] = prof_kws
 
     # Widgets
     nbins_default = nbins
@@ -251,7 +256,6 @@ def plot2d_interactive_slice(
     )
     autobin = widgets.Checkbox(description="auto plot res", value=True)
     log = widgets.Checkbox(description="log", value=False)
-    prof = widgets.Checkbox(description="profiles", value=False)
     sliders, checks = [], []
     for k in range(n):
         if slice_type == "int":
@@ -304,17 +308,17 @@ def plot2d_interactive_slice(
             sliders[k].layout.display = "none"
 
     def update(**kws):
-        dim1 = kws["dim1"]
-        dim2 = kws["dim2"]
-        nbins = kws["nbins"]
-        nbins_plot = kws["nbins_plot"]
-        autobin = kws["autobin"]
+        dim1 = kws['dim1']
+        dim2 = kws['dim2']
+        nbins = kws['nbins']
+        nbins_plot = kws['nbins_plot']
+        autobin = kws['autobin']
         ind, checks = [], []
         for i in range(100):
-            if f"check{i}" in kws:
-                checks.append(kws[f"check{i}"])
-            if f"slider{i}" in kws:
-                _ind = kws[f"slider{i}"]
+            if f'check{i}' in kws:
+                checks.append(kws[f'check{i}'])
+            if f'slider{i}' in kws:
+                _ind = kws[f'slider{i}']
                 if type(_ind) is int:
                     _ind = (_ind, _ind + 1)
                 ind.append(_ind)
@@ -337,36 +341,23 @@ def plot2d_interactive_slice(
                 imin, imax = ind[_axis]
                 width.append(_edges[imax] - _edges[imin])
                 center.append(0.5 * (_edges[imax] + _edges[imin]))
-            Xs = psb.slice_box(X, axis=axis_slice, center=center, width=width)
+            _X = _discrete.slice_planar(X, axis=axis_slice, center=center, width=width)
         else:
-            Xs = X[:, :]
+            _X = X[:, :]
 
-        # Compute 2D histogram of remaining particles.
-        _nbins = "auto" if autobin else nbins_plot
-        xedges = np.histogram_bin_edges(
-            Xs[:, axis_view[0]], bins=_nbins, range=limits[axis_view[0]]
-        )
-        yedges = np.histogram_bin_edges(
-            Xs[:, axis_view[1]], bins=_nbins, range=limits[axis_view[1]]
-        )
-        edges = [xedges, yedges]
-        centers = [utils.centers_from_edges(e) for e in edges]
-        f, _, _ = np.histogram2d(
-            Xs[:, axis_view[0]], Xs[:, axis_view[1]], bins=edges
-        )
-
-        # Update plot key word arguments.
-        plot_kws["norm"] = "log" if kws["log"] else None
-        plot_kws["profx"] = plot_kws["profy"] = kws["prof"]
-        # Plot the image.
+        # Update plotting key word arguments.
+        plot_kws['bins'] = 'auto' if autobin else nbins_plot
+        plot_kws['limits'] = limits
+        plot_kws['norm'] = 'log' if kws['log'] else None
+        
+        # Plot the selecting points.
         fig, ax = pplt.subplots()
-        ax = image(f, x=centers[0], y=centers[1], ax=ax, **plot_kws)
+        plot2d(_X[:, axis_view], ax=ax, **plot_kws)        
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
-
+    
     kws = dict()
     kws["log"] = log
-    kws["prof"] = prof
     kws["autobin"] = autobin
     kws["dim1"] = dim1
     kws["dim2"] = dim2
