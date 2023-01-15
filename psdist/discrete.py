@@ -56,6 +56,16 @@ def corr(X):
     return utils.cov2corr(np.cov(X.T))
 
 
+def get_radii(X):
+    return np.linalg.norm(X, axis=1)
+
+
+def get_ellipsoid_radii(X):
+    Sigma_inv = np.linalg.inv(np.cov(X.T))
+    func = lambda point: np.sqrt(np.linalg.multi_dot([point.T, Sigma_inv, point]))
+    return transform(X, func)
+
+
 def enclosing_sphere(X, axis=None, fraction=1.0):
     """Scales sphere until it contains some fraction of points.
 
@@ -74,12 +84,8 @@ def enclosing_sphere(X, axis=None, fraction=1.0):
     radius : float
         The sphere radius.
     """
-    if axis is None:
-        axis = tuple(range(X.shape[1]))
-    _X = X[:, axis]
-    radii = np.linalg.norm(_X, axis=1)
-    radii = np.sort(radii)
-    index = int(np.round(_X.shape[0] * fraction)) - 1
+    radii = np.sort(get_radii(project(X, axis)))
+    index = int(np.round(X.shape[0] * fraction)) - 1
     return radii[index]
 
 
@@ -101,12 +107,8 @@ def enclosing_ellipsoid(X, axis=None, fraction=1.0):
     float
         The ellipsoid "radius" (x^T Sigma^-1 x) relative to the rms ellipsoid.
     """
-    _X = project(X, axis)
-    Sigma = np.cov(_X.T)
-    Sigma_inv = np.linalg.inv(Sigma)
-    func = lambda point: np.sqrt(np.linalg.multi_dot([point.T, Sigma_inv, point]))
-    radii = np.sort(transform(_X, func))
-    index = int(np.round(_X.shape[0] * fraction)) - 1
+    radii = np.sort(get_ellipsoid_radii(project(X, axis)))
+    index = int(np.round(X.shape[0] * fraction)) - 1
     return radii[index]
 
 
@@ -192,8 +194,8 @@ def scale(X, factor=1.0):
     return X * factor
 
 
-def slice_box(X, axis=None, center=None, width=None):
-    """Return points within a box.
+def slice_planar(X, axis=None, center=None, width=None):
+    """Return points within a planar slice.
 
     Parameters
     ----------
@@ -231,7 +233,7 @@ def slice_box(X, axis=None, center=None, width=None):
 
 
 def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
-    """Return points within a spherical shell.
+    """Return points within a spherical shell slice.
 
     Parameters
     ----------
@@ -240,8 +242,8 @@ def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
     axis : tuple
         Slice axes. For example, (0, 1) will slice along the first and
         second axes of the array.
-    r : float
-        Radius of sphere.
+    rmin, rmax : float
+        Inner/outer radius of spherical shell.
 
     Returns
     -------
@@ -250,14 +252,16 @@ def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
     """
     if rmax is None:
         rmax = np.inf
-    _X = project(X, axis)
-    radii = np.linalg.norm(_X, axis=1)
+    radii = get_radii(project(X, axis))
     idx = np.logical_and(radii > rmin, radii < rmax)
     return X[idx, :]
 
 
-def slice_ellipsoid(X, axis=0, semiaxes=None):
-    """Return points within an ellipsoid.
+def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
+    """Return points within an ellipsoidal shell slice.
+    
+    The ellipsoid is defined by the covariance matrix of the 
+    distribution.
 
     Parameters
     ----------
@@ -266,23 +270,19 @@ def slice_ellipsoid(X, axis=0, semiaxes=None):
     axis : tuple
         Slice axes. For example, (0, 1) will slice along the first and
         second axes of the array.
-    semiaxes : list[float]
-        Semi-axes of ellipsoid.
+    rmin, rmax : list[float]
+        Min/max "radius" (x^T Sigma^-1 x). relative to covariance matrix.
 
     Returns
     -------
     ndarray, shape (?, n)
-        Points within the ellipsoid.
+        Points within the shell.
     """
-    k, n = X.shape
-    if axis is None:
-        axis = tuple(range(n))
-    if semiaxes is None:
-        semiaxes = n * [np.inf]
-    semiaxes = np.array(semiaxes)
-    radii = np.sum((X[:, axis] / (0.5 * semiaxes)) ** 2, axis=1)
-    idx = radii < 1.0
-    return X[idx]
+    if rmax is None:
+        rmax = np.inf                
+    radii = get_ellipsoid_radii(project(X, axis))
+    idx = np.logical_and(rmin < radii, radii < rmax)
+    return X[idx, :]
 
 
 def norm_xxp_yyp_zzp(X, scale_emittance=False):

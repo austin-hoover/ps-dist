@@ -62,16 +62,14 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
 
 
 def plot_rms_ellipse(
-    X, axis=(0, 1), ax=None, level=1.0, center_at_mean=True, **ellipse_kws
+    X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws
 ):
     """Compute and plot RMS ellipse from bunch coordinates.
     
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinate array for k points in n-dimensional space.
-    axis : 2-tuple of int
-        The dimensions to plot.
+    X : ndarray, shape (k, 2)
+        Coordinate array for k points in 2-dimensional space.
     ax : Axes
         The axis on which to plot.
     level : number of list of numbers
@@ -80,12 +78,14 @@ def plot_rms_ellipse(
     center_at_mean : bool
         Whether to center the ellipse at the image centroid.
     """
-    center = np.mean(X[:, axis], axis=0) if center_at_mean else (0.0, 0.0)
-    Sigma = np.cov(X[:, axis].T)
+    center = np.mean(X, axis=0) 
+    if center_at_mean:
+        center = (0.0, 0.0)
+    Sigma = np.cov(X.T)
     return vis.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
 
-def scatter(X, axis=(0, 1), ax=None, **kws):
+def scatter(X, ax=None, **kws):
     """Convenience function for 2D scatter plot.
     
     Parameters
@@ -101,39 +101,35 @@ def scatter(X, axis=(0, 1), ax=None, **kws):
     """
     kws.setdefault('c', 'black')
     kws.setdefault('s', 1.0)
-    return ax.scatter(X[:, axis[0]], X[:, axis[1]], **kws)
+    return ax.scatter(X[:, 0], X[:, 1], **kws)
 
 
-def hist(X, axis=(0, 1), bins='auto', limits=None, ax=None, **kws):
+def hist(X, bins='auto', limits=None, ax=None, **kws):
     """Convenience function for 2D histogram with auto-binning.
 
     For more options, I recommend seaborn.histplot.
     
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinate array for k points in n-dimensional space.
-    axis : 2-tuple of int
-        The dimensions to plot.
+    X : ndarray, shape (k, 2)
+        Coordinate array for k points in 2-dimensional space.
     ax : Axes
         The axis on which to plot.
     limits, bins : see `psdist.bunch.histogram`.
     **kws 
         Key word arguments passed to `plotting.image`.
     """
-    f, coords = _discrete.histogram(X[:, axis], bins=bins, limits=limits, centers=True)
+    f, coords = _discrete.histogram(X, bins=bins, limits=limits, centers=True)
     return _vis_image.plot2d(f, coords=coords, ax=ax, **kws)
     
         
-def kde(X, axis=(0, 1), ax=None, coords=None, res=100, kde_kws=None, **kws):
+def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
     """Plot kernel density estimation (KDE).
     
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinate array for k points in n-dimensional space.
-    axis : 2-tuple of int
-        The dimensions to plot.
+    X : ndarray, shape (k, 2)
+        Coordinate array for k points in 2-dimensional space.
     ax : Axes
         The axis on which to plot.
     coords : [xcoords, ycoords]
@@ -146,14 +142,13 @@ def kde(X, axis=(0, 1), ax=None, coords=None, res=100, kde_kws=None, **kws):
     **kws
         Key word arguments passed to `psdist.visualization.image.plot2`.
     """
-    _X = X[:, axis]
     if kde_kws is None:
         kde_kws = dict()
     if coords is None:
-        lb = np.min(_X, axis=0)
-        ub = np.max(_X, axis=0)
+        lb = np.min(X, axis=0)
+        ub = np.max(X, axis=0)
         coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
-    estimator = _discrete.gaussian_kde(_X, **kde_kws)
+    estimator = _discrete.gaussian_kde(X, **kde_kws)
     density = estimator.evaluate(_image.get_grid_coords(*coords).T)
     density = np.reshape(density, [len(c) for c in coords])
     return _vis_image.plot2d(density, coords=coords, ax=ax, **kws)
@@ -161,7 +156,6 @@ def kde(X, axis=(0, 1), ax=None, coords=None, res=100, kde_kws=None, **kws):
 
 def plot2d(
     X, 
-    axis=(0, 1), 
     kind='hist',
     rms_ellipse=False, 
     rms_ellipse_kws=None,
@@ -179,11 +173,11 @@ def plot2d(
         func = kde
     else:
         raise ValueError('Invalid plot kind.')
-    func(X, axis=axis, ax=ax, **kws)
+    func(X, ax=ax, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
-        plot_rms_ellipse(X, axis=axis, ax=ax, **rms_ellipse_kws)
+        plot_rms_ellipse(X, ax=ax, **rms_ellipse_kws)
     
     
 def jointplot():
@@ -201,7 +195,7 @@ def slice_matrix():
     raise NotImplementedError
     
     
-def interactive_proj2d(
+def plot2d_interactive_slice(
     X,
     limits=None,
     nbins=30,
