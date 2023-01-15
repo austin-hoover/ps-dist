@@ -1,5 +1,6 @@
 """Functions for discrete sets of points."""
 import numpy as np
+import scipy.interpolate
 import scipy.stats
 
 from . import ap
@@ -240,8 +241,7 @@ def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
     X : ndarray, shape (k, n)
         Coordinates of k points in n-dimensional space.
     axis : tuple
-        Slice axes. For example, (0, 1) will slice along the first and
-        second axes of the array.
+        The subspace in which to define the sphere.
     rmin, rmax : float
         Inner/outer radius of spherical shell.
 
@@ -268,8 +268,7 @@ def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
     X : ndarray, shape (k, n)
         Coordinates of k points in n-dimensional space.
     axis : tuple
-        Slice axes. For example, (0, 1) will slice along the first and
-        second axes of the array.
+        The subspace in which to define the ellipsoid.
     rmin, rmax : list[float]
         Min/max "radius" (x^T Sigma^-1 x). relative to covariance matrix.
 
@@ -282,6 +281,53 @@ def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
         rmax = np.inf                
     radii = get_ellipsoid_radii(project(X, axis))
     idx = np.logical_and(rmin < radii, radii < rmax)
+    return X[idx, :]
+
+
+def slice_contour(X, axis=None, lmin=0.0, lmax=1.0, interp=True, **hist_kws):
+    """Return points within a contour shell slice.
+    
+    The slice is defined by the density contours in the subspace defined by
+    `axis`. 
+
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+    axis : tuple
+        The subspace in which to define the density contours.
+    lmin, lmax : list[float]
+        If `f` is the density in the subspace defined by `axis`, then we select 
+        points where lmin <= f / max(f) <= lmax.
+    interp : bool
+        If True, compute the histogram, then interpolate and evaluate the 
+        resulting function at each point in `X`. Otherwise we keep track
+        of the indices in which each point lands when it is binned,
+        and accept the point if it's bin has a value within fmin and fmax. 
+        The latter is a lot slower.
+
+    Returns
+    -------
+    ndarray, shape (?, n)
+        Points within the shell.
+    """
+    _X = project(X, axis)
+    hist, edges = histogram(_X, **hist_kws)
+    hist = hist / np.max(hist)
+    centers = [0.5 * (e[:-1] + e[1:]) for e in edges]
+    if interp:
+        fint = scipy.interpolate.RegularGridInterpolator(
+            centers, hist, method='linear', bounds_error=False, fill_value=0.0,
+        )
+        values = fint(_X)
+        idx = np.logical_and(lmin <= values, values <= lmax)
+    else:
+        valid_indices = np.vstack(np.where(np.logical_and(lmin <= hist, hist <= lmax))).T
+        indices = np.vstack([np.digitize(_X[:, k], edges[k]) for k in range(_X.shape[1])]).T
+        idx = []
+        for i in range(len(indices)):
+            if indices[i].tolist() in valid_indices.tolist():
+                idx.append(i)
     return X[idx, :]
 
 
@@ -352,6 +398,7 @@ def downsample(X, samples):
     ndarray, shape (<= k, n)
         The downsampled coordinate array.
     """
+    samples = min(samples, X.shape[0])
     idx = utils.random_selection(np.arange(X.shape[0]), samples)
     return X[idx, :]
 
