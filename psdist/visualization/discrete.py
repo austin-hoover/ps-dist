@@ -198,15 +198,61 @@ def corner(
     labels=None,
     diag_height_frac=0.6,
     autolim_kws=None,
+    diag_kws=None,
     fig_kws=None,
     return_fig=False,
     return_mesh=False,
     prof_edge_only=False,
     axs=None,
-    diag_kws=None,
     modify_limits=True,
     **kws,
 ):
+    """Plot one- and two-dimensional projections in a corner plot.
+
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+    diag : bool
+        Whether to include the diagonal subplots in the figure. If False, we get
+        an n-1 x n-1 matrix of subplots instead of an n x n matrix..
+    limits : list[tuple]
+        The (min, max) coordinates for each dimension. This is used to set the
+        axis limits, as well as for data binning if plotting a histogram.
+    labels : list[str]
+        The axis labels.
+    diag_height_frac : float
+        Reduce the height of 1D profiles (diagonal subplots) relative to the
+        y axis height.
+    autolim_kws : dict
+        Key word arguments passed to `autolim`.
+    diag_kws : dict
+        Key word arguments passed to 1D plotting function on diagonal axes.
+    fig_kws : dict
+        Key word arguments passed to `pplt.subplots` such as 'figwidth'.
+        Whether to return `fig` in addition to `axes`.
+    return_mesh : bool
+        Whether to also return a mesh from one of the pcolor plots. This is
+        useful if you want to put a colorbar on the figure later.
+    prof_edge_only : bool
+        If 'profx' and 'profy' are in `kws`, only plot the x profiles on the
+        bottom row and y profiles on the left column of subplots.
+    axs : proplot.gridspec
+        If provided, plot on these axes instead of creating new ones.
+    **plot_kws
+        Key word arguments passed to `plot2d`.
+
+    Returns
+    -------
+    axes : proplot.gridspec
+        Array of subplot axes.
+    Optional:
+        fig : proplot.figure
+            Proplot figure object.
+        mesh : matplotlib.collections.QuadMesh
+            Mesh from the latest call of `pcolormesh`. This is helpful if you want a
+            global colorbar.
+    """
     n = X.shape[1]
     if diag_kws is None:
         diag_kws = dict()

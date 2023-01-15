@@ -409,7 +409,3 @@ def corner(
             return fig, axes, mesh
         return fig, axes
     return axes
-
-
-# Interactive
-# ------------------------------------------------------------------------------
