@@ -7,9 +7,10 @@ import proplot as pplt
 
 from .. import image as _image
 from .. import discrete as _discrete
+from ..utils import centers_from_edges
 
 from . import visualization as vis
-from . import image as _vis_image
+from . import image as vis_image
 
 
 def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
@@ -46,7 +47,7 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
     deltas = 0.5 * np.abs(maxs - mins)
     padding = deltas * pad
     mins = mins - padding
-    maxs = mins + padding
+    maxs = maxs + padding
     if zero_center:
         maxs = np.max([np.abs(mins), np.abs(maxs)], axis=0)
         mins = -maxs
@@ -122,7 +123,7 @@ def hist(X, bins='auto', limits=None, ax=None, **kws):
         Key word arguments passed to `plotting.image`.
     """
     f, coords = _discrete.histogram(X, bins=bins, limits=limits, centers=True)
-    return _vis_image.plot2d(f, coords=coords, ax=ax, **kws)
+    return vis_image.plot2d(f, coords=coords, ax=ax, **kws)
     
         
 def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
@@ -153,7 +154,7 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
     estimator = _discrete.gaussian_kde(X, **kde_kws)
     density = estimator.evaluate(_image.get_grid_coords(*coords).T)
     density = np.reshape(density, [len(c) for c in coords])
-    return _vis_image.plot2d(density, coords=coords, ax=ax, **kws)
+    return vis_image.plot2d(density, coords=coords, ax=ax, **kws)
 
 
 def plot2d(
@@ -167,29 +168,118 @@ def plot2d(
     if kind == 'hist':
         kws.setdefault('mask', True)
     func = None
-    if kind == 'hist':
+    if kind in ['hist', 'contour', 'contourf']:
         func = hist
+        if kind in ['contour', 'contourf']:
+            kws['kind'] = kind
     elif kind == 'scatter':
         func = scatter
     elif kind == 'kde':
         func = kde
     else:
         raise ValueError('Invalid plot kind.')
-    func(X, ax=ax, **kws)
+    _out = func(X, ax=ax, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
         plot_rms_ellipse(X, ax=ax, **rms_ellipse_kws)
+    return _out
     
     
 def jointplot():
-    # This will be like seaborn.jointplot (top/right panel axes).
+    # This will be like seaborn.jointplot (top/right panel axs).
     raise NotImplementedError
     
     
-def corner():
-    # Corner plot for bunch.
-    raise NotImplementedError
+def corner(
+    X,
+    diag=True,
+    limits=None,
+    labels=None,
+    diag_height_frac=0.6,
+    autolim_kws=None,
+    fig_kws=None,
+    return_fig=False,
+    return_mesh=False,
+    prof_edge_only=False,
+    axs=None,
+    diag_kws=None,
+    modify_limits=True,
+    **kws,
+):
+    n = X.shape[1]
+    if diag_kws is None:
+        diag_kws = dict()
+        
+    diag_kws.setdefault('color', 'black')
+    diag_kws.setdefault('lw', 1.0)
+    diag_kws.setdefault('kind', 'step')
+    kws.setdefault('kind', 'hist')
+
+    if limits is None:
+        if autolim_kws is None:
+            autolim_kws = dict()
+        limits = auto_limits(X, **autolim_kws)
+    if axs is None:
+        if fig_kws is None:
+            fig_kws = dict()
+        fig, axs = vis._setup_corner(n, diag, labels, limits, **fig_kws)
+    else:
+        return_fig = False
+        if modify_limits: 
+            if axs.shape[1] == n:
+                old_limits = [axs[i, i].get_xlim() for i in range(n)]
+            else:
+                old_limits = [axs[-1, i].get_xlim() for i in range(n - 1)] + [axs[-1, 0].get_ylim()]
+            limits = [
+                (min(old_lim[0], lim[0]), max(old_lim[1], lim[1]))
+                for old_lim, lim in zip(old_limits, limits)
+            ]
+            vis._set_corner_limits(axs, limits, diag=(axs.shape[1] == n))
+
+    # Univariate plots. Remember histogram bins and use them for 2D histograms.
+    bins = 'auto'
+    if 'bins' in kws:
+        bins = kws.pop('bins')
+    edges, centers = [], []
+    for i in range(n):
+        heights, _edges = np.histogram(X[:, i], bins, limits[i], density=True)
+        heights = heights / np.max(heights)
+        _centers = centers_from_edges(_edges)
+        edges.append(_edges)
+        centers.append(_centers)
+        if diag:
+            vis.plot1d(_centers, heights, ax=axs[i, i], **diag_kws)
+
+    # Bivariate plots:
+    for i, row in enumerate(range(int(diag), axs.shape[0]), start=1):
+        for j, col in enumerate(range(i)):
+            ax = axs[row, col]
+            axis = (j, i)
+            
+            # If an image plot, determine if we should 
+            # plot the 1D projections.
+            if prof_edge_only and ('profx' in kws or 'profy' in kws):
+                kws['profx'] = row == axs.shape[0] - 1
+                kws['profy'] = col == 0
+                
+            # If plotting a histogram, use the bin edges computed in the
+            # univariate histograms above.
+            if kws['kind'] == 'hist':
+                kws['bins'] = [edges[j], edges[i]]
+
+            plot2d(X[:, axis], ax=ax, **kws)
+
+    # Modify diagonal y axis limits.
+    if diag:
+        for i in range(n):
+            axs[i, i].set_ylim(0, 1.0 / diag_height_frac)
+    # Return items
+    if return_fig:
+        if return_mesh:
+            return fig, axs, mesh
+        return fig, axs
+    return axs
     
     
 def slice_matrix():
