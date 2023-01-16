@@ -1,8 +1,36 @@
 # Change Log
 
 
-# [0.1,0] — Unreleased
+# [0.1.0] — Unreleased
 
+* Renamed `bunch` &rarr;`discrete`.
+    * Added `discrete.project`: projects points onto an axis.
+    * Added `discrete.slice_contour`: apply contour shell slice to points.
+    * Added `discrete.transform`: applies function to each point.
+    * Added `discrete.gaussian_kde`: Gaussian kernel density estimation.
+    * Renamed `discrete.apply` &rarr; `discrete.linear_transformation`.
+    * Renamed `discrete.slice_box` &rarr; `discrete.slice_planar`.
+    * Fixed `discrete.slice_ellipsoid` and `discrete.slice_sphere`
+* Renamed `plotting` &rarr; `visualization`
+    * Added `visualization.CornerGrid`: constructs corner plot, can plot discrete or image data.
+    * Added `visualization.SliceGrid`: constructs slice matrix grid, can plot discrete or image data.
+    * Added `visualization.discrete`
+        * `visualization.discrete.plot2d`: 2D plot of discrete data; options for scatter, or any options in `image.plot2d`.
+        * `visualization.discrete.plot_rms_ellipse`: compute/plot the 2D RMS ellipse.
+        * `visualization.discrete.corner`: corner plot for discrete data with all options of `plot2d`. (Shortcut to `CornerGrid`.)
+        * `visualization.discrete.slice_matrix`: slice matrix plot for discrete data with all options of `plot2d`. (Shortcut to `SliceGrid`.)
+        * `visualization.image.plot1d_interactive_slice`: 1D projection with interactive slicing.
+        * `visualization.image.plot2d_interactive_slice`: 2D projection with interactive slicing.
+    * Added `visualization.image`
+        * `visualization.image.plot2d`: 2D image plot; options for pcolor, contour, contourf.
+        * `visualization.image.plot_rms_ellipse`: plots RMS ellipse from image.
+        * `visualization.image.plot_profiles`: compute/plot the 2D RMS ellipse.
+        * `visualization.image.corner`: corner plot for image data with all options of `plot2d`. (Shortcut to `CornerGrid`.)
+        * `visualization.image.slice_matrix`: slice matrix plot for image data with all options of `plot2d`. (Shortcut to `SliceGrid`.)
+        * `visualization.image.plot1d_interactive_slice`: 1D projection with interactive slicing.
+        * `visualization.image.plot2d_interactive_slice`: 2D projection with interactive slicing.
+    * Renamed `visualization.plot1d` &rarr; `plotting.lineplot`. Added 'linefilled' and 'stepfilled' plot types.
+* Improved `image.sample_grid`: ignore bins with zero probability.
 
 
 ## [0.0.11] - 2023-01-09

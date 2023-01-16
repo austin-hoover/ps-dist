@@ -1,4 +1,6 @@
 """Plotting routines for 2n-dimensional phase space images."""
+from ipywidgets import interactive
+from ipywidgets import widgets
 from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
@@ -15,7 +17,7 @@ def plot_profiles(
     profx=True,
     profy=True,
     scale=0.12,
-    start='edge',
+    start="edge",
     **kws,
 ):
     """Plot the one-dimensional profiles of a two-dimensional image.
@@ -36,35 +38,35 @@ def plot_profiles(
         Whether to start the plot at the center or edge of the first row/column.
     **kws
         Key word arguments passed to `psdist.visualization.plot1d`.
-    """    
-    kws.setdefault('kind', 'step')
-    kws.setdefault('lw', 1.0)
-    kws.setdefault('color', 'white')
-    kws.setdefault('alpha', 0.6)
-    
+    """
+    kws.setdefault("kind", "step")
+    kws.setdefault("lw", 1.0)
+    kws.setdefault("color", "white")
+    kws.setdefault("alpha", 0.6)
+
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
 
     edges = [edges_from_centers(c) for c in coords]
     for axis, proceed in enumerate([profx, profy]):
-        if proceed:    
+        if proceed:
             profile = psi.project(f, axis=axis)
             # Scale
             profile_max = np.max(profile)
             if profile_max > 0.0:
                 profile = profile / profile_max
-            j = int(axis == 0)            
+            j = int(axis == 0)
             profile = profile * scale * np.abs(coords[j][-1] - coords[j][0])
             # Start from ax spine.
             offset = 0.0
-            if start == 'edge':
+            if start == "edge":
                 offset = edges[j][0]
-            elif start == 'center':
+            elif start == "center":
                 offset = coords[j][0]
             vis.plot1d(coords[axis], profile, ax=ax, offset=offset, flipxy=axis, **kws)
     return ax
-        
-    
+
+
 def plot_rms_ellipse(
     f, coords=None, ax=None, level=1.0, center_at_mean=True, **ellipse_kws
 ):
@@ -95,7 +97,7 @@ def plot2d(
     f,
     coords=None,
     ax=None,
-    kind='pcolor',
+    kind="pcolor",
     profx=False,
     profy=False,
     prof_kws=None,
@@ -141,29 +143,29 @@ def plot2d(
     """
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
-        
+
     # Process key word arguments.
     if process_kws is None:
         process_kws = dict()
-    
+
     if rms_ellipse_kws is None:
         rms_ellipse_kws = dict()
-        
-    func = None    
-    if kind == 'pcolor':
+
+    func = None
+    if kind == "pcolor":
         func = ax.pcolormesh
-        kws.setdefault('ec', 'None')
-        kws.setdefault('linewidth', 0.0)
-        kws.setdefault('rasterized', True)
-    elif kind == 'contour':
+        kws.setdefault("ec", "None")
+        kws.setdefault("linewidth", 0.0)
+        kws.setdefault("rasterized", True)
+    elif kind == "contour":
         func = ax.contour
-    elif kind == 'contourf':
+    elif kind == "contourf":
         func = ax.contourf
     else:
-        raise ValueError('Invalid plot kind.')
-    kws.setdefault('colorbar', False)
-    kws.setdefault('colorbar_kw', dict())
-    
+        raise ValueError("Invalid plot kind.")
+    kws.setdefault("colorbar", False)
+    kws.setdefault("colorbar_kw", dict())
+
     # Process the image.
     f = f.copy()
     f = psi.process(f, **process_kws)
@@ -171,16 +173,16 @@ def plot2d(
         if np.count_nonzero(f):
             offset = offset * np.min(f[f > 0])
         f = f + offset
-        
+
     # Make sure there are no more zero elements if norm='log'.
-    log = 'norm' in kws and kws['norm'] == 'log'
+    log = "norm" in kws and kws["norm"] == "log"
     if log:
-        kws['colorbar_kw']['formatter'] = 'log'
+        kws["colorbar_kw"]["formatter"] = "log"
     if mask or log:
         f = np.ma.masked_less_equal(f, 0)
-           
+
     # Plot.
-    mesh = func(coords[0].T, coords[1].T, f.T, **kws)        
+    mesh = func(coords[0].T, coords[1].T, f.T, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
@@ -188,25 +190,45 @@ def plot2d(
     if profx or profy:
         if prof_kws is None:
             prof_kws = dict()
-        if kind == 'contourf':
-            prof_kws.setdefault('start', 'center')
+        if kind == "contourf":
+            prof_kws.setdefault("start", "center")
         plot_profiles(f, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws)
     if return_mesh:
         return ax, mesh
     else:
         return ax
-    
-    
+
+
 def jointplot():
     # This will be like seaborn.jointplot (top/right panel axes).
     raise NotImplementedError
     
     
-def corner():
-    # Corner plot for image.
-    raise NotImplementedError
+def corner(
+    f,
+    coords=None,
+    prof_edge_only=False,
+    update_limits=True,
+    diag_kws=None,
+    grid_kws=None,
+    **kws
+):
+    """Corner plot (scatter plot matrix).
     
-    
+    This is a convenience function; see `psdist.visualization.Corner`.
+    """
+    cgrid = vis.CornerGrid(n=f.ndim, **grid_kws)
+    cgrid.plot_image(
+        f, 
+        coords=coords, 
+        prof_edge_only=prof_edge_only, 
+        update_limits=True,
+        diag_kws=diag_kws, 
+        **kws
+    )
+    return cgrid
+
+
 def slice_matrix(
     f,
     axis_view=None,
@@ -406,34 +428,30 @@ def slice_matrix(
         for j in range(ncols):
             ax = axes[nrows - 1 - i, j]
             idx = psi.make_slice(_f.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)])
-            ax = image(
+            ax = plot2d(
                 psi.project(_f[idx], axis_view),
-                x=_coords[axis_view[0]],
-                y=_coords[axis_view[1]],
+                coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
                 ax=ax,
                 **plot_kws,
             )
     if plot_marginals:
         for i, ax in enumerate(reversed(axes[:-1, -1])):
-            ax = image(
+            ax = plot2d(
                 _fy[:, :, i],
-                x=_coords[axis_view[0]],
-                y=_coords[axis_view[1]],
+                coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
                 ax=ax,
                 **plot_kws_marginal_only,
             )
         for i, ax in enumerate(axes[-1, :-1]):
-            ax = image(
+            ax = plot2d(
                 _fx[:, :, i],
-                x=_coords[axis_view[0]],
-                y=_coords[axis_view[1]],
+                [_coords[axis_view[0]], _coords[axis_view[1]]],
                 ax=ax,
                 **plot_kws_marginal_only,
             )
-        ax = image(
+        ax = plot2d(
             _fxy,
-            x=_coords[axis_view[0]],
-            y=_coords[axis_view[1]],
+            [_coords[axis_view[0]], _coords[axis_view[1]]],
             ax=axes[-1, -1],
             **plot_kws_marginal_only,
         )
@@ -486,7 +504,7 @@ def slice_matrix(
     return axes
 
 
-def interactive_proj2d(
+def proj2d_interactive_slice(
     f,
     coords=None,
     default_ind=(0, 1),
@@ -650,7 +668,9 @@ def interactive_proj2d(
         plot_kws["thresh"] = (10.0 ** kws["thresh"]) if kws["thresh_checkbox"] else None
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
-        ax = image(_f, x=coords[axis_view[0]], y=coords[axis_view[1]], ax=ax, **plot_kws)
+        ax = plot2d(
+            _f, coords=[coords[axis_view[0]], coords[axis_view[1]]], ax=ax, **plot_kws
+        )
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
@@ -671,7 +691,7 @@ def interactive_proj2d(
     return interactive(update, **kws)
 
 
-def interactive_proj1d(
+def proj1d_interactive_slice(
     f,
     coords=None,
     default_ind=0,
