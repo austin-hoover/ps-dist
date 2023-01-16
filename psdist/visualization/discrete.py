@@ -64,11 +64,9 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
     return [(_min, _max) for _min, _max in zip(mins, maxs)]
 
 
-def plot_rms_ellipse(
-    X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws
-):
+def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
     """Compute and plot RMS ellipse from bunch coordinates.
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, 2)
@@ -81,7 +79,7 @@ def plot_rms_ellipse(
     center_at_mean : bool
         Whether to center the ellipse at the image centroid.
     """
-    center = np.mean(X, axis=0) 
+    center = np.mean(X, axis=0)
     if center_at_mean:
         center = (0.0, 0.0)
     Sigma = np.cov(X.T)
@@ -90,7 +88,7 @@ def plot_rms_ellipse(
 
 def scatter(X, ax=None, **kws):
     """Convenience function for 2D scatter plot.
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, n)
@@ -102,16 +100,16 @@ def scatter(X, ax=None, **kws):
     **kws
         Key word arguments passed to `ax.scatter`.
     """
-    kws.setdefault('c', 'black')
-    kws.setdefault('s', 1.0)
+    kws.setdefault("c", "black")
+    kws.setdefault("s", 1.0)
     return ax.scatter(X[:, 0], X[:, 1], **kws)
 
 
-def hist(X, bins='auto', limits=None, ax=None, **kws):
+def hist(X, bins="auto", limits=None, ax=None, **kws):
     """Convenience function for 2D histogram with auto-binning.
 
     For more options, I recommend seaborn.histplot.
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, 2)
@@ -119,16 +117,16 @@ def hist(X, bins='auto', limits=None, ax=None, **kws):
     ax : Axes
         The axis on which to plot.
     limits, bins : see `psdist.bunch.histogram`.
-    **kws 
+    **kws
         Key word arguments passed to `plotting.image`.
     """
     f, coords = _discrete.histogram(X, bins=bins, limits=limits, centers=True)
     return vis_image.plot2d(f, coords=coords, ax=ax, **kws)
-    
-        
+
+
 def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
     """Plot kernel density estimation (KDE).
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, 2)
@@ -157,188 +155,34 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
     return vis_image.plot2d(density, coords=coords, ax=ax, **kws)
 
 
-def plot2d(
-    X, 
-    kind='hist',
-    rms_ellipse=False, 
-    rms_ellipse_kws=None,
-    ax=None,
-    **kws
-):
-    if kind == 'hist':
-        kws.setdefault('mask', True)
+def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **kws):
+    if kind == "hist":
+        kws.setdefault("mask", True)
     func = None
-    if kind in ['hist', 'contour', 'contourf']:
+    if kind in ["hist", "contour", "contourf"]:
         func = hist
-        if kind in ['contour', 'contourf']:
-            kws['kind'] = kind
-    elif kind == 'scatter':
+        if kind in ["contour", "contourf"]:
+            kws["kind"] = kind
+    elif kind == "scatter":
         func = scatter
-    elif kind == 'kde':
+    elif kind == "kde":
         func = kde
     else:
-        raise ValueError('Invalid plot kind.')
+        raise ValueError("Invalid plot kind.")
     _out = func(X, ax=ax, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
         plot_rms_ellipse(X, ax=ax, **rms_ellipse_kws)
     return _out
-    
-    
-def jointplot():
-    # This will be like seaborn.jointplot (top/right panel axs).
-    raise NotImplementedError
-    
-    
-def corner(
-    X,
-    diag=True,
-    limits=None,
-    labels=None,
-    diag_height_frac=0.6,
-    autolim_kws=None,
-    diag_kws=None,
-    fig_kws=None,
-    return_fig=False,
-    return_mesh=False,
-    prof_edge_only=False,
-    axs=None,
-    modify_limits=True,
-    **kws,
-):
-    """Plot one- and two-dimensional projections in a corner plot.
 
-    Parameters
-    ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
-    diag : bool
-        Whether to include the diagonal subplots in the figure. If False, we get
-        an n-1 x n-1 matrix of subplots instead of an n x n matrix..
-    limits : list[tuple]
-        The (min, max) coordinates for each dimension. This is used to set the
-        axis limits, as well as for data binning if plotting a histogram.
-    labels : list[str]
-        The axis labels.
-    diag_height_frac : float
-        Reduce the height of 1D profiles (diagonal subplots) relative to the
-        y axis height.
-    autolim_kws : dict
-        Key word arguments passed to `autolim`.
-    diag_kws : dict
-        Key word arguments passed to 1D plotting function on diagonal axes.
-    fig_kws : dict
-        Key word arguments passed to `pplt.subplots` such as 'figwidth'.
-        Whether to return `fig` in addition to `axes`.
-    return_mesh : bool
-        Whether to also return a mesh from one of the pcolor plots. This is
-        useful if you want to put a colorbar on the figure later.
-    prof_edge_only : bool
-        If 'profx' and 'profy' are in `kws`, only plot the x profiles on the
-        bottom row and y profiles on the left column of subplots.
-    axs : proplot.gridspec
-        If provided, plot on these axes instead of creating new ones.
-    **plot_kws
-        Key word arguments passed to `plot2d`.
 
-    Returns
-    -------
-    axes : proplot.gridspec
-        Array of subplot axes.
-    Optional:
-        fig : proplot.figure
-            Proplot figure object.
-        mesh : matplotlib.collections.QuadMesh
-            Mesh from the latest call of `pcolormesh`. This is helpful if you want a
-            global colorbar.
-    """
-    n = X.shape[1]
-    if diag_kws is None:
-        diag_kws = dict()
-        
-    diag_kws.setdefault('color', 'black')
-    diag_kws.setdefault('lw', 1.0)
-    diag_kws.setdefault('kind', 'step')
-    kws.setdefault('kind', 'hist')
-
-    if limits is None:
-        if autolim_kws is None:
-            autolim_kws = dict()
-        limits = auto_limits(X, **autolim_kws)
-    if axs is None:
-        if fig_kws is None:
-            fig_kws = dict()
-        fig, axs = vis._setup_corner(n, diag, labels, limits, **fig_kws)
-    else:
-        return_fig = False
-        if modify_limits: 
-            if axs.shape[1] == n:
-                old_limits = [axs[i, i].get_xlim() for i in range(n)]
-            else:
-                old_limits = [axs[-1, i].get_xlim() for i in range(n - 1)] + [axs[-1, 0].get_ylim()]
-            limits = [
-                (min(old_lim[0], lim[0]), max(old_lim[1], lim[1]))
-                for old_lim, lim in zip(old_limits, limits)
-            ]
-            vis._set_corner_limits(axs, limits, diag=(axs.shape[1] == n))
-
-    # Univariate plots. Remember histogram bins and use them for 2D histograms.
-    bins = 'auto'
-    if 'bins' in kws:
-        bins = kws.pop('bins')
-    edges, centers = [], []
-    for i in range(n):
-        heights, _edges = np.histogram(X[:, i], bins, limits[i], density=True)
-        heights = heights / np.max(heights)
-        _centers = centers_from_edges(_edges)
-        edges.append(_edges)
-        centers.append(_centers)
-        if diag:
-            vis.plot1d(_centers, heights, ax=axs[i, i], **diag_kws)
-
-    # Bivariate plots:
-    for i, row in enumerate(range(int(diag), axs.shape[0]), start=1):
-        for j, col in enumerate(range(i)):
-            ax = axs[row, col]
-            axis = (j, i)
-            
-            # If an image plot, determine if we should 
-            # plot the 1D projections.
-            if prof_edge_only and ('profx' in kws or 'profy' in kws):
-                kws['profx'] = row == axs.shape[0] - 1
-                kws['profy'] = col == 0
-                
-            # If plotting a histogram, use the bin edges computed in the
-            # univariate histograms above.
-            if kws['kind'] == 'hist':
-                kws['bins'] = [edges[j], edges[i]]
-
-            plot2d(X[:, axis], ax=ax, **kws)
-
-    # Modify diagonal y axis limits.
-    if diag:
-        for i in range(n):
-            axs[i, i].set_ylim(0, 1.0 / diag_height_frac)
-    # Return items
-    if return_fig:
-        if return_mesh:
-            return fig, axs, mesh
-        return fig, axs
-    return axs
-    
-    
-def slice_matrix():
-    # Slice matrix plot for bunch.
-    raise NotImplementedError
-    
-    
 def plot2d_interactive_slice(
     X,
     limits=None,
     nbins=30,
     default_ind=(0, 1),
-    slice_type='int',
+    slice_type="int",
     dims=None,
     units=None,
     prof_kws=None,
@@ -374,11 +218,11 @@ def plot2d_interactive_slice(
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
-        
+
     # Set default plot arguments.
-    plot_kws.setdefault('kind', 'hist')
-    plot_kws.setdefault('colorbar', True)
-    plot_kws['prof_kws'] = prof_kws
+    plot_kws.setdefault("kind", "hist")
+    plot_kws.setdefault("colorbar", True)
+    plot_kws["prof_kws"] = prof_kws
 
     # Widgets
     nbins_default = nbins
@@ -444,17 +288,17 @@ def plot2d_interactive_slice(
             sliders[k].layout.display = "none"
 
     def update(**kws):
-        dim1 = kws['dim1']
-        dim2 = kws['dim2']
-        nbins = kws['nbins']
-        nbins_plot = kws['nbins_plot']
-        autobin = kws['autobin']
+        dim1 = kws["dim1"]
+        dim2 = kws["dim2"]
+        nbins = kws["nbins"]
+        nbins_plot = kws["nbins_plot"]
+        autobin = kws["autobin"]
         ind, checks = [], []
         for i in range(100):
-            if f'check{i}' in kws:
-                checks.append(kws[f'check{i}'])
-            if f'slider{i}' in kws:
-                _ind = kws[f'slider{i}']
+            if f"check{i}" in kws:
+                checks.append(kws[f"check{i}"])
+            if f"slider{i}" in kws:
+                _ind = kws[f"slider{i}"]
                 if type(_ind) is int:
                     _ind = (_ind, _ind + 1)
                 ind.append(_ind)
@@ -482,16 +326,16 @@ def plot2d_interactive_slice(
             _X = X[:, :]
 
         # Update plotting key word arguments.
-        plot_kws['bins'] = 'auto' if autobin else nbins_plot
-        plot_kws['limits'] = limits
-        plot_kws['norm'] = 'log' if kws['log'] else None
-        
+        plot_kws["bins"] = "auto" if autobin else nbins_plot
+        plot_kws["limits"] = limits
+        plot_kws["norm"] = "log" if kws["log"] else None
+
         # Plot the selecting points.
         fig, ax = pplt.subplots()
-        plot2d(_X[:, axis_view], ax=ax, **plot_kws)        
+        plot2d(_X[:, axis_view], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
-    
+
     kws = dict()
     kws["log"] = log
     kws["autobin"] = autobin
