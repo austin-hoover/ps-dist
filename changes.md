@@ -1,36 +1,43 @@
 # Change Log
 
 
-# [0.1.0] — Unreleased
+# [0.1.0] — 2022-01-17
 
-* Renamed `bunch` &rarr;`discrete`.
-    * Added `discrete.project`: projects points onto an axis.
-    * Added `discrete.slice_contour`: apply contour shell slice to points.
-    * Added `discrete.transform`: applies function to each point.
-    * Added `discrete.gaussian_kde`: Gaussian kernel density estimation.
-    * Renamed `discrete.apply` &rarr; `discrete.linear_transformation`.
-    * Renamed `discrete.slice_box` &rarr; `discrete.slice_planar`.
-    * Fixed `discrete.slice_ellipsoid` and `discrete.slice_sphere`
+* Renamed `bunch` &rarr;`cloud`.
+    * Added `cloud.gaussian_kde`: computes Gaussian kernel density estimation.
+    * Added `cloud.project`: projects onto an axis.
+    * Added `cloud.slice_contour`: applies contour shell slice.
+    * Added `cloud.transform`: applies function to each point.
+    * Renamed `cloud.apply` &rarr; `cloud.linear_transformation`.
+    * Renamed `cloud.slice_box` &rarr; `cloud.slice_planar`.
+    * Fixed `cloud.slice_ellipsoid` and `cloud.slice_sphere`
 * Renamed `plotting` &rarr; `visualization`
-    * Added `visualization.CornerGrid`: constructs corner plot, can plot discrete or image data.
-    * Added `visualization.SliceGrid`: constructs slice matrix grid, can plot discrete or image data.
-    * Added `visualization.discrete`
-        * `visualization.discrete.plot2d`: 2D plot of discrete data; options for scatter, or any options in `image.plot2d`.
-        * `visualization.discrete.plot_rms_ellipse`: compute/plot the 2D RMS ellipse.
-        * `visualization.discrete.corner`: corner plot for discrete data with all options of `plot2d`. (Shortcut to `CornerGrid`.)
-        * `visualization.discrete.slice_matrix`: slice matrix plot for discrete data with all options of `plot2d`. (Shortcut to `SliceGrid`.)
-        * `visualization.image.plot1d_interactive_slice`: 1D projection with interactive slicing.
+    * Added `visualization.CornerGrid`: constructs corner plot, can plot n-dimensional images or clouds.
+    * Added `visualization.SliceGrid`: constructs slice matrix grid, can plot four-dimensional images or clouds. (Only images right now.)
+    * `visualization.cloud`
+        * `visualization.cloud.plot2d`: 2D plot; options for scatter, contour, hist, kde
+        * `visualization.cloud.plot_rms_ellipse`: compute/plot the 2D RMS ellipse.
+        * `visualization.cloud.corner`: corner plot for discrete data with all options of `plot2d`. (Shortcut to `CornerGrid`.)
+        * `visualization.cloud.slice_matrix`: slice matrix plot for discrete data with all options of `plot2d`. (Shortcut to `SliceGrid`. Not working yet.)
         * `visualization.image.plot2d_interactive_slice`: 2D projection with interactive slicing.
-    * Added `visualization.image`
+    * `visualization.image`
         * `visualization.image.plot2d`: 2D image plot; options for pcolor, contour, contourf.
         * `visualization.image.plot_rms_ellipse`: plots RMS ellipse from image.
-        * `visualization.image.plot_profiles`: compute/plot the 2D RMS ellipse.
+        * `visualization.image.plot_profiles`: plot 1D image profiles on top of image.
         * `visualization.image.corner`: corner plot for image data with all options of `plot2d`. (Shortcut to `CornerGrid`.)
         * `visualization.image.slice_matrix`: slice matrix plot for image data with all options of `plot2d`. (Shortcut to `SliceGrid`.)
         * `visualization.image.plot1d_interactive_slice`: 1D projection with interactive slicing.
         * `visualization.image.plot2d_interactive_slice`: 2D projection with interactive slicing.
-    * Renamed `visualization.plot1d` &rarr; `plotting.lineplot`. Added 'linefilled' and 'stepfilled' plot types.
-* Improved `image.sample_grid`: ignore bins with zero probability.
+    * `visualization.plot1d`. Added 'linefilled' and 'stepfilled' plot types.
+* `image`
+    * Renamed `image.make_slice` &rarr; `image.slice_idx`
+    * Renamed `image.make_slice_ellipsoid` &rarr; `image.slice_idx_ellipsoid`
+    * Renamed `image.make_slice_contour` &rarr; `image.slice_idx_contour`
+    * Added `image._slice`, `image._slice_ellipsoid`, `image._slice_contour`. These return a modified array instead of a slice index. 
+    * Improved `image.sample_grid`: ignore bins with zero probability.
+* Made some widgets optional in interactive plots.
+* Standard imports are now `import psdist as ps`, `import psdist.visualization as psv`, `import psdist.image as psi`, or `import psdist.cloud as psc`.
+* Updated example notebooks.
 
 
 ## [0.0.11] - 2023-01-09

@@ -1,10 +1,12 @@
-"""Functions for discrete sets of points."""
+"""Functions for n-dimensional point clouds."""
 import numpy as np
 import scipy.interpolate
 import scipy.stats
 
-from . import ap
-from . import utils
+from psdist import ap
+from psdist.utils import centers_from_edges
+from psdist.utils import cov2corr
+from psdist.utils import random_selection
 
 
 # Analysis
@@ -54,7 +56,7 @@ def corr(X):
     ndarray, shape (n, n)
         The correlation matrix.
     """
-    return utils.cov2corr(np.cov(X.T))
+    return cov2corr(np.cov(X.T))
 
 
 def get_radii(X):
@@ -92,7 +94,7 @@ def enclosing_sphere(X, axis=None, fraction=1.0):
 
 def enclosing_ellipsoid(X, axis=None, fraction=1.0):
     """Scale the rms ellipsoid until it contains some fraction of points.
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, n)
@@ -120,6 +122,7 @@ def enclosing_ellipsoid(X, axis=None, fraction=1.0):
 # Transformation
 # ------------------------------------------------------------------------------
 
+
 def project(X, axis=None):
     """Axis-aligned projection. (Just calls `X[:, axis]`.)
 
@@ -129,7 +132,7 @@ def project(X, axis=None):
         Coordinates of k points in n-dimensional space.
     axis : tuple[int], length l
         The axis on which to project the points.
-        
+
     Returns
     -------
     ndarray, shape (k, l)
@@ -138,13 +141,13 @@ def project(X, axis=None):
     if axis is None:
         axis = tuple(np.arange(X.shape[1]))
     if np.ndim(axis) > 0 and len(axis) > X.shape[1]:
-        raise ValueError('Invalid projection axis.')
+        raise ValueError("Invalid projection axis.")
     return X[:, axis]
 
 
 def transform(X, func=None, **kws):
     """Apply a nonlinear transformation.
-    
+
     This function just calls `np.apply_along_axis`.
 
     Parameters
@@ -156,8 +159,8 @@ def transform(X, func=None, **kws):
         `function(point, **kws)` where `point` is an n-dimensional
         point given by one row of `X`.
     **kws
-        Key word arguments for 
-        
+        Key word arguments for
+
     Returns
     -------
     ndarray, shape (k, n)
@@ -168,7 +171,7 @@ def transform(X, func=None, **kws):
 
 def transform_linear(X, M):
     """Apply a linear transformation.
-    
+
     This function just calls `np.apply_along_axis`.
 
     Parameters
@@ -259,8 +262,8 @@ def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
 
 def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
     """Return points within an ellipsoidal shell slice.
-    
-    The ellipsoid is defined by the covariance matrix of the 
+
+    The ellipsoid is defined by the covariance matrix of the
     distribution.
 
     Parameters
@@ -278,7 +281,7 @@ def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
         Points within the shell.
     """
     if rmax is None:
-        rmax = np.inf                
+        rmax = np.inf
     radii = get_ellipsoid_radii(project(X, axis))
     idx = np.logical_and(rmin < radii, radii < rmax)
     return X[idx, :]
@@ -286,9 +289,9 @@ def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
 
 def slice_contour(X, axis=None, lmin=0.0, lmax=1.0, interp=True, **hist_kws):
     """Return points within a contour shell slice.
-    
+
     The slice is defined by the density contours in the subspace defined by
-    `axis`. 
+    `axis`.
 
     Parameters
     ----------
@@ -297,13 +300,13 @@ def slice_contour(X, axis=None, lmin=0.0, lmax=1.0, interp=True, **hist_kws):
     axis : tuple
         The subspace in which to define the density contours.
     lmin, lmax : list[float]
-        If `f` is the density in the subspace defined by `axis`, then we select 
+        If `f` is the density in the subspace defined by `axis`, then we select
         points where lmin <= f / max(f) <= lmax.
     interp : bool
-        If True, compute the histogram, then interpolate and evaluate the 
+        If True, compute the histogram, then interpolate and evaluate the
         resulting function at each point in `X`. Otherwise we keep track
         of the indices in which each point lands when it is binned,
-        and accept the point if it's bin has a value within fmin and fmax. 
+        and accept the point if it's bin has a value within fmin and fmax.
         The latter is a lot slower.
 
     Returns
@@ -317,13 +320,21 @@ def slice_contour(X, axis=None, lmin=0.0, lmax=1.0, interp=True, **hist_kws):
     centers = [0.5 * (e[:-1] + e[1:]) for e in edges]
     if interp:
         fint = scipy.interpolate.RegularGridInterpolator(
-            centers, hist, method='linear', bounds_error=False, fill_value=0.0,
+            centers,
+            hist,
+            method="linear",
+            bounds_error=False,
+            fill_value=0.0,
         )
         values = fint(_X)
         idx = np.logical_and(lmin <= values, values <= lmax)
     else:
-        valid_indices = np.vstack(np.where(np.logical_and(lmin <= hist, hist <= lmax))).T
-        indices = np.vstack([np.digitize(_X[:, k], edges[k]) for k in range(_X.shape[1])]).T
+        valid_indices = np.vstack(
+            np.where(np.logical_and(lmin <= hist, hist <= lmax))
+        ).T
+        indices = np.vstack(
+            [np.digitize(_X[:, k], edges[k]) for k in range(_X.shape[1])]
+        ).T
         idx = []
         for i in range(len(indices)):
             if indices[i].tolist() in valid_indices.tolist():
@@ -347,7 +358,7 @@ def norm_xxp_yyp_zzp(X, scale_emittance=False):
         Normalized phase space coordinate array.
     """
     if X.shape[1] % 2 != 0:
-        raise ValueError('X must have an even number of columns.')
+        raise ValueError("X must have an even number of columns.")
     Sigma = np.cov(X.T)
     Xn = np.zeros(X.shape)
     for i in range(0, X.shape[1], 2):
@@ -399,12 +410,13 @@ def downsample(X, samples):
         The downsampled coordinate array.
     """
     samples = min(samples, X.shape[0])
-    idx = utils.random_selection(np.arange(X.shape[0]), samples)
+    idx = random_selection(np.arange(X.shape[0]), samples)
     return X[idx, :]
 
 
 # Density estimation
 # ------------------------------------------------------------------------------
+
 
 def histogram_bin_edges(X, bins=10, limits=None):
     """Multi-dimensional histogram bin edges."""
@@ -413,8 +425,7 @@ def histogram_bin_edges(X, bins=10, limits=None):
     if type(limits) is not list:
         limits = X.shape[1] * [limits]
     return [
-        np.histogram_bin_edges(X[:, i], bins[i], limits[i]) 
-        for i in range(X.shape[1])
+        np.histogram_bin_edges(X[:, i], bins[i], limits[i]) for i in range(X.shape[1])
     ]
 
 
@@ -423,23 +434,23 @@ def histogram(X, bins=10, limits=None, centers=False):
     edges = histogram_bin_edges(X, bins=bins, limits=limits)
     hist, edges = np.histogramdd(X, edges)
     if centers:
-        return hist, [utils.centers_from_edges(e) for e in edges]
+        return hist, [centers_from_edges(e) for e in edges]
     else:
         return hist, edges
-    
-    
+
+
 def gaussian_kde(X, **kws):
-    """Gaussian kernel density estimation (KDE). 
-    
+    """Gaussian kernel density estimation (KDE).
+
     This function just calls `scipy.stats.gaussian_kde`.
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, n)
         Coordinates of k points in n-dimensional space.
     **kws
         Key word arguments
-        
+
     Returns
     -------
     estimator : scipy.stats.gaussian_kde

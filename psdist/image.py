@@ -1,16 +1,16 @@
 """Functions for n-dimensional images."""
 import numpy as np
-from tqdm import trange
 from tqdm import tqdm
 from scipy import ndimage
 
-from . import utils
-from .utils import edges_from_centers
-from .utils import centers_from_edges
+from psdist.utils import cov2corr
+from psdist.utils import edges_from_centers
+from psdist.utils import centers_from_edges
 
 
 # Analysis
 # ------------------------------------------------------------------------------
+
 
 def get_grid_coords(*coords):
     """Return list of grid coordinates from coordinate arrays along each axis.
@@ -107,7 +107,9 @@ def mean(f, coords=None):
     """
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
-    return np.array([np.average(C, weights=f) for C in np.meshgrid(*coords, indexing='ij')])
+    return np.array(
+        [np.average(C, weights=f) for C in np.meshgrid(*coords, indexing="ij")]
+    )
 
 
 def cov(f, coords=None):
@@ -180,14 +182,14 @@ def corr(f, coords=None):
     ndarray, shape (n, n)
         The correlation matrix.
     """
-    return utils.cov2corr(cov(f, coords))
-
+    return cov2corr(cov(f, coords))
 
 
 # Transformation
 # ------------------------------------------------------------------------------
 
-def make_slice(n=1, axis=0, ind=0):
+
+def slice_idx(n=1, axis=0, ind=0):
     """Return planar slice index array.
 
     Parameters
@@ -231,7 +233,7 @@ def make_slice(n=1, axis=0, ind=0):
     return tuple(idx)
 
 
-def make_slice_ellipsoid(f, axis=None, rmin=0.0, rmax=1.0):
+def slice_idx_ellipsoid(f, axis=None, rmin=0.0, rmax=1.0):
     """Compute an ellipsoid slice.
 
     Ellipsoid is computed from the covariance matrix of `f`.
@@ -260,7 +262,7 @@ def make_slice_ellipsoid(f, axis=None, rmin=0.0, rmax=1.0):
     raise NotImplementedError
 
 
-def make_slice_contour(f, axis=None, lmin=0.0, lmax=1.0):
+def slice_idx_contour(f, axis=None, lmin=0.0, lmax=1.0):
     """Compute a contour slice.
 
     Parameters
@@ -269,7 +271,7 @@ def make_slice_contour(f, axis=None, lmin=0.0, lmax=1.0):
         An n-dimensional image.
     axis : list[int]
         Specificies the subspace in which the contours are computed. (See
-        `make_slice_ellipsoid`.)
+        `slice_idx_ellipsoid`.)
     lmin, lmax : float
         `f`is projected onto `axis` and the projection `fpr` is normalized to
         the range [0, 1]. Then, we find the points in this subspace such that
@@ -283,6 +285,20 @@ def make_slice_contour(f, axis=None, lmin=0.0, lmax=1.0):
     # Will need to compute an (n-m)-dimensional mask (m = len(axis)), then
     # copy the mask into the remaining dimensions with `copy_into_new_dim`.
     raise NotImplementedError
+
+
+def _slice(f, axis=0, ind=0):
+    idx = slice_idx(f.ndim, axis=axis, ind=ind)
+    return f[idx]
+
+
+def _slice_ellipsoid(f, axis=None, rmin=0.0, rmax=1.0):
+    idx = slice_idx_ellipsoid(f, axis=axis, rmin=rmin, rmax=rmax)
+
+
+def _slice_contour(f, axis=None, lmin=0.0, lmax=1.0):
+    idx = slice_idx_contour(f, axis=axis, lmin=lmin, lmax=lmax)
+    return f[idx]
 
 
 def project(f, axis=0):
@@ -349,7 +365,7 @@ def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None):
     if fpr is None:
         fpr = project(f, axis=axis_proj)
     fpr = fpr / np.max(fpr)
-    idx = make_slice(
+    idx = slice_idx(
         n=f.ndim,
         axis=axis_proj,
         ind=np.where(np.logical_and(fpr >= lmin, fpr <= lmax)),
@@ -384,7 +400,7 @@ def project2d_contour(f, axis=(0, 1), lmin=0.0, lmax=1.0, fpr=None):
     if fpr is None:
         fpr = project(f, axis=axis_proj)
     fpr = fpr / np.max(fpr)
-    idx = make_slice(
+    idx = slice_idx(
         f.ndim, axis_proj, np.where(np.logical_and(fpr >= lmin, fpr <= lmax))
     )
     # `f[idx]` will give a three-dimensional array. Normally we need to sum over
@@ -447,11 +463,11 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
     return None
 
 
-def _normalize(f, norm='volume', pixel_volume=1.0):
+def _normalize(f, norm="volume", pixel_volume=1.0):
     factor = 1.0
-    if norm == 'volume':
+    if norm == "volume":
         factor = np.sum(f) * pixel_volume
-    elif norm == 'max':
+    elif norm == "max":
         factor = np.max(f)
     if factor == 0.0:
         return f
@@ -482,13 +498,15 @@ def _clip(f, lmin=None, lmax=None, frac=False):
 def process(
     f,
     fill_value=None,
-    thresh=None, thresh_type='abs',
-    clip=None, clip_type='abs',
+    thresh=None,
+    thresh_type="abs",
+    clip=None,
+    clip_type="abs",
     norm=None,
     pixel_volume=1.0,
 ):
     """Return processed image.
-    
+
     Parameters
     ----------
     f : ndarray
@@ -512,16 +530,17 @@ def process(
     if fill_value is not None:
         f = np.ma.filled(f, fill_value=fill_value)
     if thresh is not None:
-        f = _threshold(f, thresh, frac=(thresh_type=='frac'))
+        f = _threshold(f, thresh, frac=(thresh_type == "frac"))
     if clip is not None:
-        f = _clip(f, clip[0], clip[1], frac=(clip_type=='frac'))
+        f = _clip(f, clip[0], clip[1], frac=(clip_type == "frac"))
     if norm:
         f = _normalize(f, norm=norm, pixel_volume=pixel_volume)
     return f
 
-            
+
 # Sampling
 # ------------------------------------------------------------------------------
+
 
 def sample_grid(f, coords=None, samples=1):
     """Sample from histogram.
@@ -545,7 +564,7 @@ def sample_grid(f, coords=None, samples=1):
     elif f.ndim == 1:
         coords = [coords]
     edges = [edges_from_centers(c) for c in coords]
-    
+
     idx = np.flatnonzero(f)
     pdf = f.ravel()[idx]
     pdf = pdf / np.sum(pdf)

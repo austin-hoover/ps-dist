@@ -5,10 +5,10 @@ from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
 
-import psdist.discrete
+import psdist.cloud
 import psdist.image
-from . import visualization as vis
-from . import image as vis_image
+import psdist.visualization.visualization as vis
+import psdist.visualization.image as vis_image
 
 
 def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
@@ -98,16 +98,16 @@ def scatter(X, ax=None, samples=None, **kws):
     **kws
         Key word arguments passed to `ax.scatter`.
     """
-    if 'color' in kws:
-        kws['c'] = kws.pop('color')
-    for kw in ['size', 'ms']:
+    if "color" in kws:
+        kws["c"] = kws.pop("color")
+    for kw in ["size", "ms"]:
         if kw in kws:
-            kws['s'] = kws.pop(kw)
+            kws["s"] = kws.pop(kw)
     kws.setdefault("c", "black")
     kws.setdefault("s", 1.0)
     _X = X
     if samples:
-        _X = psdist.discrete.downsample(X, samples)
+        _X = psdist.cloud.downsample(X, samples)
     return ax.scatter(_X[:, 0], _X[:, 1], **kws)
 
 
@@ -126,7 +126,7 @@ def hist(X, ax=None, bins="auto", limits=None, **kws):
     **kws
         Key word arguments passed to `plotting.image`.
     """
-    f, coords = psdist.discrete.histogram(X, bins=bins, limits=limits, centers=True)
+    f, coords = psdist.cloud.histogram(X, bins=bins, limits=limits, centers=True)
     return vis_image.plot2d(f, coords=coords, ax=ax, **kws)
 
 
@@ -155,13 +155,30 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
         lb = np.min(X, axis=0)
         ub = np.max(X, axis=0)
         coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
-    estimator = psdist.discrete.gaussian_kde(X, **kde_kws)
+    estimator = psdist.cloud.gaussian_kde(X, **kde_kws)
     density = estimator.evaluate(psdist.image.get_grid_coords(*coords).T)
     density = np.reshape(density, [len(c) for c in coords])
     return vis_image.plot2d(density, coords=coords, ax=ax, **kws)
 
 
 def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **kws):
+    """Plot
+
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinate array for k points in n-dimensional space.
+    kind : {'hist', 'contour', 'contourf', 'scatter', 'kde'}
+        The kind of plot.
+    rms_ellipse : bool
+        Whether to plot the RMS ellipse.
+    rms_ellipse_kws : dict
+        Key word arguments passed to `visualization.cloud.plot_rms_ellipse`.
+    ax : Axes
+        The axis on which to plot.
+    **kws
+        Key word arguments passed to `visualization.cloud.plot2d`.
+    """
     if kind == "hist":
         kws.setdefault("mask", True)
     func = None
@@ -192,12 +209,12 @@ def corner(
     prof_edge_only=False,
     update_limits=True,
     diag_kws=None,
-    **kws
+    **kws,
 ):
     """Corner plot (scatter plot matrix).
-    
+
     This is a convenience function; see `psdist.visualization.CornerGrid`.
-    
+
     Parameters
     ----------
     X : ndarray, shape (k, n)
@@ -215,7 +232,7 @@ def corner(
         Key word argument passed to `visualization.plot1d`.
     **kws
         Key word arguments pass to `visualization.discrete.plot2d`
-        
+
     Returns
     -------
     psdist.visualization.CornerGrid
@@ -233,17 +250,17 @@ def corner(
         prof_edge_only=prof_edge_only,
         update_limits=update_limits,
         diag_kws=diag_kws,
-        **kws
+        **kws,
     )
     return cgrid
 
 
-def plot2d_interactive_slice(
+def proj2d_interactive_slice(
     X,
     limits=None,
     nbins=30,
     default_ind=(0, 1),
-    slice_type='int',
+    slice_type="int",
     dims=None,
     units=None,
     **plot_kws,
@@ -268,8 +285,8 @@ def plot2d_interactive_slice(
     **plot_kws
         Key word arguments passed to `plot2d`.
     """
-    plot_kws.setdefault('kind', 'hist')
-    
+    plot_kws.setdefault("kind", "hist")
+
     n = X.shape[1]
     if limits is None:
         limits = [(np.min(X[:, i]), np.max(X[:, i])) for i in range(n)]
@@ -285,8 +302,12 @@ def plot2d_interactive_slice(
     nbins_default = nbins
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-    nbins = widgets.IntSlider(min=2, max=100, value=nbins_default, description="grid res")
-    nbins_plot = widgets.IntSlider(min=2, max=200, value=nbins_default, description="plot res")
+    nbins = widgets.IntSlider(
+        min=2, max=100, value=nbins_default, description="grid res"
+    )
+    nbins_plot = widgets.IntSlider(
+        min=2, max=200, value=nbins_default, description="plot res"
+    )
     autobin = widgets.Checkbox(description="auto plot res", value=False)
     log = widgets.Checkbox(description="log", value=False)
     sliders, checks = [], []
@@ -372,18 +393,20 @@ def plot2d_interactive_slice(
             for k in axis_slice:
                 imin, imax = ind[k]
                 if imax > len(edges[k]) - 1:
-                    print(f'{dims[k]} out of range.')
+                    print(f"{dims[k]} out of range.")
                     return
                 width.append(edges[k][imax] - edges[k][imin])
                 center.append(0.5 * (edges[k][imax] + edges[k][imin]))
-            _X = psdist.discrete.slice_planar(X, axis=axis_slice, center=center, width=width)
+            _X = psdist.cloud.slice_planar(
+                X, axis=axis_slice, center=center, width=width
+            )
         else:
             _X = X[:, :]
         if _X.shape[0] == 0:
             return
 
         # Update plotting key word arguments.
-        if plot_kws['kind'] != 'scatter':
+        if plot_kws["kind"] != "scatter":
             plot_kws["bins"] = "auto" if autobin else nbins_plot
             plot_kws["limits"] = limits
             plot_kws["norm"] = "log" if kws["log"] else None

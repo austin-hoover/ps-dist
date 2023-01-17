@@ -7,7 +7,7 @@ import proplot as pplt
 
 import psdist.image
 import psdist.visualization as vis
-from ..utils import edges_from_centers
+from psdist.utils import edges_from_centers
 
 
 def plot_profiles(
@@ -181,12 +181,12 @@ def plot2d(
         kws["colorbar_kw"]["formatter"] = "log"
     if mask or log:
         f = np.ma.masked_less_equal(f, 0)
-        
-    # If there are only zero elements, increase vmax so that the 
+
+    # If there are only zero elements, increase vmax so that the
     # lowest color is plotted.
     if not np.count_nonzero(f):
-        kws['vmin'] = 1.0
-        kws['vmax'] = 1.0
+        kws["vmin"] = 1.0
+        kws["vmax"] = 1.0
 
     # Plot.
     mesh = func(coords[0].T, coords[1].T, f.T, **kws)
@@ -209,8 +209,8 @@ def plot2d(
 def jointplot():
     # This will be like seaborn.jointplot (top/right panel axes).
     raise NotImplementedError
-    
-    
+
+
 def corner(
     f,
     coords=None,
@@ -219,12 +219,12 @@ def corner(
     update_limits=True,
     diag_kws=None,
     grid_kws=None,
-    **kws
+    **kws,
 ):
     """Corner plot (scatter plot matrix).
-    
+
     This is a convenience function; see `psdist.visualization.CornerGrid`.
-    
+
     Parameters
     ----------
     f : ndarray
@@ -244,7 +244,7 @@ def corner(
         Whether to print debugging messages.
     **kws
         Key word arguments pass to `visualization.image.plot2d`
-    
+
     Returns
     -------
     psdist.visualization.CornerGrid
@@ -256,12 +256,12 @@ def corner(
     if labels is not None:
         cgrid.set_labels(labels)
     cgrid.plot_image(
-        f, 
-        coords=coords, 
-        prof_edge_only=prof_edge_only, 
+        f,
+        coords=coords,
+        prof_edge_only=prof_edge_only,
         update_limits=True,
-        diag_kws=diag_kws, 
-        **kws
+        diag_kws=diag_kws,
+        **kws,
     )
     return cgrid
 
@@ -274,12 +274,12 @@ def slice_matrix(
     axis_slice=(2, 3),
     pad=0.0,
     debug=False,
-    **kws
+    **kws,
 ):
     """Slice matrix plot.
-    
+
     This is a convenience function; see `psdist.visualization.SliceGrid`.
-    
+
     Parameters
     ----------
     f : ndarray
@@ -299,7 +299,7 @@ def slice_matrix(
         Whether to print debugging messages.
     **kws
         Key word arguments pass to `visualization.image.plot2d`
-        
+
     Returns
     -------
     psdist.visualization.SliceGrid
@@ -307,13 +307,13 @@ def slice_matrix(
     """
     if grid_kws is None:
         grid_kws = dict()
-    grid_kws.setdefault('space', 0.2)
-    grid_kws.setdefault('annotate_kws_view', dict(color='white'))
-    grid_kws.setdefault('annotate_kws_slice', dict(color='black'))
-    grid_kws.setdefault('xticks', [])
-    grid_kws.setdefault('yticks', [])
-    grid_kws.setdefault('xspineloc', 'neither')
-    grid_kws.setdefault('yspineloc', 'neither')        
+    grid_kws.setdefault("space", 0.2)
+    grid_kws.setdefault("annotate_kws_view", dict(color="white"))
+    grid_kws.setdefault("annotate_kws_slice", dict(color="black"))
+    grid_kws.setdefault("xticks", [])
+    grid_kws.setdefault("yticks", [])
+    grid_kws.setdefault("xspineloc", "neither")
+    grid_kws.setdefault("yspineloc", "neither")
     sgrid = psv.SliceGrid(**grid_kws)
     sgrid.plot_image(
         f,
@@ -331,10 +331,12 @@ def proj2d_interactive_slice(
     f,
     coords=None,
     default_ind=(0, 1),
-    slice_type='int',
+    slice_type="int",
     dims=None,
     units=None,
     cmaps=None,
+    thresh_slider=False,
+    profiles_checkbox=False,
     **plot_kws,
 ):
     """2D partial projection of image with interactive slicing.
@@ -356,9 +358,13 @@ def proj2d_interactive_slice(
         Dimension names and units.
     cmaps : list
         Color map options for dropdown menu.
+    thresh_slider : bool
+        Whether to include a threshold slider.
+    profiles_checkbox : bool
+        Whether to include a profiles checkbox.
     **plot_kws
         Key word arguments for `visualization.image.plot2d`.
-        
+
     Returns
     -------
     ipywidgets.widgets.interaction.interactive
@@ -374,26 +380,28 @@ def proj2d_interactive_slice(
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
-    if cmaps is None:
-        cmaps = ["viridis", "dusk_r", "mono_r", "plasma"]
     plot_kws.setdefault("colorbar", True)
-    plot_kws['process_kws'] = dict(thresh_type='frac')
+    plot_kws["process_kws"] = dict(thresh_type="frac")
 
     # Widgets
-    cmap = widgets.Dropdown(options=cmaps, description="cmap")
-    thresh_checkbox = widgets.Checkbox(value=True, description="thresh")
-    thresh = widgets.FloatSlider(
-        value=-3.3,
-        min=-8.0,
-        max=0.0,
-        step=0.1,
-        description="thresh (log)",
-        continuous_update=True,
-    )
+    cmap = None
+    if cmaps is not None:
+        cmap = widgets.Dropdown(options=cmaps, description="cmap")
+    if thresh_slider:
+        thresh_slider = widgets.FloatSlider(
+            value=-3.3,
+            min=-8.0,
+            max=0.0,
+            step=0.1,
+            description="thresh (log)",
+            continuous_update=True,
+        )
     discrete = widgets.Checkbox(value=False, description="discrete")
     log = widgets.Checkbox(value=False, description="log")
-    contour = widgets.Checkbox(value=False, description="contour")
-    profiles = widgets.Checkbox(value=False, description="profiles")
+    if profiles_checkbox:
+        _profiles_checkbox = widgets.Checkbox(value=False, description="profiles")
+    else:
+        _profiles_checkbox = None
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
 
@@ -438,11 +446,9 @@ def proj2d_interactive_slice(
             # Make sliders respond to check boxes.
             if not checks[k].value:
                 sliders[k].layout.display = "none"
-        # Hide other sliders based on checkboxes.
-        thresh.layout.display = None if thresh_checkbox.value else "none"
 
     # Update the slider list automatically.
-    for element in (dim1, dim2, *checks, thresh_checkbox):
+    for element in (dim1, dim2, *checks):
         element.observe(hide, names="value")
     # Initial hide
     for k in range(n):
@@ -472,14 +478,19 @@ def proj2d_interactive_slice(
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        idx = psdist.image.make_slice(f.ndim, axis_slice, ind)
+        idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
         _f = psdist.image.project(f[idx], axis_view)
         # Update plotting key word arguments.
-        plot_kws["cmap"] = kws["cmap"]
+        if "cmap" in kws:
+            plot_kws["cmap"] = kws["cmap"]
+        if "profiles_checkbox" in kws:
+            plot_kws["profx"] = plot_kws["profy"] = kws["profiles_checkbox"]
         plot_kws["norm"] = "log" if kws["log"] else None
-        plot_kws["profx"] = plot_kws["profy"] = kws["profiles"]
         plot_kws["process_kws"]["fill_value"] = 0
-        plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh"] if kws["thresh_checkbox"] else None
+        if "thresh_slider" in kws:
+            plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh_slider"]
+        else:
+            plot_kws["process_kws"]["thresh"] = None
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
         ax = plot2d(
@@ -489,15 +500,16 @@ def proj2d_interactive_slice(
         plt.show()
 
     # Pass key word arguments for `update`.
-    kws = {
-        "cmap": cmap,
-        "log": log,
-        "profiles": profiles,
-        "thresh_checkbox": thresh_checkbox,
-        "thresh": thresh,
-        "dim1": dim1,
-        "dim2": dim2,
-    }
+    kws = dict()
+    if cmap is not None:
+        kws["cmap"] = cmap
+    if profiles_checkbox:
+        kws["profiles_checkbox"] = _profiles_checkbox
+    kws["log"] = log
+    kws["dim1"] = dim1
+    kws["dim2"] = dim2
+    if thresh_slider:
+        kws["thresh_slider"] = thresh_slider
     for i, check in enumerate(checks, start=1):
         kws[f"check{i}"] = check
     for i, slider in enumerate(sliders, start=1):
@@ -509,7 +521,7 @@ def proj1d_interactive_slice(
     f,
     coords=None,
     default_ind=0,
-    slice_type='int',
+    slice_type="int",
     dims=None,
     units=None,
     fig_kws=None,
@@ -629,7 +641,7 @@ def proj1d_interactive_slice(
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        idx = psdist.image.make_slice(f.ndim, axis_slice, ind)
+        idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
         profile = psdist.image.project(f[idx], axis_view)
         if np.max(profile) > 0:
             profile = profile / np.sum(profile)

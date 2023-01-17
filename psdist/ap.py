@@ -6,12 +6,12 @@ import numpy as np
 # --------------------------------------------------------------------------------
 def twiss_2x2(sigma):
     """RMS Twiss parameters from 2 x 2 covariance matrix.
-    
+
     Parameters
     ----------
     sigma : ndaray, shape (2, 2)
         The covariance matrix for position u and momentum u' [[<uu>, <uu'>], [<uu'>, <u'u'>]].
-        
+
     Returns
     -------
     alpha : float
@@ -27,12 +27,12 @@ def twiss_2x2(sigma):
 
 def emittance_2x2(sigma):
     """RMS emittance from u-u' covariance matrix.
-    
+
     Parameters
     ----------
     sigma : ndaray, shape (2, 2)
         The covariance matrix for position u and momentum u' [[<uu>, <uu'>], [<uu'>, <u'u'>]].
-        
+
     Returns
     -------
     float
@@ -43,12 +43,12 @@ def emittance_2x2(sigma):
 
 def apparent_emittance(Sigma):
     """RMS apparent emittances from 2n x 2n covariance matrix.
-    
+
     Parameters
     ----------
     Sigma : ndarray, shape (2n, 2n)
         A covariance matrix. (Dimensions ordered {x, x', y, y', ...}.)
-    
+
     Returns
     -------
     eps_x, eps_y, eps_z, ... : float
@@ -64,12 +64,12 @@ def apparent_emittance(Sigma):
 
 def twiss(Sigma):
     """RMS Twiss parameters from 2n x 2n covariance matrix.
-    
+
     Parameters
     ----------
     Sigma : ndarray, shape (2n, 2n)
         A covariance matrix. (Dimensions ordered {x, x', y, y', ...}.)
-    
+
     Returns
     -------
     alpha_x, beta_x, alpha_y, beta_y, alpha_z, beta_z, ... : float
@@ -97,12 +97,12 @@ def rotation_matrix_4x4(angle):
 
 def phase_adv_matrix(*phase_advances):
     """Phase advance matrix (clockwise rotation in each phase plane).
-    
+
     Parameters
     ---------
     mu1, mu2, ..., mun : float
         The phase advance in each plane.
-    
+
     Returns
     -------
     ndarray, shape (2n, 2n)
@@ -118,14 +118,14 @@ def phase_adv_matrix(*phase_advances):
 
 def norm_matrix_2x2(alpha, beta):
     """2 x 2 normalization matrix for u-u'.
-    
+
     Parameters
     ----------
     alpha : float
         The alpha parameter.
     beta : float
         The beta parameter.
-    
+
     Returns
     -------
     V : ndarray, shape (2, 2)
@@ -136,12 +136,12 @@ def norm_matrix_2x2(alpha, beta):
 
 def norm_matrix(*twiss_params):
     """2n x 2n block-diagonal normalization matrix from Twiss parameters.
-        
+
     Parameters
     ----------
     alpha_x, beta_x, alpha_y, beta_y, alpha_z, beta_z, ... : float
         Twiss parameters for each dimension.
-        
+
     Returns
     -------
     V : ndarray, shape (2n, 2n)
@@ -157,7 +157,6 @@ def norm_matrix(*twiss_params):
 
 # Generalized (coupled) parameterizations
 # --------------------------------------------------------------------------------
-
 
 
 # Other
