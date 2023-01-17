@@ -7,7 +7,6 @@ import proplot as pplt
 
 import psdist.discrete
 import psdist.image
-
 from . import visualization as vis
 from . import image as vis_image
 
@@ -85,23 +84,31 @@ def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
     return vis.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
 
-def scatter(X, ax=None, **kws):
+def scatter(X, ax=None, samples=None, **kws):
     """Convenience function for 2D scatter plot.
 
     Parameters
     ----------
     X : ndarray, shape (k, n)
         Coordinate array for k points in n-dimensional space.
-    axis : 2-tuple of int
-        The dimensions to plot.
     ax : Axes
         The axis on which to plot.
+    samples : int
+        Plot this many random samples.
     **kws
         Key word arguments passed to `ax.scatter`.
     """
+    if 'color' in kws:
+        kws['c'] = kws.pop('color')
+    for kw in ['size', 'ms']:
+        if kw in kws:
+            kws['s'] = kws.pop(kw)
     kws.setdefault("c", "black")
     kws.setdefault("s", 1.0)
-    return ax.scatter(X[:, 0], X[:, 1], **kws)
+    _X = X
+    if samples:
+        _X = psdist.discrete.downsample(X, samples)
+    return ax.scatter(_X[:, 0], _X[:, 1], **kws)
 
 
 def hist(X, ax=None, bins="auto", limits=None, **kws):
@@ -236,10 +243,9 @@ def plot2d_interactive_slice(
     limits=None,
     nbins=30,
     default_ind=(0, 1),
-    slice_type="int",
+    slice_type='int',
     dims=None,
     units=None,
-    prof_kws=None,
     **plot_kws,
 ):
     """2D partial projection of bunch with interactive slicing.
@@ -262,6 +268,8 @@ def plot2d_interactive_slice(
     **plot_kws
         Key word arguments passed to `plot2d`.
     """
+    plot_kws.setdefault('kind', 'hist')
+    
     n = X.shape[1]
     if limits is None:
         limits = [(np.min(X[:, i]), np.max(X[:, i])) for i in range(n)]
@@ -272,11 +280,6 @@ def plot2d_interactive_slice(
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
-
-    # Set default plot arguments.
-    plot_kws.setdefault("kind", "hist")
-    plot_kws.setdefault("colorbar", True)
-    plot_kws["prof_kws"] = prof_kws
 
     # Widgets
     nbins_default = nbins
@@ -380,11 +383,12 @@ def plot2d_interactive_slice(
             return
 
         # Update plotting key word arguments.
-        plot_kws["bins"] = "auto" if autobin else nbins_plot
-        plot_kws["limits"] = limits
-        plot_kws["norm"] = "log" if kws["log"] else None
+        if plot_kws['kind'] != 'scatter':
+            plot_kws["bins"] = "auto" if autobin else nbins_plot
+            plot_kws["limits"] = limits
+            plot_kws["norm"] = "log" if kws["log"] else None
 
-        # Plot the selecting points.
+        # Plot the selected points.
         fig, ax = pplt.subplots()
         plot2d(_X[:, axis_view], ax=ax, **plot_kws)
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
