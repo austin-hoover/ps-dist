@@ -450,12 +450,11 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
 def _normalize(f, norm='volume', pixel_volume=1.0):
     factor = 1.0
     if norm == 'volume':
-        if pixel_volume == 1.0:
-            factor = np.sum(f)
-        else:
-            factor = np.sum(f * pixel_volume)
+        factor = np.sum(f) * pixel_volume
     elif norm == 'max':
         factor = np.max(f)
+    if factor == 0.0:
+        return f
     return f / factor
 
 
@@ -510,11 +509,11 @@ def process(
     pixel_volume : float
         Needed if normalizing by volume.
     """
-    if fill_value:
+    if fill_value is not None:
         f = np.ma.filled(f, fill_value=fill_value)
-    if thresh:
+    if thresh is not None:
         f = _threshold(f, thresh, frac=(thresh_type=='frac'))
-    if clip:
+    if clip is not None:
         f = _clip(f, clip[0], clip[1], frac=(clip_type=='frac'))
     if norm:
         f = _normalize(f, norm=norm, pixel_volume=pixel_volume)

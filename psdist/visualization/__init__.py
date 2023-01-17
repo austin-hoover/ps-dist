@@ -1,3 +1,3 @@
-from . import discrete
-from . import image
-from .visualization import *
+import psdist.visualization.discrete
+import psdist.visualization.image
+from psdist.visualization.visualization import *

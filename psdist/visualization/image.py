@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
 
-from .. import image as psi
-from . import visualization as vis
+import psdist.image
+import psdist.visualization as vis
 from ..utils import edges_from_centers
 
 
@@ -50,7 +50,7 @@ def plot_profiles(
     edges = [edges_from_centers(c) for c in coords]
     for axis, proceed in enumerate([profx, profy]):
         if proceed:
-            profile = psi.project(f, axis=axis)
+            profile = psdist.image.project(f, axis=axis)
             # Scale
             profile_max = np.max(profile)
             if profile_max > 0.0:
@@ -88,8 +88,8 @@ def plot_rms_ellipse(
     """
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
-    center = psi.mean(f, coords) if center_at_mean else (0.0, 0.0)
-    Sigma = psi.cov(f, coords)
+    center = psdist.image.mean(f, coords) if center_at_mean else (0.0, 0.0)
+    Sigma = psdist.image.cov(f, coords)
     return vis.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
 
@@ -157,6 +157,7 @@ def plot2d(
         kws.setdefault("ec", "None")
         kws.setdefault("linewidth", 0.0)
         kws.setdefault("rasterized", True)
+        kws.setdefault("shading", "auto")
     elif kind == "contour":
         func = ax.contour
     elif kind == "contourf":
@@ -168,7 +169,7 @@ def plot2d(
 
     # Process the image.
     f = f.copy()
-    f = psi.process(f, **process_kws)
+    f = psdist.image.process(f, **process_kws)
     if offset is not None:
         if np.count_nonzero(f):
             offset = offset * np.min(f[f > 0])
@@ -207,6 +208,7 @@ def jointplot():
 def corner(
     f,
     coords=None,
+    labels=None,
     prof_edge_only=False,
     update_limits=True,
     diag_kws=None,
@@ -215,9 +217,38 @@ def corner(
 ):
     """Corner plot (scatter plot matrix).
     
-    This is a convenience function; see `psdist.visualization.Corner`.
+    This is a convenience function; see `psdist.visualization.CornerGrid`.
+    
+    Parameters
+    ----------
+    f : ndarray
+        An n-dimensional image.
+    coords : list[ndarray]
+        Coordinates along each axis of the grid (if `data` is an image).
+    labels : list[str], length n
+        Label for each dimension.
+    axis_view, axis_slice : 2-tuple of int
+        The axis to view (plot) and to slice.
+    pad : int, float, list
+        This determines the start/stop indices along the sliced dimensions. If
+        0, space the indices along axis `i` uniformly between 0 and `f.shape[i]`.
+        Otherwise, add a padding equal to `int(pad[i] * f.shape[i])`. So, if
+        the shape=10 and pad=0.1, we would start from 1 and end at 9.
+    debug : bool
+        Whether to print debugging messages.
+    **kws
+        Key word arguments pass to `visualization.image.plot2d`
+    
+    Returns
+    -------
+    psdist.visualization.CornerGrid
+        The `CornerGrid` on which the plot was drawn.
     """
+    if grid_kws is None:
+        grid_kws = dict()
     cgrid = vis.CornerGrid(n=f.ndim, **grid_kws)
+    if labels is not None:
+        cgrid.set_labels(labels)
     cgrid.plot_image(
         f, 
         coords=coords, 
@@ -231,289 +262,73 @@ def corner(
 
 def slice_matrix(
     f,
-    axis_view=None,
-    axis_slice=None,
-    nrows=9,
-    ncols=9,
     coords=None,
-    dims=None,
-    space=0.1,
-    gap=2.0,
+    labels=None,
+    axis_view=(0, 1),
+    axis_slice=(2, 3),
     pad=0.0,
-    fig_kws=None,
-    plot_marginals=True,
-    plot_kws_marginal_only=None,
-    return_indices=False,
-    annotate=True,
-    label_height=0.22,
     debug=False,
-    **plot_kws,
+    **kws
 ):
-    """Matrix of 2D projections as two other dimensions are sliced.
-
-    In the following, assume `axis_slice`=(0, 1) and `axis_view=(2, 3)`:
-
-    First, `f` is projected onto the (0, 1, 2, 3) axes. The remaining 4D
-    array is sliced using `ncols` evenly spaced indices along axis 0 and
-    `nrows` evenly spaced indices along axis 1. The resulting array has shape
-    (`ncols`, `nrows`, `f.shape[2]`, `f.shape[3]`). For i in range(`ncols`) and
-    j in range(`nrows`), we plot the 2D image `f[i, j, :, :]`. This is done in
-    a matrix of subplots in the upper-left panel.
-
-    Second, 2D slices of the 3D array obtained by summing `f` along axis 0 are
-    plotted in the upper-right panel.
-
-    Third, 2D slices of the 3D array obtained by summing `f` along axis 1 are
-    plotted in the lower-left panel.
-
-    Fourth, `f` is projected onto axis (2, 3) and plotted in the lower-right p
-    panel.
-
+    """Slice matrix plot.
+    
+    This is a convenience function; see `psdist.visualization.SliceGrid`.
+    
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image (n >= 4).
-    axis_view : 2-tuple of int
-        The dimensions to plot.
-    axis_slice : 2-tuple of int
-        The dimensions to slice.
-    nrows, ncols : int
-        The number of slices along each axis in `axis_slice`.
+        An n-dimensional image.
     coords : list[ndarray]
         Coordinates along each axis of the grid (if `data` is an image).
-    dims : list[str]
-        Labels for each dimension.
-    space : float
-        Spacing between subplots.
-    gap : float
-        Gap between major panels.
+    labels : list[str], length n
+        Label for each dimension.
+    axis_view, axis_slice : 2-tuple of int
+        The axis to view (plot) and to slice.
     pad : int, float, list
         This determines the start/stop indices along the sliced dimensions. If
         0, space the indices along axis `i` uniformly between 0 and `f.shape[i]`.
         Otherwise, add a padding equal to `int(pad[i] * f.shape[i])`. So, if
         the shape=10 and pad=0.1, we would start from 1 and end at 9.
-    fig_kws : dict
-        Key word arguments for `pplt.subplots`.
-    plot_marginals : bool
-        Whether to plot the 3D and 2D marginal distributions.
-    plot_kws_marginal_only : dict
-        Key word arguments for the lower-left and upper-right panels, which
-        plot the 3D marginal distributions.
-    return_indices : bool
-        Whether to return the slice indices.
-    annotate : bool
-        Whether to add dimension labels/arrows to the figure.
-    label_height : float
-        Tweaks the position of the slice dimension labels.
     debug : bool
         Whether to print debugging messages.
-    **plot_kws
-        Key word arguments for `image`.
-
+    **kws
+        Key word arguments pass to `visualization.image.plot2d`
+        
     Returns
     -------
-    axes : Axes
-        The plot axes.
-    ind_slice : 2-tuple of lists (optional)
-        The slice indices along `axis_slice`. Returned if `return_indices` is True.
+    psdist.visualization.SliceGrid
+        The `SliceGrid` on which the plot was drawn.
     """
-    # Setup
-    # -------------------------------------------------------------------------
-    if f.ndim < 4:
-        raise ValueError("f.ndim < 4")
-    if axis_view is None:
-        axis_view = (0, 1)
-    if axis_slice is None:
-        axis_slice = (2, 3)
-    if coords is None:
-        coords = [np.arange(s) for s in f.shape]
-
-    # Compute 4D projection.
-    _f = psi.project(f, axis_view + axis_slice)
-    _f = _f / np.max(_f)
-    # Compute 3D projections.
-    _fx = psi.project(f, axis_view + axis_slice[:1])
-    _fy = psi.project(f, axis_view + axis_slice[1:])
-    # Compute 2D projection.
-    _fxy = psi.project(f, axis_view)
-    # Compute new coordinates.
-    _coords = [coords[i] for i in axis_view + axis_slice]
-    # Compute new dims.
-    _dims = None
-    if dims is not None:
-        _dims = [dims[i] for i in axis_view + axis_slice]
-
-    # Select slice indices.
-    if type(pad) in [float, int]:
-        pad = len(axis_slice) * [pad]
-    ind_slice = []
-    for i, n, _pad in zip(axis_slice, [nrows, ncols], pad):
-        s = f.shape[i]
-        _pad = int(_pad * s)
-        ii = np.linspace(_pad, s - 1 - _pad, n).astype(int)
-        ind_slice.append(ii)
-    ind_slice = tuple(ind_slice)
-
-    if debug:
-        print("Slice indices:")
-        for ind in ind_slice:
-            print(ind)
-
-    # Slice _f. The axes order was already handled by `project`, so the
-    # first two axes are the view axes and the last two axes are the
-    # slice axes.
-    axis_view = (0, 1)
-    axis_slice = (2, 3)
-    idx = 4 * [slice(None)]
-    for axis, ind in zip(axis_slice, ind_slice):
-        idx[axis] = ind
-        _f = _f[tuple(idx)]
-        idx[axis] = slice(None)
-
-    # Slice _fx and _fy.
-    _fx = _fx[:, :, ind_slice[0]]
-    _fy = _fy[:, :, ind_slice[1]]
-
-    # Select new coordinates.
-    for i, ind in zip(axis_slice, ind_slice):
-        _coords[i] = _coords[i][ind]
-
-    # Renormalize all distributions.
-    _f = _f / np.max(_f)
-    _fx = _fx / np.max(_fx)
-    _fy = _fy / np.max(_fy)
-    _fxy = _fxy / np.max(_fxy)
-
-    if debug:
-        print("_f.shape =", _f.shape)
-        print("_fx.shape =", _fx.shape)
-        print("_fy.shape =", _fy.shape)
-        print("_fxy.shape =", _fxy.shape)
-        for i in range(_f.ndim):
-            assert _f.shape[i] == len(_coords[i])
-
-    # Plotting
-    # -------------------------------------------------------------------------
-    if plot_kws_marginal_only is None:
-        plot_kws_marginal_only = dict()
-    for key in plot_kws:
-        plot_kws_marginal_only.setdefault(key, plot_kws[key])
-    if fig_kws is None:
-        fig_kws = dict()
-    fig_kws.setdefault("figwidth", ncols * (8.5 / 13.0))
-    fig_kws.setdefault("share", False)
-    fig_kws.setdefault("xticks", [])
-    fig_kws.setdefault("yticks", [])
-    fig_kws.setdefault("xspineloc", "neither")
-    fig_kws.setdefault("yspineloc", "neither")
-
-    # Create the figure.
-    hspace = nrows * [space]
-    wspace = ncols * [space]
-    if plot_marginals:
-        hspace[-1] = wspace[-1] = gap
-    else:
-        hspace = hspace[:-1]
-        wspace = wspace[:-1]
-    fig, axes = pplt.subplots(
-        ncols=(ncols + 1 if plot_marginals else ncols),
-        nrows=(nrows + 1 if plot_marginals else nrows),
-        hspace=hspace,
-        wspace=wspace,
-        **fig_kws,
+    if grid_kws is None:
+        grid_kws = dict()
+    grid_kws.setdefault('space', 0.2)
+    grid_kws.setdefault('annotate_kws_view', dict(color='white'))
+    grid_kws.setdefault('annotate_kws_slice', dict(color='black'))
+    grid_kws.setdefault('xticks', [])
+    grid_kws.setdefault('yticks', [])
+    grid_kws.setdefault('xspineloc', 'neither')
+    grid_kws.setdefault('yspineloc', 'neither')        
+    sgrid = psv.SliceGrid(**grid_kws)
+    sgrid.plot_image(
+        f,
+        coords=None,
+        labels=None,
+        axis_view=(0, 1),
+        axis_slice=(2, 3),
+        pad=0.0,
+        debug=False,
     )
-
-    # Plot the projections:
-    for i in range(nrows):
-        for j in range(ncols):
-            ax = axes[nrows - 1 - i, j]
-            idx = psi.make_slice(_f.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)])
-            ax = plot2d(
-                psi.project(_f[idx], axis_view),
-                coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-                ax=ax,
-                **plot_kws,
-            )
-    if plot_marginals:
-        for i, ax in enumerate(reversed(axes[:-1, -1])):
-            ax = plot2d(
-                _fy[:, :, i],
-                coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-                ax=ax,
-                **plot_kws_marginal_only,
-            )
-        for i, ax in enumerate(axes[-1, :-1]):
-            ax = plot2d(
-                _fx[:, :, i],
-                [_coords[axis_view[0]], _coords[axis_view[1]]],
-                ax=ax,
-                **plot_kws_marginal_only,
-            )
-        ax = plot2d(
-            _fxy,
-            [_coords[axis_view[0]], _coords[axis_view[1]]],
-            ax=axes[-1, -1],
-            **plot_kws_marginal_only,
-        )
-
-    # Add labels:
-    if annotate and dims is not None:
-        # Label the view dimensions.
-        annotate_kws = dict(
-            color="white",
-            xycoords="axes fraction",
-            horizontalalignment="center",
-            verticalalignment="center",
-        )
-        for i, xy in enumerate([(0.5, 0.13), (0.12, 0.5)]):
-            axes[0, 0].annotate(_dims[axis_view[i]], xy=xy, **annotate_kws)
-
-        # Label the slice dimensions. Print dimension labels with arrows like this:
-        # "<----- x ----->" on the bottom and right side of the main panel.
-        arrow_length = 2.5  # arrow length
-        text_length = 0.15  # controls space between dimension label and start of arrow
-        annotate_kws = dict(
-            xycoords="axes fraction",
-            horizontalalignment="center",
-            verticalalignment="center",
-        )
-        ilast = -2 if plot_marginals else -1  # index of last ax in main panel
-        anchors = (axes[ilast, ncols // 2], axes[nrows // 2, ilast])
-        anchors[0].annotate(
-            _dims[axis_slice[0]], xy=(0.5, -label_height), **annotate_kws
-        )
-        anchors[1].annotate(
-            _dims[axis_slice[1]], xy=(1.0 + label_height, 0.5), **annotate_kws
-        )
-        annotate_kws["arrowprops"] = dict(arrowstyle="->", color="black")
-        for arrow_direction in (1.0, -1.0):
-            anchors[0].annotate(
-                "",
-                xy=(0.5 + arrow_direction * arrow_length, -label_height),
-                xytext=(0.5 + arrow_direction * text_length, -label_height),
-                **annotate_kws,
-            )
-            anchors[1].annotate(
-                "",
-                xy=(1.0 + label_height, 0.5 + arrow_direction * arrow_length),
-                xytext=(1.0 + label_height, 0.5 + arrow_direction * text_length),
-                **annotate_kws,
-            )
-    if return_indices:
-        return axes, ind_slice
-    return axes
+    return sgrid
 
 
 def proj2d_interactive_slice(
     f,
     coords=None,
     default_ind=(0, 1),
-    slice_type="int",  # {'int', 'range'}
+    slice_type='int',
     dims=None,
     units=None,
-    prof_kws=None,
     cmaps=None,
-    frac_thresh=None,
     **plot_kws,
 ):
     """2D partial projection of image with interactive slicing.
@@ -533,11 +348,11 @@ def proj2d_interactive_slice(
         Whether to slice one index along the axis or a range of indices.
     dims, units : list[str], shape (n,)
         Dimension names and units.
-    prof_kws : dict
-        Key word arguments for 1D profile plots.
     cmaps : list
         Color map options for dropdown menu.
-
+    **plot_kws
+        Key word arguments for `visualization.image.plot2d`.
+        
     Returns
     -------
     ipywidgets.widgets.interaction.interactive
@@ -553,17 +368,10 @@ def proj2d_interactive_slice(
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
-    if prof_kws is None:
-        prof_kws = dict()
-    prof_kws.setdefault("lw", 1.0)
-    prof_kws.setdefault("alpha", 0.5)
-    prof_kws.setdefault("color", "white")
-    prof_kws.setdefault("scale", 0.14)
     if cmaps is None:
         cmaps = ["viridis", "dusk_r", "mono_r", "plasma"]
     plot_kws.setdefault("colorbar", True)
-    plot_kws["prof_kws"] = prof_kws
-    plot_kws["thresh_type"] = "frac"
+    plot_kws['process_kws'] = dict(thresh_type='frac')
 
     # Widgets
     cmap = widgets.Dropdown(options=cmaps, description="cmap")
@@ -658,14 +466,14 @@ def proj2d_interactive_slice(
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        idx = psi.make_slice(f.ndim, axis_slice, ind)
-        _f = psi.project(f[idx], axis_view)
+        idx = psdist.image.make_slice(f.ndim, axis_slice, ind)
+        _f = psdist.image.project(f[idx], axis_view)
         # Update plotting key word arguments.
         plot_kws["cmap"] = kws["cmap"]
-        plot_kws["fill_value"] = 0
         plot_kws["norm"] = "log" if kws["log"] else None
         plot_kws["profx"] = plot_kws["profy"] = kws["profiles"]
-        plot_kws["thresh"] = (10.0 ** kws["thresh"]) if kws["thresh_checkbox"] else None
+        plot_kws["process_kws"]["fill_value"] = 0
+        plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh"] if kws["thresh_checkbox"] else None
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
         ax = plot2d(
@@ -695,14 +503,13 @@ def proj1d_interactive_slice(
     f,
     coords=None,
     default_ind=0,
-    slice_type="int",  # {'int', 'range'}
+    slice_type='int',
     dims=None,
     units=None,
-    kind="bar",
     fig_kws=None,
     **plot_kws,
 ):
-    """2D partial projection of image interactive slicing.
+    """1D partial projection of n-dimensional image with interactive slicing.
 
     Parameters
     ----------
@@ -738,10 +545,11 @@ def proj1d_interactive_slice(
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
-    plot_kws.setdefault("color", "black")
     if fig_kws is None:
         fig_kws = dict()
     fig_kws.setdefault("figsize", (4.5, 1.5))
+    plot_kws.setdefault("color", "black")
+    plot_kws.setdefault("kind", "stepfilled")
 
     # Widgets
     dim1 = widgets.Dropdown(options=dims, index=default_ind, description="dim")
@@ -815,19 +623,14 @@ def proj1d_interactive_slice(
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        idx = psi.make_slice(f.ndim, axis_slice, ind)
-        profile = psi.project(f[idx], axis_view)
+        idx = psdist.image.make_slice(f.ndim, axis_slice, ind)
+        profile = psdist.image.project(f[idx], axis_view)
         if np.max(profile) > 0:
             profile = profile / np.sum(profile)
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        if kind == "bar":
-            ax.bar(coords[axis_view], profile, **plot_kws)
-        elif kind == "line":
-            ax.plot(coords[axis_view], profile, **plot_kws)
-        elif kind == "step":
-            ax.plot(coords[axis_view], profile, drawstyle="steps-mid", **plot_kws)
+        vis.plot1d(coords[axis_view], profile, ax=ax, **plot_kws)
         plt.show()
 
     kws = {"dim1": dim1}

@@ -5,9 +5,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
 
-from .. import image as _image
-from .. import discrete as _discrete
-from ..utils import centers_from_edges
+import psdist.discrete
+import psdist.image
 
 from . import visualization as vis
 from . import image as vis_image
@@ -16,7 +15,7 @@ from . import image as vis_image
 def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
     """Determine axis limits from coordinate array.
 
-    Parameters
+    Parametersv
     ----------
     X : ndarray, shape (k, n)
         Coordinate array for k points in n-dimensional space.
@@ -105,7 +104,7 @@ def scatter(X, ax=None, **kws):
     return ax.scatter(X[:, 0], X[:, 1], **kws)
 
 
-def hist(X, bins="auto", limits=None, ax=None, **kws):
+def hist(X, ax=None, bins="auto", limits=None, **kws):
     """Convenience function for 2D histogram with auto-binning.
 
     For more options, I recommend seaborn.histplot.
@@ -120,7 +119,7 @@ def hist(X, bins="auto", limits=None, ax=None, **kws):
     **kws
         Key word arguments passed to `plotting.image`.
     """
-    f, coords = _discrete.histogram(X, bins=bins, limits=limits, centers=True)
+    f, coords = psdist.discrete.histogram(X, bins=bins, limits=limits, centers=True)
     return vis_image.plot2d(f, coords=coords, ax=ax, **kws)
 
 
@@ -149,8 +148,8 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
         lb = np.min(X, axis=0)
         ub = np.max(X, axis=0)
         coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
-    estimator = _discrete.gaussian_kde(X, **kde_kws)
-    density = estimator.evaluate(_image.get_grid_coords(*coords).T)
+    estimator = psdist.discrete.gaussian_kde(X, **kde_kws)
+    density = estimator.evaluate(psdist.image.get_grid_coords(*coords).T)
     density = np.reshape(density, [len(c) for c in coords])
     return vis_image.plot2d(density, coords=coords, ax=ax, **kws)
 
@@ -175,6 +174,61 @@ def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **k
             rms_ellipse_kws = dict()
         plot_rms_ellipse(X, ax=ax, **rms_ellipse_kws)
     return _out
+
+
+def corner(
+    X,
+    grid_kws=None,
+    limits=None,
+    labels=None,
+    autolim_kws=None,
+    prof_edge_only=False,
+    update_limits=True,
+    diag_kws=None,
+    **kws
+):
+    """Corner plot (scatter plot matrix).
+    
+    This is a convenience function; see `psdist.visualization.CornerGrid`.
+    
+    Parameters
+    ----------
+    X : ndarray, shape (k, n)
+        Coordinates of k points in n-dimensional space.
+    limits : list[tuple], length n
+        The (min, max) plot limits for each axis.
+    labels : list[str], length n
+        The axis labels.
+    prof_edge_only : bool
+        If plotting profiles on top of images (on off-diagonal subplots), whether
+        to plot x profiles only in bottom row and y profiles only in left column.
+    update_limits : bool
+        Whether to extend the existing plot limits.
+    diag_kws : dict
+        Key word argument passed to `visualization.plot1d`.
+    **kws
+        Key word arguments pass to `visualization.discrete.plot2d`
+        
+    Returns
+    -------
+    psdist.visualization.CornerGrid
+        The `CornerGrid` on which the plot was drawn.
+    """
+    if grid_kws is None:
+        grid_kws = dict()
+    cgrid = vis.CornerGrid(n=X.shape[1], **grid_kws)
+    if labels is not None:
+        cgrid.set_labels(labels)
+    cgrid.plot_discrete(
+        X,
+        limits=limits,
+        autolim_kws=autolim_kws,
+        prof_edge_only=prof_edge_only,
+        update_limits=update_limits,
+        diag_kws=diag_kws,
+        **kws
+    )
+    return cgrid
 
 
 def plot2d_interactive_slice(
@@ -228,13 +282,9 @@ def plot2d_interactive_slice(
     nbins_default = nbins
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-    nbins = widgets.IntSlider(
-        min=2, max=100, value=nbins_default, description="grid res"
-    )
-    nbins_plot = widgets.IntSlider(
-        min=2, max=200, value=nbins_default, description="plot res"
-    )
-    autobin = widgets.Checkbox(description="auto plot res", value=True)
+    nbins = widgets.IntSlider(min=2, max=100, value=nbins_default, description="grid res")
+    nbins_plot = widgets.IntSlider(min=2, max=200, value=nbins_default, description="plot res")
+    autobin = widgets.Checkbox(description="auto plot res", value=False)
     log = widgets.Checkbox(description="log", value=False)
     sliders, checks = [], []
     for k in range(n):
@@ -303,7 +353,7 @@ def plot2d_interactive_slice(
                     _ind = (_ind, _ind + 1)
                 ind.append(_ind)
 
-        # Return nothing if input does not make sense.
+        # Exit if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
                 return
@@ -316,14 +366,18 @@ def plot2d_interactive_slice(
         edges = [np.linspace(umin, umax, nbins + 1) for (umin, umax) in limits]
         if axis_slice:
             center, width = [], []
-            for _axis in axis_slice:
-                _edges = edges[_axis]
-                imin, imax = ind[_axis]
-                width.append(_edges[imax] - _edges[imin])
-                center.append(0.5 * (_edges[imax] + _edges[imin]))
-            _X = _discrete.slice_planar(X, axis=axis_slice, center=center, width=width)
+            for k in axis_slice:
+                imin, imax = ind[k]
+                if imax > len(edges[k]) - 1:
+                    print(f'{dims[k]} out of range.')
+                    return
+                width.append(edges[k][imax] - edges[k][imin])
+                center.append(0.5 * (edges[k][imax] + edges[k][imin]))
+            _X = psdist.discrete.slice_planar(X, axis=axis_slice, center=center, width=width)
         else:
             _X = X[:, :]
+        if _X.shape[0] == 0:
+            return
 
         # Update plotting key word arguments.
         plot_kws["bins"] = "auto" if autobin else nbins_plot

@@ -1,6 +1,6 @@
-from . import ap
-from . import data
-from . import discrete
-from . import image
-from . import utils
-from . import visualization
+import psdist.ap
+import psdist.data
+import psdist.discrete
+import psdist.image
+import psdist.utils
+import psdist.visualization
