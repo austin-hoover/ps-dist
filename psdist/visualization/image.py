@@ -181,6 +181,12 @@ def plot2d(
         kws["colorbar_kw"]["formatter"] = "log"
     if mask or log:
         f = np.ma.masked_less_equal(f, 0)
+        
+    # If there are only zero elements, increase vmax so that the 
+    # lowest color is plotted.
+    if not np.count_nonzero(f):
+        kws['vmin'] = 1.0
+        kws['vmax'] = 1.0
 
     # Plot.
     mesh = func(coords[0].T, coords[1].T, f.T, **kws)
