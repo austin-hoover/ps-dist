@@ -1,3 +1,5 @@
+import warnings
+
 from ipywidgets import interact
 from ipywidgets import interactive
 from ipywidgets import widgets
@@ -476,7 +478,7 @@ class SliceGrid:
         self.fig_kws = fig_kws
         self.axis_slice = None
         self.axis_view = None
-        self.slice_indices = None
+        self.ind_slice = None
         
         self.annotate_kws_view = annotate_kws_view
         if self.annotate_kws_view is None:
@@ -496,7 +498,7 @@ class SliceGrid:
         self.annotate_kws_slice.setdefault('arrowprops', dict(arrowstyle='->', color='black'))
 
         fig_kws.setdefault('figwidth', 8.5 * (ncols / 13.0))
-        fig_kws.setdefault('share', False)
+        fig_kws.setdefault('share', True)
         fig_kws['ncols'] = ncols + 1 if marginals else ncols
         fig_kws['nrows'] = nrows + 1 if marginals else nrows
         hspace = nrows * [space]
@@ -532,11 +534,8 @@ class SliceGrid:
         # Label the slice dimensions. Print dimension labels with arrows like this:
         # "<----- x ----->" on the bottom and right side of the main panel.
         arrow_length = 2.5  # arrow length
-        text_length = 0.15  # controls space between dimension label and start of arrow
-        
-            
-        # ilast = -2 if self.marginals else -1  # index of last ax in main panel
-        i = -1  - int(self.marginals)
+        text_length = 0.15  # controls space between dimension label and start of arrow            
+        i = -1 - int(self.marginals)
         anchors = (self.axs[i, self.ncols // 2], self.axs[self.nrows // 2, i])
         anchors[0].annotate(labels[2], xy=(0.5, -label_height), **annotate_kws_slice)
         anchors[1].annotate(labels[3], xy=(1.0 + label_height, 0.5), **annotate_kws_slice)
@@ -554,9 +553,9 @@ class SliceGrid:
                 **annotate_kws_slice,
             )
             
-    def get_slice_indices(self):
+    def get_ind_slice(self):
         """Return slice indices from latest plot call."""
-        return self.slice_indices
+        return self.ind_slice
     
     def get_axis_slice(self):
         """Return slice axis from latest plot call."""
@@ -565,6 +564,11 @@ class SliceGrid:
     def get_axis_view(self):
         """Return view axis from latest plot call."""
         return self.axis_view
+    
+    def set_limits(self, limits):
+        """Set the plot limits."""
+        for ax in self.axs:
+            ax.format(xlim=limits[0], ylim=limits[1])
                         
     def plot_image(
         self,
@@ -631,7 +635,7 @@ class SliceGrid:
                 raise ValueError(f"f.shape[{i}] < number of slice indices requested.")
             ind_slice.append(np.linspace(start, stop, steps + 1).astype(int))
         ind_slice = tuple(ind_slice)
-        self.slice_indices = ind_slice
+        self.ind_slice = ind_slice
 
         if debug:
             print('Slice indices:')
@@ -713,3 +717,95 @@ class SliceGrid:
                 ax=self.axs[-1, -1],
                 **kws,
             )
+            
+    def plot_discrete(
+        self,
+        X,
+        labels=None,
+        bins_slice='auto',
+        axis_view=(0, 1),
+        axis_slice=(2, 3),
+        pad=0.0,
+        debug=False,
+        autolim_kws=None,
+        **kws        
+    ):
+        """Plot an n-dimensional point cloud.
+        
+        NOTE: this is not currently working... for the time being, it is recommended
+        to generate a 4D histogram and then call `plot_image`. 
+        
+        Parameters
+        ----------
+        X : ndarray, shape (k, n)
+            Coordinates of k points in n-dimensional space.
+        labels : list[str], length n
+            Label for each dimension.
+        bins_slice : int, list[int], list[ndarray]
+            Specifies the bins used for slicing in `axis_slice`. The bin range
+            is determined by the min/max point in `X`.
+        axis_view, axis_slice : 2-tuple of int
+            The axis to view (plot) and to slice.
+        pad : int, float, list
+            Fractional padding added to the start/stop indices for the bins in the sliced
+            dimensions. 
+        debug : bool
+            Whether to print debugging messages.
+        **kws
+            Key word arguments pass to `visualization.discrete.plot2d`
+        """      
+        warnings.warn("This is not currently working. For the time being, it is recommended to generate a 4D histogram and call `plot_image`.")
+        
+        # Setup
+        # -----------------------------------------------------------------------
+        if X.shape[1] < 4:
+            raise ValueError(f'X.shape[1] = {X.shape[1]} < 4')
+        self.axis_view = axis_view
+        self.axis_slice = axis_slice
+          
+        edges_slice = psdist.discrete.histogram_bin_edges(X[:, axis_slice], bins_slice)
+                 
+        # Select slice indices.
+        if type(pad) in [float, int]:
+            pad = len(axis_slice) * [pad]
+        ind_slice = []
+        for i, (steps, _pad) in enumerate(zip([self.nrows, self.ncols], pad)):
+            start = int(_pad * len(edges_slice[i]))
+            stop = len(edges_slice[i]) - 1 - start
+            if (stop - start) < steps:
+                raise ValueError(f"Too many slices requested.")
+            ind_slice.append(np.linspace(start, stop, steps + 1).astype(int))
+        ind_slice = tuple(ind_slice)
+        self.ind_slice = ind_slice
+        
+        # Slice the bin indices.
+        edges_slice = [e[ind] for e, ind in zip(edges_slice, ind_slice)]
+                
+        # Add dimension labels to the figure.
+        if labels is not None:
+            if self.annotate and labels is not None:
+                self._annotate(
+                    labels=[labels[k] for k in axis_view + axis_slice],
+                    label_height=self.label_height, 
+                    annotate_kws_view=self.annotate_kws_view,
+                    annotate_kws_slice=self.annotate_kws_slice,
+                )
+        
+        # Plotting
+        # -----------------------------------------------------------------------
+        for i in range(self.nrows):
+            for j in range(self.ncols):
+                ax = self.axs[self.nrows - 1 - i, j]
+                _X = psdist.discrete.slice_planar(
+                    X, 
+                    axis=axis_slice,
+                    center=[
+                        0.5 * (edges_slice[0][j] + edges_slice[0][j + 1]),
+                        0.5 * (edges_slice[1][i] + edges_slice[1][i + 1]),
+                    ],
+                    width=[
+                        np.abs(edges_slice[0][j] - edges_slice[1][j + 1]),
+                        np.abs(edges_slice[1][i] - edges_slice[1][i + 1])
+                    ],
+                )
+                psv_discrete.plot2d(_X[:, axis_slice], ax=ax, **kws)
