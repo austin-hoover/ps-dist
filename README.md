@@ -1,5 +1,5 @@
 # psdist
 
-Analysis/visualization of six-dimensional phase space distributions.
+Analysis/visualization of $2n$-dimensional phase space distributions.
 
 https://pypi.org/project/psdist/

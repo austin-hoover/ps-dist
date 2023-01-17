@@ -29,8 +29,8 @@ def random_selection(array, k):
         array = np.array(array)
     if k is None:
         return array
-    if k < 0 or k >= array.shape[0]:
-        raise ValueError('Number of samples must be < number of points.')
+    if k < 0 or k > array.shape[0]:
+        raise ValueError("Number of samples must be < number of points.")
     if 0 < k < 1:
         k = k * array.shape[0]
     idx = np.random.choice(array.shape[0], int(k), replace=False)
