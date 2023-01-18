@@ -123,7 +123,7 @@ def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind="line", **kws):
 class CornerGrid:
     """Grid for corner plots.
 
-    * https://seaborn.pydata.org/generated/seaborn.JointGrid.html
+    * https://seaborn.pydata.org/generated/seaborn.PairGrid.html
     * https://corner.readthedocs.io/en/latest/
     * https://pandas.pydata.org/docs/reference/api/pandas.plotting.scatter_matrix.html
 
@@ -404,11 +404,61 @@ class CornerGrid:
 
 
 class JointGrid:
-    """Grid for joint plots."""
-
-    def __init__(self):
-        return NotImplementedError
-
+    """Grid for joint plots."""    
+    def __init__(
+        self, 
+        panel_kws=None, 
+        panel_fmt_kws_x=None, 
+        panel_fmt_kws_y=None,
+        **fig_kws
+    ):
+        self.fig, self.ax = pplt.subplots(**fig_kws)
+        
+        if panel_kws is None:
+            panel_kws = dict()
+        panel_kws.setdefault('space', 0.0)
+        self.ax_panel_x = self.ax.panel('t', **panel_kws)
+        self.ax_panel_y = self.ax.panel('r', **panel_kws)
+        self.panel_axs = [self.ax_panel_x, self.ax_panel_y]
+        if panel_fmt_kws_x is None:
+            panel_fmt_kws_x = dict()
+        if panel_fmt_kws_y is None:
+            panel_fmt_kws_y = dict()
+        panel_fmt_kws = [panel_fmt_kws_x, panel_fmt_kws_y]
+        for i, key in enumerate(['ylim', 'xlim']):
+            panel_fmt_kws[i].setdefault(key, (0.0, 1.1))
+        for ax, kws in zip(self.panel_axs, panel_fmt_kws):
+            kws.setdefault('xspineloc', 'neither')
+            kws.setdefault('yspineloc', 'neither')
+            ax.format(**kws)  
+            
+    def plot_image(self, f, coords=None, marg_kws=None, **kws):
+        """Plot a 2D image."""
+        kws.setdefault('colorbar_kw', dict())
+        kws['colorbar_kw'].setdefault('pad', 2.0)
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault('color', 'black')
+        marg_kws.setdefault('kind', 'step')
+        marg_kws.setdefault('lw', 1.0)
+        if coords is None:
+            coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
+        _out = vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
+        fx = psdist.image.project(f, axis=0)
+        fy = psdist.image.project(f, axis=0)
+        fx = fx / np.max(fx)
+        fy = fy / np.max(fy)
+        for axis in range(2):
+            profile = psdist.image.project(f, axis)
+            profile = profile / np.max(profile)
+            plot1d(coords[axis], profile, ax=self.panel_axs[axis], flipxy=bool(axis), **marg_kws)
+        return _out
+    
+    def colorbar(self, mappable, **kws):
+        """Add a colorbar."""
+        kws.setdefault(loc='r', pad=2.0)
+        self.fig.colorbar(mappable, **kws)
+    
 
 class SliceGrid:
     """Grid for slice matrix plots (https://arxiv.org/abs/2301.04178).
