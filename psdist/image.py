@@ -504,6 +504,7 @@ def process(
     clip_type="abs",
     norm=None,
     pixel_volume=1.0,
+    blur=0.0,
 ):
     """Return processed image.
 
@@ -526,6 +527,8 @@ def process(
         Whether to normalize the image by its volume or maximum element.
     pixel_volume : float
         Needed if normalizing by volume.
+    blur : float
+        Sigma for Gaussian filter.
     """
     if fill_value is not None:
         f = np.ma.filled(f, fill_value=fill_value)
@@ -533,6 +536,8 @@ def process(
         f = _threshold(f, thresh, frac=(thresh_type == "frac"))
     if clip is not None:
         f = _clip(f, clip[0], clip[1], frac=(clip_type == "frac"))
+    if blur:
+        f = ndimage.gaussian_filter(f, blur)
     if norm:
         f = _normalize(f, norm=norm, pixel_volume=pixel_volume)
     return f

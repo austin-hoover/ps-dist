@@ -420,12 +420,13 @@ def downsample(X, samples):
 
 def histogram_bin_edges(X, bins=10, limits=None):
     """Multi-dimensional histogram bin edges."""
-    if type(bins) is not list:
+    if np.ndim(bins) == 0:
         bins = X.shape[1] * [bins]
-    if type(limits) is not list:
+    if np.ndim(limits) == 0:
         limits = X.shape[1] * [limits]
     return [
-        np.histogram_bin_edges(X[:, i], bins[i], limits[i]) for i in range(X.shape[1])
+        np.histogram_bin_edges(X[:, i], bins[i], limits[i]) 
+        for i in range(X.shape[1])
     ]
 
 
