@@ -200,6 +200,35 @@ def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **k
     return _out
 
 
+def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
+    """Joint plot.
+    
+    This is a convenience function; see `psdist.visualization.JointGrid`.
+
+    Parameters
+    ----------
+    X : ndarray, shape (k, 2)
+        Coordinates of k points in 2-dimensional space.
+    grid_kws : dict
+        Key word arguments passed to `JointGrid`.
+    marg_hist_kws : dict
+        Key word arguments passed to `np.histogram` for 1D histograms.
+    marg_kws : dict
+        Key word arguments passed to `visualization.plot1d`.
+    **kws
+        Key word arguments passed to `visualization.image.plot2d.`
+        
+    Returns
+    -------
+    psdist.visualization.JointGrid
+    """
+    if grid_kws is None:
+        grid_kws = dict()
+    grid = vis.JointGrid(**grid_kws)
+    grid.plot_cloud(X, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
+    return grid
+
+
 def corner(
     X,
     grid_kws=None,

@@ -206,9 +206,33 @@ def plot2d(
         return ax
 
 
-def jointplot():
-    # This will be like seaborn.jointplot (top/right panel axes).
-    raise NotImplementedError
+def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
+    """Joint plot.
+    
+    This is a convenience function; see `psdist.visualization.JointGrid`.
+
+    Parameters
+    ----------
+    f : ndarray
+        An 2-dimensional image.
+    coords : list[ndarray]
+        Coordinates along each dimension of `f`.
+    grid_kws : dict
+        Key word arguments passed to `JointGrid`.
+    marg_kws : dict
+        Key word arguments passed to `visualization.plot1d`.
+    **kws
+        Key word arguments passed to `visualization.image.plot2d.`
+        
+    Returns
+    -------
+    psdist.visualization.JointGrid
+    """
+    if grid_kws is None:
+        grid_kws = dict()
+    grid = vis.JointGrid(**grid_kws)
+    grid.plot_image(f, coords, marg_kws=marg_kws, **kws)
+    return grid    
 
 
 def corner(
@@ -230,7 +254,7 @@ def corner(
     f : ndarray
         An n-dimensional image.
     coords : list[ndarray]
-        Coordinates along each axis of the grid (if `data` is an image).
+        Coordinates along each dimension of `f`.
     labels : list[str], length n
         Label for each dimension.
     axis_view, axis_slice : 2-tuple of int
