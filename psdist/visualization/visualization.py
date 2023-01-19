@@ -87,8 +87,10 @@ def linear_fit(x, y):
     return yfit, slope, intercept
 
 
-def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind="line", **kws):
+def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind='line', **kws):
     """Convenience function for one-dimensional line/step/bar plots."""
+    kws.setdefault('color', 'black')
+    
     func = ax.plot
     if kind in ["line", "step"]:
         if flipxy:
@@ -120,12 +122,152 @@ def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind="line", **kws):
     return func(x, y + offset, **kws)
 
 
+class JointGrid:
+    """Grid for joint plots.
+    
+    https://seaborn.pydata.org/generated/seaborn.JointGrid.html
+    
+    Attributes
+    -----------
+    fig : proplot.figure.Figure
+        The main figure.
+    ax : proplot.gridspec.SubplotGrid
+        The main axis.
+    ax_panel_x, ax_panel_y : proplot.gridspec.SubplotGrid
+        The panel (marginal) axes on the top and right.
+    """    
+    def __init__(
+        self, 
+        panel_kws=None, 
+        panel_fmt_kws_x=None, 
+        panel_fmt_kws_y=None,
+        **fig_kws
+    ):
+        """Constructor.
+        
+        marg_kws : dict
+            Key word arguments for `ax.panel`.
+        marg_fmt_kws_x, marg_fmt_kws_y : dict
+            Key word arguments for `ax.format` for each of the panel axs.
+        **fig_kws
+            Key word arguments passed to `proplot.subplots`.
+        """
+        self.fig, self.ax = pplt.subplots(**fig_kws)
+        
+        if panel_kws is None:
+            panel_kws = dict()
+        panel_kws.setdefault('space', 0.0)
+        self.ax_panel_x = self.ax.panel('t', **panel_kws)
+        self.ax_panel_y = self.ax.panel('r', **panel_kws)
+        self.panel_axs = [self.ax_panel_x, self.ax_panel_y]
+        if panel_fmt_kws_x is None:
+            panel_fmt_kws_x = dict()
+        if panel_fmt_kws_y is None:
+            panel_fmt_kws_y = dict()
+        panel_fmt_kws = [panel_fmt_kws_x, panel_fmt_kws_y]
+        for i, key in enumerate(['ylim', 'xlim']):
+            panel_fmt_kws[i].setdefault(key, (0.0, 1.1))
+        for ax, kws in zip(self.panel_axs, panel_fmt_kws):
+            kws.setdefault('xspineloc', 'neither')
+            kws.setdefault('yspineloc', 'neither')
+            ax.format(**kws) 
+            
+    def plot_cloud(self, X, marg_hist_kws=None, marg_kws=None, **kws):
+        """Plot a 2D point cloud.
+        
+        Parameters
+        ----------
+        X : ndarray, shape (k, 2)
+            Coordinates of k points in 2-dimensional space.
+        marg_hist_kws : dict
+            Key word arguments passed to `np.histogram` for 1D histograms.
+        marg_kws : dict
+            Key word arguments passed to `visualization.plot1d`.
+        **kws
+            Key word arguments passed to `visualization.image.plot2d.`
+        """
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault('kind', 'step')
+        marg_kws.setdefault('lw', 1.0)
+        if marg_hist_kws is None:
+            marg_hist_kws = dict()
+        marg_hist_kws.setdefault('bins', 'auto')
+        kws.setdefault('kind', 'hist')
+        if kws['kind'] == 'hist':
+            kws.setdefault('mask', True)
+            kws.setdefault('bins', marg_hist_kws['bins'])
+        if kws['kind'] != 'scatter':
+            kws.setdefault('colorbar_kw', dict())
+            kws['colorbar_kw'].setdefault('pad', 2.0)
+        for axis in range(2):
+            profile, edges = np.histogram(X[:, axis], **marg_hist_kws)
+            profile = profile / np.max(profile)
+            centers = psdist.utils.centers_from_edges(edges)
+            plot1d(centers, profile, ax=self.panel_axs[axis], flipxy=bool(axis), **marg_kws)
+        vis_cloud.plot2d(X, ax=self.ax, **kws)
+            
+    def plot_image(self, f, coords=None, marg_kws=None, **kws):
+        """Plot a 2D image.
+        
+        Parameters
+        ----------
+        f : ndarray
+            An n-dimensional image.
+        coords : list[ndarray]
+            Coordinates along each dimension of `f`.
+        marg_kws : dict
+            Key word arguments passed to `visualization.plot1d`.
+        **kws
+            Key word arguments passed to `visualization.image.plot2d.`
+        """
+        kws.setdefault('colorbar_kw', dict())
+        kws['colorbar_kw'].setdefault('pad', 2.0)
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault('color', 'black')
+        marg_kws.setdefault('kind', 'step')
+        marg_kws.setdefault('lw', 1.0)
+        if coords is None:
+            coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
+        _out = vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
+        fx = psdist.image.project(f, axis=0)
+        fy = psdist.image.project(f, axis=0)
+        fx = fx / np.max(fx)
+        fy = fy / np.max(fy)
+        for axis in range(2):
+            profile = psdist.image.project(f, axis)
+            profile = profile / np.max(profile)
+            plot1d(coords[axis], profile, ax=self.panel_axs[axis], flipxy=bool(axis), **marg_kws)
+        return _out
+    
+    def colorbar(self, mappable, **kws):
+        """Add a colorbar."""
+        kws.setdefault(loc='r', pad=2.0)
+        self.fig.colorbar(mappable, **kws)
+
+
 class CornerGrid:
     """Grid for corner plots.
 
     * https://seaborn.pydata.org/generated/seaborn.PairGrid.html
     * https://corner.readthedocs.io/en/latest/
     * https://pandas.pydata.org/docs/reference/api/pandas.plotting.scatter_matrix.html
+    
+    Attributes
+    ----------
+    fig : proplot.figure.Figure
+        The main figure.
+    axs : proplot.gridspec.SubplotGrid
+        The subplot axes.
+    diag_axs : list[proplot.gridspec.SubplotGrid]
+        The axes for diagonal (univariate) subplots. Can be empty.
+    offdiag_axs : list[proplot.gridspec.SubplotGrid]
+        The axes for off-diagonal (bivariate) subplots.
+    diag_indices : list[int]
+        The index of the dimension plotted on each diagonal subplot.
+    offdiag_indices : list[2-tuple of int]
+        Indices of the dimensions plotted on each off-diagonal subplot.
 
     Parameters
     ----------
@@ -144,7 +286,6 @@ class CornerGrid:
     **fig_kws
         Key word arguments passed to `pplt.subplots()`.
     """
-
     def __init__(
         self, n=4, diag=True, diag_height_frac=0.65, limits=None, labels=None, **fig_kws
     ):
@@ -401,63 +542,6 @@ class CornerGrid:
             if kws["kind"] in ["hist", "contour", "contourf"]:
                 kws["bins"] = bins
             vis_cloud.plot2d(X[:, axis], ax=ax, **kws)
-
-
-class JointGrid:
-    """Grid for joint plots."""    
-    def __init__(
-        self, 
-        panel_kws=None, 
-        panel_fmt_kws_x=None, 
-        panel_fmt_kws_y=None,
-        **fig_kws
-    ):
-        self.fig, self.ax = pplt.subplots(**fig_kws)
-        
-        if panel_kws is None:
-            panel_kws = dict()
-        panel_kws.setdefault('space', 0.0)
-        self.ax_panel_x = self.ax.panel('t', **panel_kws)
-        self.ax_panel_y = self.ax.panel('r', **panel_kws)
-        self.panel_axs = [self.ax_panel_x, self.ax_panel_y]
-        if panel_fmt_kws_x is None:
-            panel_fmt_kws_x = dict()
-        if panel_fmt_kws_y is None:
-            panel_fmt_kws_y = dict()
-        panel_fmt_kws = [panel_fmt_kws_x, panel_fmt_kws_y]
-        for i, key in enumerate(['ylim', 'xlim']):
-            panel_fmt_kws[i].setdefault(key, (0.0, 1.1))
-        for ax, kws in zip(self.panel_axs, panel_fmt_kws):
-            kws.setdefault('xspineloc', 'neither')
-            kws.setdefault('yspineloc', 'neither')
-            ax.format(**kws)  
-            
-    def plot_image(self, f, coords=None, marg_kws=None, **kws):
-        """Plot a 2D image."""
-        kws.setdefault('colorbar_kw', dict())
-        kws['colorbar_kw'].setdefault('pad', 2.0)
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault('color', 'black')
-        marg_kws.setdefault('kind', 'step')
-        marg_kws.setdefault('lw', 1.0)
-        if coords is None:
-            coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
-        _out = vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
-        fx = psdist.image.project(f, axis=0)
-        fy = psdist.image.project(f, axis=0)
-        fx = fx / np.max(fx)
-        fy = fy / np.max(fy)
-        for axis in range(2):
-            profile = psdist.image.project(f, axis)
-            profile = profile / np.max(profile)
-            plot1d(coords[axis], profile, ax=self.panel_axs[axis], flipxy=bool(axis), **marg_kws)
-        return _out
-    
-    def colorbar(self, mappable, **kws):
-        """Add a colorbar."""
-        kws.setdefault(loc='r', pad=2.0)
-        self.fig.colorbar(mappable, **kws)
     
 
 class SliceGrid:
@@ -479,31 +563,18 @@ class SliceGrid:
 
         The lone subplot on the bottom right shows f(x1, x2)l, the full projection
         onto the x1-x2 plane.
-
-    Parameters
+        
+    Attributes
     ----------
-    nrows, ncols : int
-        The number of rows/colums in the figure.
-    space : float
-        Spacing between subplots.
-    gap : float
-        Gap between main and marginal panels.
-    marginals : bool
-        Whether to include the marginal panels. If they are not included, we just
-        have an nrows x ncols grid.
-    annotate : bool
-        Whether to add dimension labels/arrows to the figure.
-    annotate_kws_view, annotate_kws_slice : dict
-        Key word arguments for figure text. The 'view' key words are for the view
-        dimension labels; they are printed on top of one of the subplots. The
-        'slice' key words are for the slice dimension labels; they are printed
-        on the sides of the figure, between the main and marginal panels.
-    slice_label_height : float
-        Tweaks the position of slice labels. Need a better way to handle this.
-    **fig_kws
-        Key word arguments for `pplt.subplots`.
+    fig : proplot.figure.Figure
+        The main figure.
+    axs : proplot.gridspec.SubplotGrid
+        The subplot axes.
+    _axs : proplot.figure.Figure
+        The subplot axes on the main panel.
+    _axs_marg_x, _axs_marg_y, _axs_marg_xy : proplot.gridspec.SubplotGrid
+        The subplot axes on the marginal panels.
     """
-
     def __init__(
         self,
         nrows=9,
@@ -517,6 +588,29 @@ class SliceGrid:
         slice_label_height=0.22,
         **fig_kws,
     ):
+        """Constructor.
+
+        nrows, ncols : int
+            The number of rows/colums in the figure.
+        space : float
+            Spacing between subplots.
+        gap : float
+            Gap between main and marginal panels.
+        marginals : bool
+            Whether to include the marginal panels. If they are not included, we just
+            have an nrows x ncols grid.
+        annotate : bool
+            Whether to add dimension labels/arrows to the figure.
+        annotate_kws_view, annotate_kws_slice : dict
+            Key word arguments for figure text. The 'view' key words are for the view
+            dimension labels; they are printed on top of one of the subplots. The
+            'slice' key words are for the slice dimension labels; they are printed
+            on the sides of the figure, between the main and marginal panels.
+        slice_label_height : float
+            Tweaks the position of slice labels. Need a better way to handle this.
+        **fig_kws
+            Key word arguments for `pplt.subplots`.
+        """
         self.nrows = nrows
         self.ncols = ncols
         self.space = space
@@ -570,6 +664,7 @@ class SliceGrid:
         if self.marginals:
             self._axs_marg_x = self.axs[-1, :]
             self._axs_marg_y = self.axs[:, -1]
+        self._ax_marg_xy = self.axs[-1, -1]
 
     def _annotate(
         self,
