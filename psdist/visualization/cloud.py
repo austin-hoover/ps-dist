@@ -231,7 +231,7 @@ def corner(
     diag_kws : dict
         Key word argument passed to `visualization.plot1d`.
     **kws
-        Key word arguments pass to `visualization.discrete.plot2d`
+        Key word arguments pass to `visualization.cloud.plot2d`
 
     Returns
     -------
@@ -243,7 +243,7 @@ def corner(
     cgrid = vis.CornerGrid(n=X.shape[1], **grid_kws)
     if labels is not None:
         cgrid.set_labels(labels)
-    cgrid.plot_discrete(
+    cgrid.plot_cloud(
         X,
         limits=limits,
         autolim_kws=autolim_kws,
