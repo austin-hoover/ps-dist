@@ -103,8 +103,9 @@ def scatter(X, ax=None, samples=None, **kws):
     for kw in ["size", "ms"]:
         if kw in kws:
             kws["s"] = kws.pop(kw)
-    kws.setdefault("c", "black")
-    kws.setdefault("s", 1.0)
+    kws.setdefault('c', 'black')
+    kws.setdefault('ec', 'None')
+    kws.setdefault("s", 2.0)
     _X = X
     if samples:
         _X = psdist.cloud.downsample(X, samples)

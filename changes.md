@@ -1,6 +1,11 @@
 # Change Log
 
 
+## [0.1.2] — Unreleased
+
+* Default ec='None' in scatter plots.
+
+
 ## [0.1.1] — 2022-01-19
 
 * Added 'blur' option to `image.process`.
