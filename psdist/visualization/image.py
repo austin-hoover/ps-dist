@@ -298,6 +298,7 @@ def slice_matrix(
     axis_slice=(2, 3),
     pad=0.0,
     debug=False,
+    grid_kws=None,
     **kws,
 ):
     """Slice matrix plot.
@@ -321,8 +322,10 @@ def slice_matrix(
         the shape=10 and pad=0.1, we would start from 1 and end at 9.
     debug : bool
         Whether to print debugging messages.
+    grid_kws : dict
+        Key word arguments passed to `visualization.SliceGrid`.
     **kws
-        Key word arguments pass to `visualization.image.plot2d`
+        Key word arguments passed to `visualization.image.plot2d`
 
     Returns
     -------
