@@ -75,16 +75,27 @@ def rms_ellipse(Sigma=None, center=None, level=1.0, ax=None, **ellipse_kws):
     return ax
 
 
-def linear_fit(x, y):
+def fit_linear(x, y):
     """Return (yfit, slope, intercept) from linear fit."""
-
-    def fit(x, slope, intercept):
+    
+    def func(x, slope, intercept):
         return slope * x + intercept
 
-    popt, pcov = scipy.optimize.curve_fit(fit, x, y)
+    popt, pcov = scipy.optimize.curve_fit(func, x, y)
     slope, intercept = popt
-    yfit = fit(x, *popt)
-    return yfit, slope, intercept
+    return func(x, slope, intercept), slope, intercept
+
+
+def fit_normal(x, y):
+    """Return (yfit, sigma, mu, amplitude, offset) from Gaussian fit."""
+    
+    def func(x, sigma, mu, amplitude, offset):
+        amplitude = amplitude / (sigma * np.sqrt(2.0 * np.pi))
+        return offset + amplitude * np.exp(-0.5 * ((x - mu) / sigma)**2)
+    
+    popt, pcov = scipy.optimize.curve_fit(func, x, y)
+    sigma, mu, amplitude, offset = popt
+    return func(x, sigma, mu, amplitude, offset), sigma, mu, amplitude, offset
 
 
 def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind='line', **kws):
