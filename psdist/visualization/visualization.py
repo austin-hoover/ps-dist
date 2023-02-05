@@ -321,13 +321,6 @@ class CornerGrid:
             spany=False,
             **self.fig_kws,
         )
-        self.limits = limits
-        if limits is not None:
-            self.set_limits(limits)
-        self.labels = labels
-        if labels is not None:
-            self.set_labels(labels)
-
         # Collect diagonal/off-diagonal subplots and indices.
         self.diag_axs = []
         self.offdiag_axs = []
@@ -346,6 +339,14 @@ class CornerGrid:
                 for j in range(i + 1):
                     self.offdiag_axs.append(self.axs[i, j])
                     self.offdiag_indices.append((j, i + 1))
+                   
+        # Set limits and labels.
+        self.limits = limits
+        if limits is not None:
+            self.set_limits(limits)
+        self.labels = labels
+        if labels is not None:
+            self.set_labels(labels)
 
         # Formatting
         for i in range(self.nrows):
