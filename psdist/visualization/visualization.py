@@ -323,7 +323,7 @@ class CornerGrid:
         )
         self.limits = limits
         if limits is not None:
-            self.set_limits(limit)
+            self.set_limits(limits)
         self.labels = labels
         if labels is not None:
             self.set_labels(labels)
