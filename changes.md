@@ -4,6 +4,9 @@
 ## [0.1.2] — Unreleased
 
 * Default ec='None' in scatter plots.
+* Fixed bug in `visualization.CornerGrid`: in a fresh plot, if the data limits were smaller than the plot limits, the plot limits were not updated.
+* Default histogram limits in `visualization.CornerGrid` are computed using plot limits instead of data limits. 
+* Can now pass either bin edges or number of bins as the 'bins' parameter in `visualization.CornerGrid.plot_cloud`.
 
 
 ## [0.1.1] — 2022-01-19

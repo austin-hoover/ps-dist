@@ -7,8 +7,8 @@ import proplot as pplt
 
 import psdist.cloud
 import psdist.image
-import psdist.visualization.visualization as vis
 import psdist.visualization.image as vis_image
+import psdist.visualization.visualization as vis
 
 
 def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
@@ -103,8 +103,8 @@ def scatter(X, ax=None, samples=None, **kws):
     for kw in ["size", "ms"]:
         if kw in kws:
             kws["s"] = kws.pop(kw)
-    kws.setdefault('c', 'black')
-    kws.setdefault('ec', 'None')
+    kws.setdefault("c", "black")
+    kws.setdefault("ec", "None")
     kws.setdefault("s", 2.0)
     _X = X
     if samples:
@@ -203,8 +203,8 @@ def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **k
 
 def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
     """Joint plot.
-    
-    This is a convenience function; see `psdist.visualization.JointGrid`.
+
+    This is a convenience function; see `psdist.visualization.grid.JointGrid`.
 
     Parameters
     ----------
@@ -218,14 +218,15 @@ def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
         Key word arguments passed to `visualization.plot1d`.
     **kws
         Key word arguments passed to `visualization.image.plot2d.`
-        
+
     Returns
     -------
-    psdist.visualization.JointGrid
+    psdist.visualization.grid.JointGrid
     """
+    from psdist.visualization.grid import JointGrid
     if grid_kws is None:
         grid_kws = dict()
-    grid = vis.JointGrid(**grid_kws)
+    grid = JointGrid(**grid_kws)
     grid.plot_cloud(X, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
     return grid
 
@@ -243,7 +244,7 @@ def corner(
 ):
     """Corner plot (scatter plot matrix).
 
-    This is a convenience function; see `psdist.visualization.CornerGrid`.
+    This is a convenience function; see `psdist.visualization.grid.CornerGrid`.
 
     Parameters
     ----------
@@ -265,12 +266,13 @@ def corner(
 
     Returns
     -------
-    psdist.visualization.CornerGrid
+    psdist.visualization.grid.CornerGrid
         The `CornerGrid` on which the plot was drawn.
     """
+    from psdist.visualization.grid import CornerGrid
     if grid_kws is None:
         grid_kws = dict()
-    cgrid = vis.CornerGrid(n=X.shape[1], **grid_kws)
+    cgrid = CornerGrid(n=X.shape[1], **grid_kws)
     if labels is not None:
         cgrid.set_labels(labels)
     cgrid.plot_cloud(

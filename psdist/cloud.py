@@ -4,6 +4,7 @@ import scipy.interpolate
 import scipy.stats
 
 from psdist import ap
+from psdist.utils import array_like
 from psdist.utils import centers_from_edges
 from psdist.utils import cov2corr
 from psdist.utils import random_selection
@@ -140,7 +141,7 @@ def project(X, axis=None):
     """
     if axis is None:
         axis = tuple(np.arange(X.shape[1]))
-    if np.ndim(axis) > 0 and len(axis) > X.shape[1]:
+    if array_like(axis) and len(axis) > X.shape[1]:
         raise ValueError("Invalid projection axis.")
     return X[:, axis]
 
@@ -420,9 +421,9 @@ def downsample(X, samples):
 
 def histogram_bin_edges(X, bins=10, limits=None):
     """Multi-dimensional histogram bin edges."""
-    if np.ndim(bins) == 0:
+    if not array_like(bins):
         bins = X.shape[1] * [bins]
-    if np.ndim(limits) == 0:
+    if not array_like(limits):
         limits = X.shape[1] * [limits]
     return [
         np.histogram_bin_edges(X[:, i], bins[i], limits[i]) 

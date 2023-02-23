@@ -6,8 +6,8 @@ import numpy as np
 import proplot as pplt
 
 import psdist.image
-import psdist.visualization as vis
 from psdist.utils import edges_from_centers
+import psdist.visualization as vis
 
 
 def plot_profiles(
@@ -208,8 +208,8 @@ def plot2d(
 
 def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
     """Joint plot.
-    
-    This is a convenience function; see `psdist.visualization.JointGrid`.
+
+    This is a convenience function; see `psdist.visualization.grid.JointGrid`.
 
     Parameters
     ----------
@@ -223,16 +223,17 @@ def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
         Key word arguments passed to `visualization.plot1d`.
     **kws
         Key word arguments passed to `visualization.image.plot2d.`
-        
+
     Returns
     -------
-    psdist.visualization.JointGrid
+    psdist.visualization.grid.JointGrid
     """
+    from psdist.visualization.grid import JointGrid
     if grid_kws is None:
         grid_kws = dict()
-    grid = vis.JointGrid(**grid_kws)
+    grid = JointGrid(**grid_kws)
     grid.plot_image(f, coords, marg_kws=marg_kws, **kws)
-    return grid    
+    return grid
 
 
 def corner(
@@ -247,7 +248,7 @@ def corner(
 ):
     """Corner plot (scatter plot matrix).
 
-    This is a convenience function; see `psdist.visualization.CornerGrid`.
+    This is a convenience function; see `psdist.visualization.grid.CornerGrid`.
 
     Parameters
     ----------
@@ -271,15 +272,16 @@ def corner(
 
     Returns
     -------
-    psdist.visualization.CornerGrid
+    psdist.visualization.grid.CornerGrid
         The `CornerGrid` on which the plot was drawn.
     """
+    from psdist.visualization.grid import CornerGrid
     if grid_kws is None:
         grid_kws = dict()
-    cgrid = vis.CornerGrid(n=f.ndim, **grid_kws)
+    grid = CornerGrid(n=f.ndim, **grid_kws)
     if labels is not None:
-        cgrid.set_labels(labels)
-    cgrid.plot_image(
+        grid.set_labels(labels)
+    grid.plot_image(
         f,
         coords=coords,
         prof_edge_only=prof_edge_only,
@@ -287,7 +289,7 @@ def corner(
         diag_kws=diag_kws,
         **kws,
     )
-    return cgrid
+    return grid
 
 
 def slice_matrix(
@@ -303,7 +305,7 @@ def slice_matrix(
 ):
     """Slice matrix plot.
 
-    This is a convenience function; see `psdist.visualization.SliceGrid`.
+    This is a convenience function; see `psdist.visualization.grid.SliceGrid`.
 
     Parameters
     ----------
@@ -323,15 +325,16 @@ def slice_matrix(
     debug : bool
         Whether to print debugging messages.
     grid_kws : dict
-        Key word arguments passed to `visualization.SliceGrid`.
+        Key word arguments passed to `visualization.grid.SliceGrid`.
     **kws
         Key word arguments passed to `visualization.image.plot2d`
 
     Returns
     -------
-    psdist.visualization.SliceGrid
+    psdist.visualization.grid.SliceGrid
         The `SliceGrid` on which the plot was drawn.
     """
+    from psdist.visualization.grid import SliceGrid
     if grid_kws is None:
         grid_kws = dict()
     grid_kws.setdefault("space", 0.2)
@@ -341,8 +344,8 @@ def slice_matrix(
     grid_kws.setdefault("yticks", [])
     grid_kws.setdefault("xspineloc", "neither")
     grid_kws.setdefault("yspineloc", "neither")
-    sgrid = psv.SliceGrid(**grid_kws)
-    sgrid.plot_image(
+    grid = SliceGrid(**grid_kws)
+    grid.plot_image(
         f,
         coords=None,
         labels=None,
@@ -351,7 +354,7 @@ def slice_matrix(
         pad=0.0,
         debug=False,
     )
-    return sgrid
+    return grid
 
 
 def proj2d_interactive_slice(

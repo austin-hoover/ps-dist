@@ -42,3 +42,7 @@ def cov2corr(cov_mat):
     D = np.sqrt(np.diag(cov_mat.diagonal()))
     Dinv = np.linalg.inv(D)
     return np.linalg.multi_dot([Dinv, cov_mat, Dinv])
+
+
+def array_like(a):
+    return np.ndim(np.array(a, dtype=object)) > 0
