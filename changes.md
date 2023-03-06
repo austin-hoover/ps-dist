@@ -1,7 +1,7 @@
 # Change Log
 
 
-## [0.1.2] — Unreleased
+## [0.1.2] — 2023-03-06
 
 * Default ec='None' in scatter plots.
 * Fixed bug in `visualization.CornerGrid`: in a fresh plot, if the data limits were smaller than the plot limits, the plot limits were not updated.
@@ -9,14 +9,14 @@
 * Can now pass either bin edges or number of bins as the 'bins' parameter in `visualization.CornerGrid.plot_cloud`.
 
 
-## [0.1.1] — 2022-01-19
+## [0.1.1] — 2023-01-19
 
 * Added 'blur' option to `image.process`.
 * Added `visualization.JointGrid`, `visualization.image.joint`, and `visualization.cloud.joint`.
 * Fixed typo causing error in `visualization.cloud.corner`.
 
 
-## [0.1.0] — 2022-01-17
+## [0.1.0] — 2023-01-17
 
 * Renamed `bunch` &rarr;`cloud`.
     * Added `cloud.gaussian_kde`: computes Gaussian kernel density estimation.

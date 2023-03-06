@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psdist"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="Austin Hoover", email="ahoover1218@gmail.com" },
 ]
@@ -19,9 +19,9 @@ classifiers = [
 dependencies = [
     "h5py==3.7.0",
     "ipywidgets==8.0.3",
-    "matplotlib==3.4.3",
-    "numpy==1.21.5",
-    "proplot==0.9.5",
+    "matplotlib>=3.3.0,<3.5.0",
+    "numpy==1.24.1",
+    "proplot==0.9.7",
     "scipy==1.9.1",
     "tqdm==4.64.1",
 ]
