@@ -135,7 +135,8 @@ class JointGrid:
 
     def colorbar(self, mappable, **kws):
         """Add a colorbar."""
-        kws.setdefault(loc="r", pad=2.0)
+        kws.setdefault("loc", "r")
+        kws.setdefault("pad", 2.0)
         self.fig.colorbar(mappable, **kws)
 
 
