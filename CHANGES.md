@@ -1,6 +1,15 @@
 # Change Log
 
 
+## [0.1.3] — 2023-04-20
+
+* Updated `visualization.CornerGrid`.
+    * Added option to plot on off-diagonal subplots.
+    * Added option to show right y spines on diagonal subplots.
+    * Changed some keyword arguments.
+    * Fix bug: `plot_cloud` was not working when `diag=False`.
+    
+
 ## [0.1.2] — 2023-03-06
 
 * Default ec='None' in scatter plots.
