@@ -8,7 +8,10 @@
     * Added option to show right y spines on diagonal subplots.
     * Changed some keyword arguments.
     * Fix bug: `plot_cloud` was not working when `diag=False`.
+<<<<<<< HEAD
 * Fixed key word argument default in JointGrid.colorbar.
+=======
+>>>>>>> 7efe5d611876a3ab62bab7e5c5c1329217b7fec2
     
 
 ## [0.1.2] — 2023-03-06
