@@ -103,6 +103,7 @@ def plot2d(
     prof_kws=None,
     process_kws=None,
     offset=None,
+    offset_type="relative",
     mask=False,
     rms_ellipse=False,
     rms_ellipse_kws=None,
@@ -133,9 +134,10 @@ def plot2d(
         Whether to return a mesh from `ax.pcolormesh`.
     process_kws : dict
         Key word arguments passed to `psdist.image.process`.
-    offset : float
-        Adds `min(f) * offset` to the image. Helpful to get rid of zeros for
-        logarithmic color scales.
+    offset, offset_type : float, {"relative", "absolute"}
+        Adds offset to the image (helpful to get rid of zeros for logarithmic 
+        color scales. If offset_type is 'relative' add `min(f) * offset` to
+        the image. Otherwise add `offset`.
     mask : bool
         Whether to plot pixels at or below zero.
     **kws
@@ -171,7 +173,7 @@ def plot2d(
     f = f.copy()
     f = psdist.image.process(f, **process_kws)
     if offset is not None:
-        if np.count_nonzero(f):
+        if offset_type == "relative" and np.count_nonzero(f):
             offset = offset * np.min(f[f > 0])
         f = f + offset
 
@@ -199,7 +201,7 @@ def plot2d(
             prof_kws = dict()
         if kind == "contourf":
             prof_kws.setdefault("start", "center")
-        plot_profiles(f, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws)
+        plot_profiles(f - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws)
     if return_mesh:
         return ax, mesh
     else:

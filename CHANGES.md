@@ -1,6 +1,12 @@
 # Change Log
 
 
+## [0.1.4] 
+
+* Added absolute vs. relative offset to `visualization.image.plot2d`.
+* Subtact image offset when overlaying profiles in `visualization.image.plot2d`.
+
+
 ## [0.1.3] — 2023-04-20
 
 * Updated `visualization.CornerGrid`.
@@ -8,10 +14,7 @@
     * Added option to show right y spines on diagonal subplots.
     * Changed some keyword arguments.
     * Fix bug: `plot_cloud` was not working when `diag=False`.
-<<<<<<< HEAD
 * Fixed key word argument default in JointGrid.colorbar.
-=======
->>>>>>> 7efe5d611876a3ab62bab7e5c5c1329217b7fec2
     
 
 ## [0.1.2] — 2023-03-06
