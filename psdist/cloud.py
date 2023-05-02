@@ -1,4 +1,4 @@
-"""Functions for n-dimensional point clouds."""
+"""Functions for point clouds."""
 import numpy as np
 import scipy.interpolate
 import scipy.stats
@@ -17,12 +17,12 @@ def mean(X):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
 
     Returns
     -------
-    ndarray, shape (n,)
+    ndarray, shape (d,)
         The centroid coordinates.
     """
     return np.mean(X, axis=0)
@@ -33,12 +33,12 @@ def cov(X):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
 
     Returns
     -------
-    ndarray, shape (n, n)
+    ndarray, shape (d, d)
         The covariance matrix of second-order moments.
     """
     return np.cov(X.T)
@@ -49,12 +49,12 @@ def corr(X):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
 
     Returns
     -------
-    ndarray, shape (n, n)
+    ndarray, shape (d, d)
         The correlation matrix.
     """
     return cov2corr(np.cov(X.T))
@@ -75,8 +75,8 @@ def enclosing_sphere(X, axis=None, fraction=1.0):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple
         The distribution is projected onto this axis before proceeding. The
         ellipsoid is defined in this subspace.
@@ -98,8 +98,8 @@ def enclosing_ellipsoid(X, axis=None, fraction=1.0):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple
         The distribution is projected onto this axis before proceeding. The
         ellipsoid is defined in this subspace.
@@ -129,14 +129,14 @@ def project(X, axis=None):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple[int], length l
         The axis on which to project the points.
 
     Returns
     -------
-    ndarray, shape (k, l)
+    ndarray, shape (n, l)
         The points projected onto the specified axis.
     """
     if axis is None:
@@ -153,8 +153,8 @@ def transform(X, func=None, **kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     function : callable
         Function applied to each point in X. Call signature is
         `function(point, **kws)` where `point` is an n-dimensional
@@ -164,7 +164,7 @@ def transform(X, func=None, **kws):
 
     Returns
     -------
-    ndarray, shape (k, n)
+    ndarray, shape (n, d)
         The transformed distribution.
     """
     return np.apply_along_axis(lambda point: func(point, **kws), 1, X)
@@ -177,14 +177,14 @@ def transform_linear(X, M):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
-    M : ndarray, shape (n, n)
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
+    M : ndarray, shape (d, d)
         A linear transfer matrix.
 
     Returns
     -------
-    ndarray, shape (k, n)
+    ndarray, shape (n, d)
         The transformed distribution.
     """
     func = lambda point: np.matmul(M, point)
@@ -199,36 +199,42 @@ def scale(X, factor=1.0):
     return X * factor
 
 
-def slice_planar(X, axis=None, center=None, width=None):
+def slice_planar(X, axis=None, center=None, width=None, limits=None):
     """Return points within a planar slice.
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple
         Slice axes. For example, (0, 1) will slice along the first and
         second axes of the array.
     center : ndarray, shape (n,)
         The center of the box.
-    width : ndarray, shape (n,)
+    width : ndarray, shape (d,)
         The width of the box along each axis.
+    limits : ndarray, shape (d, 2)
+        The (min, max) along each axis. Overrides `center` and `edges` if provided.
 
     Returns
     -------
     ndarray, shape (?, n)
         The points within the box.
     """
-    k, n = X.shape
-    if type(axis) is int:
+    n, d = X.shape
+    if not array_like(axis):
         axis = (axis,)
-    if type(center) in [int, float]:
-        center = np.full(n, center)
-    if type(width) in [int, float]:
-        width = np.full(n, width)
-    center = np.array(center)
-    width = np.array(width)
-    limits = list(zip(center - 0.5 * width, center + 0.5 * width))
+    if limits is None:
+        if not array_like(center):
+            center = np.full(d, center)
+        if not array_like(width):
+            width = np.full(d, width)
+        center = np.array(center)
+        width = np.array(width)
+        limits = list(zip(center - 0.5 * width, center + 0.5 * width))  
+    limits = np.array(limits)
+    if limits.ndim == 0:
+        limits = limits[None, :]
     conditions = []
     for j, (umin, umax) in zip(axis, limits):
         conditions.append(X[:, j] > umin)
@@ -242,8 +248,8 @@ def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple
         The subspace in which to define the sphere.
     rmin, rmax : float
@@ -251,7 +257,7 @@ def slice_sphere(X, axis=None, rmin=0.0, rmax=None):
 
     Returns
     -------
-    ndarray, shape (?, n)
+    ndarray, shape (?, d)
         The points within the sphere.
     """
     if rmax is None:
@@ -269,8 +275,8 @@ def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple
         The subspace in which to define the ellipsoid.
     rmin, rmax : list[float]
@@ -278,7 +284,7 @@ def slice_ellipsoid(X, axis=None, rmin=0.0, rmax=None):
 
     Returns
     -------
-    ndarray, shape (?, n)
+    ndarray, shape (?, d)
         Points within the shell.
     """
     if rmax is None:
@@ -296,8 +302,8 @@ def slice_contour(X, axis=None, lmin=0.0, lmax=1.0, interp=True, **hist_kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     axis : tuple
         The subspace in which to define the density contours.
     lmin, lmax : list[float]
@@ -312,7 +318,7 @@ def slice_contour(X, axis=None, lmin=0.0, lmax=1.0, interp=True, **hist_kws):
 
     Returns
     -------
-    ndarray, shape (?, n)
+    ndarray, shape (?, d)
         Points within the shell.
     """
     _X = project(X, axis)
@@ -348,14 +354,14 @@ def norm_xxp_yyp_zzp(X, scale_emittance=False):
 
     Parameters
     ----------
-    X : ndarray, shape (k, 2n)
-        Coordinates of k points in 2n-dimensional phase space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional phase space (d is even).
     scale_emittance : bool
         Whether to divide the coordinates by the square root of the rms emittance.
 
     Returns
     -------
-    Xn : ndarray, shape (N, 6)
+    Xn : ndarray, shape (n, d)
         Normalized phase space coordinate array.
     """
     if X.shape[1] % 2 != 0:
@@ -378,12 +384,12 @@ def decorrelate(X):
 
     Parameters
     ----------
-    X : ndarray, shape (k, 2n)
-        Coordinates of k points in 2n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of k points in d-dimensional space (d is even).
 
     Returns
     -------
-    ndarray, shape (k, 2n)
+    ndarray, shape (n, d)
         The decorrelated coordinates.
     """
     if X.shape[1] % 2 != 0:
@@ -399,15 +405,15 @@ def downsample(X, samples):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     samples : int or float
         The number of samples to keep If less than 1, specifies
         the fraction of points.
 
     Returns
     -------
-    ndarray, shape (<= k, n)
+    ndarray, shape (<= n, d)
         The downsampled coordinate array.
     """
     samples = min(samples, X.shape[0])
@@ -448,8 +454,8 @@ def gaussian_kde(X, **kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     **kws
         Key word arguments
 
