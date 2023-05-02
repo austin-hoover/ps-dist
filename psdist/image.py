@@ -1,8 +1,9 @@
-"""Functions for n-dimensional images."""
+"""Functions for multi-dimensional images."""
 import numpy as np
 from tqdm import tqdm
 from scipy import ndimage
 
+from psdist.utils import array_like
 from psdist.utils import cov2corr
 from psdist.utils import edges_from_centers
 from psdist.utils import centers_from_edges
@@ -17,7 +18,7 @@ def get_grid_coords(*coords):
 
     Parameters
     ----------
-    coords : list of 1D arrays
+    coords : list[ndarray]
         Coordinates along each axis of regular grid. Example: [[1, 2, 3], [0, 1, 2]].
 
     Returns
@@ -37,13 +38,13 @@ def max_indices(f):
 def get_radii(coords, Sigma):
     """Return "radii" (x^T Sigma^-1^T x) from grid coordinates and covariance matrix.
 
-    This is quite slow when n > 4 due to creating a mesh grid.
+    This is quite slow when d > 4 due to creating a mesh grid.
 
     Parameters
     ----------
-    coords : list[ndarray], length n
+    coords : list[ndarray], length d
         Coordinate array for each dimension of the regular grid.
-    Sigma : ndarray, shape (n, n)
+    Sigma : ndarray, shape (d, d)
         Covariance matrix of some distribution on the grid.
 
     Returns
@@ -67,7 +68,7 @@ def radial_density(f, R, radii, dr=None):
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     R : ndarray, same shape as `f`.
         Gives the "radius" at each pixel in f.
     radii : ndarray, shape (k,)
@@ -91,19 +92,19 @@ def radial_density(f, R, radii, dr=None):
 
 
 def mean(f, coords=None):
-    """Compute the n-dimensional mean.
+    """Compute the d-dimensional mean.
 
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Coordinates along each axis of the image.
 
     Returns
     -------
-    ndarray, shape (n,)
-        The n-dimensional mean.
+    ndarray, shape (d,)
+        The d-dimensional mean.
     """
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
@@ -113,18 +114,18 @@ def mean(f, coords=None):
 
 
 def cov(f, coords=None):
-    """Compute the n x n covariance matrix.
+    """Compute the d x d covariance matrix.
 
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Coordinates along each axis of the image.
 
     Returns
     -------
-    ndarray, shape (n, n)
+    ndarray, shape (d, d)
         The covariance matrix.
     """
 
@@ -147,12 +148,11 @@ def cov(f, coords=None):
     if coords is None:
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
 
-    n = f.ndim
-    if n < 3:
+    if f.ndim < 3:
         return cov_2x2(f, coords)
 
-    Sigma = np.zeros((n, n))
-    for i in range(n):
+    Sigma = np.zeros((f.ndim, f.ndim))
+    for i in range(f.ndim):
         for j in range(i):
             axis = (i, j)
             _image = project(f, axis=axis)
@@ -168,18 +168,18 @@ def cov(f, coords=None):
 
 
 def corr(f, coords=None):
-    """Compute the n x n correlation matrix.
+    """Compute the d x d correlation matrix.
 
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Coordinates along each axis of the image.
 
     Returns
     -------
-    ndarray, shape (n, n)
+    ndarray, shape (d, d)
         The correlation matrix.
     """
     return cov2corr(cov(f, coords))
@@ -241,7 +241,7 @@ def slice_idx_ellipsoid(f, axis=None, rmin=0.0, rmax=1.0):
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     axis : list[int]
         Specificies the subspace in which the ellipsoid slices are computed.
         Example: in x-y-z space, we may define a circle in x-y. This could
@@ -268,7 +268,7 @@ def slice_idx_contour(f, axis=None, lmin=0.0, lmax=1.0):
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     axis : list[int]
         Specificies the subspace in which the contours are computed. (See
         `slice_idx_ellipsoid`.)
@@ -307,7 +307,7 @@ def project(f, axis=0):
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     axis : list[int]
         The axes onto which the image is projected, i.e., the
         axes which are not summed over. Can be an int or list
@@ -319,7 +319,6 @@ def project(f, axis=0):
         The projection of `image` onto the specified axis.
     """
     # Sum over specified axes.
-    n = f.ndim
     if type(axis) is int:
         axis = [axis]
     axis = tuple(axis)
@@ -327,12 +326,11 @@ def project(f, axis=0):
     proj = np.sum(f, axis_sum)
 
     # Order the remaining axes.
-    n = proj.ndim
-    loc = list(range(n))
-    destination = np.zeros(n, dtype=int)
+    loc = list(range(proj.ndim))
+    destination = np.zeros(proj.ndim, dtype=int)
     for i, index in enumerate(np.argsort(axis)):
         destination[index] = i
-    for i in range(n):
+    for i in range(proj.ndim):
         if loc[i] != destination[i]:
             j = loc.index(destination[i])
             proj = np.swapaxes(proj, i, j)
@@ -341,25 +339,25 @@ def project(f, axis=0):
 
 
 def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None):
-    """Apply contour slice in n-1 dimensions, then project onto the remaining dimension.
+    """Apply contour slice in d - 1 dimensions, then project onto the remaining dimension.
 
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     axis : int
-        The 1D projection axis.
+        The projection axis.
     lmin, lmax : float
-        Min and max contour levels of the (n-1)-dimensional projection of `f`,
+        Min and max contour levels of the (d-1)-dimensional projection of `f`,
         normalized the the range [0, 1].
     fpr : ndarray, shape [f.shape[i] for i in range(f.ndim) if i != axis]
-        The (n-1)-dimensional projection of `f` onto all dimensions other than `axis`.
+        The (d-1)-dimensional projection of `f` onto all dimensions other than `axis`.
         (If not provided, it will be computed within the function.)
 
     Returns
     -------
     ndarray, shape (f.shape[axis],)
-        The 1D projection of the slice.
+        The projection of the slice.
     """
     axis_proj = [i for i in range(f.ndim) if i != axis]
     if fpr is None:
@@ -376,12 +374,12 @@ def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None):
 
 
 def project2d_contour(f, axis=(0, 1), lmin=0.0, lmax=1.0, fpr=None):
-    """Apply contour slice in n-2 dimensions, then project onto the remaining two dimensions.
+    """Apply contour slice in d - 2 dimensions, then project onto the remaining two dimensions.
 
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     axis : tuple
         The 2D projection axis.
     lmin, lmax : float
@@ -413,9 +411,7 @@ def project2d_contour(f, axis=(0, 1), lmin=0.0, lmax=1.0, fpr=None):
         _axis_proj = (0, 2)
     # Two elements of `idx` will be `slice(None)`; these are the elements in `axis`.
     # These will always be in order. So, if `axis[0] > axis[1]`, we need to flip
-    # `axis_proj`. Need a way to handle this automatically, especially if we
-    # are going to consider m-dimensional projections after applying a contour
-    # slice in (n-m) dimensions.
+    # `axis_proj`. Need a way to handle this automatically.
     if axis[0] > axis[1]:
         _axis_proj = tuple(reversed(_axis_proj))
     return project(f[idx], axis=_axis_proj)
@@ -429,8 +425,8 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
-    shape : n-tuple of ints
+        A d-dimensional image.
+    shape : d-tuple of ints
         The shape of the new dimensions.
     axis : int (0 or -1)
         If 0, the new dimensions will be inserted before the first axis. If -1,
@@ -441,7 +437,7 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
         Whether to use `np.repeat` or `np.expand_dims` and `np.broadcast_to`. The
         'broadcast' method is faster.
     """
-    if type(shape) in [int, np.int32, np.int64]:
+    if not array_like(shape):
         shape = (shape,)
     if method == "repeat":
         for i in range(len(shape)):
@@ -553,7 +549,7 @@ def sample_grid(f, coords=None, samples=1):
     Parameters
     ----------
     f : ndarray
-        An n-dimensional histogram.
+        A d-dimensional histogram.
     coords : list[ndarray]
         Coordinates along each axis of the image.
     samples : int
@@ -561,7 +557,7 @@ def sample_grid(f, coords=None, samples=1):
 
     Returns
     -------
-    ndarray, shape (samples, n)
+    ndarray, shape (samples, d)
         Samples drawn from the distribution.
     """
     if coords is None:
