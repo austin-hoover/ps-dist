@@ -189,12 +189,12 @@ def corr(f, coords=None):
 # ------------------------------------------------------------------------------
 
 
-def slice_idx(n=1, axis=0, ind=0):
+def slice_idx(d=1, axis=0, ind=0):
     """Return planar slice index array.
 
     Parameters
     ----------
-    n : int
+    d : int
         The number of elements in the slice index array. (The number of dimensions
         in the array to be sliced.)
     axis : list[int]
@@ -220,7 +220,7 @@ def slice_idx(n=1, axis=0, ind=0):
     if type(ind) is int:
         ind = [ind]
     # Initialize the slice index to select all elements.
-    idx = n * [slice(None)]
+    idx = d * [slice(None)]
     # If any indices were provided, add them to `idx`.
     for k, item in zip(axis, ind):
         if item is None:
@@ -364,7 +364,7 @@ def project1d_contour(f, axis=0, lmin=0.0, lmax=1.0, fpr=None):
         fpr = project(f, axis=axis_proj)
     fpr = fpr / np.max(fpr)
     idx = slice_idx(
-        n=f.ndim,
+        d=f.ndim,
         axis=axis_proj,
         ind=np.where(np.logical_and(fpr >= lmin, fpr <= lmax)),
     )

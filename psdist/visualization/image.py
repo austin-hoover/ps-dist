@@ -1,4 +1,4 @@
-"""Plotting routines for 2n-dimensional phase space images."""
+"""Plotting routines for multi-dimensional images."""
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
@@ -176,6 +176,8 @@ def plot2d(
         if offset_type == "relative" and np.count_nonzero(f):
             offset = offset * np.min(f[f > 0])
         f = f + offset
+    else:
+        offset = 0.0
 
     # Make sure there are no more zero elements if norm='log'.
     log = "norm" in kws and kws["norm"] == "log"
@@ -216,7 +218,7 @@ def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
     Parameters
     ----------
     f : ndarray
-        An 2-dimensional image.
+        A 2-dimensional image.
     coords : list[ndarray]
         Coordinates along each dimension of `f`.
     grid_kws : dict
@@ -255,7 +257,7 @@ def corner(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Coordinates along each dimension of `f`.
     labels : list[str], length n
@@ -280,7 +282,7 @@ def corner(
     from psdist.visualization.grid import CornerGrid
     if grid_kws is None:
         grid_kws = dict()
-    grid = CornerGrid(n=f.ndim, **grid_kws)
+    grid = CornerGrid(d=f.ndim, **grid_kws)
     if labels is not None:
         grid.set_labels(labels)
     grid.plot_image(
@@ -312,7 +314,7 @@ def slice_matrix(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Coordinates along each axis of the grid (if `data` is an image).
     labels : list[str], length n
@@ -371,7 +373,7 @@ def proj2d_interactive_slice(
     profiles_checkbox=False,
     **plot_kws,
 ):
-    """2D partial projection of image with interactive slicing.
+    """2D partial projection with interactive slicing.
 
     The distribution is projected onto the specified axes. Sliders provide the
     option to slice the distribution before projecting.
@@ -379,7 +381,7 @@ def proj2d_interactive_slice(
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Coordinate arrays along each dimension. A square grid is assumed.
     default_ind : (i, j)
@@ -402,13 +404,12 @@ def proj2d_interactive_slice(
     ipywidgets.widgets.interaction.interactive
         This widget can be displayed by calling `IPython.display.display(gui)`.
     """
-    n = f.ndim
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(n)]
+        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
     if dims is None:
-        dims = [f"x{i + 1}" for i in range(n)]
+        dims = [f"x{i + 1}" for i in range(f.ndim)]
     if units is None:
-        units = n * [""]
+        units = f.ndim * [""]
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
@@ -441,7 +442,7 @@ def proj2d_interactive_slice(
     # checkbox which determine if that dimension is sliced. The slice
     # indices are determined by the slider.
     sliders, checks = [], []
-    for k in range(n):
+    for k in range(f.ndim):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
@@ -466,7 +467,7 @@ def proj2d_interactive_slice(
 
     def hide(button):
         """Hide/show sliders."""
-        for k in range(n):
+        for k in range(f.ndim):
             # Hide elements for dimensions being plotted.
             valid = dims[k] not in (dim1.value, dim2.value)
             disp = None if valid else "none"
@@ -483,7 +484,7 @@ def proj2d_interactive_slice(
     for element in (dim1, dim2, *checks):
         element.observe(hide, names="value")
     # Initial hide
-    for k in range(n):
+    for k in range(f.ndim):
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
@@ -506,7 +507,7 @@ def proj2d_interactive_slice(
         # Slice and project the distribution.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        for k in range(n):
+        for k in range(f.ndim):
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
@@ -559,12 +560,12 @@ def proj1d_interactive_slice(
     fig_kws=None,
     **plot_kws,
 ):
-    """1D partial projection of n-dimensional image with interactive slicing.
+    """1D partial projection with interactive slicing.
 
     Parameters
     ----------
     f : ndarray
-        An n-dimensional image.
+        A d-dimensional image.
     coords : list[ndarray]
         Grid coordinates for each dimension.
     default_ind : int
@@ -585,13 +586,12 @@ def proj1d_interactive_slice(
     gui : ipywidgets.widgets.interaction.interactive
         This widget can be displayed by calling `IPython.display.display(gui)`.
     """
-    n = f.ndim
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(n)]
+        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
     if dims is None:
-        dims = [f"x{i + 1}" for i in range(n)]
+        dims = [f"x{i + 1}" for i in range(f.ndim)]
     if units is None:
-        units = n * [""]
+        units = f.ndim * [""]
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
@@ -606,7 +606,7 @@ def proj1d_interactive_slice(
 
     # Sliders
     sliders, checks = [], []
-    for k in range(n):
+    for k in range(f.ndim):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
@@ -631,7 +631,7 @@ def proj1d_interactive_slice(
 
     def hide(button):
         """Hide/show sliders based on checkboxes."""
-        for k in range(n):
+        for k in range(f.ndim):
             # Hide elements for dimensions being plotted.
             valid = dims[k] != dim1.value
             disp = None if valid else "none"
@@ -648,7 +648,7 @@ def proj1d_interactive_slice(
     for element in (dim1, *checks):
         element.observe(hide, names="value")
     # Initial hide
-    for k in range(n):
+    for k in range(f.ndim):
         if k == default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
@@ -669,7 +669,7 @@ def proj1d_interactive_slice(
         # Slice, then project onto the specified axis.
         axis_view = dims.index(dim1)
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        for k in range(n):
+        for k in range(f.ndim):
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]

@@ -1,4 +1,4 @@
-"""Plotting routines for discrete sets of points in 2n-dimensional phase space."""
+"""Plotting routines for point clouds."""
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
@@ -16,8 +16,8 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
 
     Parametersv
     ----------
-    X : ndarray, shape (k, n)
-        Coordinate array for k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinate array for n points in d-dimensional space.
     sigma : float
         If a number is provided, it is used to set the limits relative to
         the standard deviation of the distribution.
@@ -67,8 +67,8 @@ def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, 2)
-        Coordinate array for k points in 2-dimensional space.
+    X : ndarray, shape (n, 2)
+        Coordinate array for n points in 2-dimensional space.
     ax : Axes
         The axis on which to plot.
     level : number of list of numbers
@@ -89,8 +89,8 @@ def scatter(X, ax=None, samples=None, **kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinate array for k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinate array for n points in d-dimensional space.
     ax : Axes
         The axis on which to plot.
     samples : int
@@ -119,8 +119,8 @@ def hist(X, ax=None, bins="auto", limits=None, **kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, 2)
-        Coordinate array for k points in 2-dimensional space.
+    X : ndarray, shape (n, 2)
+        Coordinate array for n points in 2-dimensional space.
     ax : Axes
         The axis on which to plot.
     limits, bins : see `psdist.bunch.histogram`.
@@ -136,8 +136,8 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, 2)
-        Coordinate array for k points in 2-dimensional space.
+    X : ndarray, shape (n, 2)
+        Coordinate array for n points in 2-dimensional space.
     ax : Axes
         The axis on which to plot.
     coords : [xcoords, ycoords]
@@ -167,8 +167,8 @@ def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **k
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinate array for k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinate array for n points in d-dimensional space.
     kind : {'hist', 'contour', 'contourf', 'scatter', 'kde'}
         The kind of plot.
     rms_ellipse : bool
@@ -208,8 +208,8 @@ def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
 
     Parameters
     ----------
-    X : ndarray, shape (k, 2)
-        Coordinates of k points in 2-dimensional space.
+    X : ndarray, shape (n, 2)
+        Coordinates of n points in 2-dimensional space.
     grid_kws : dict
         Key word arguments passed to `JointGrid`.
     marg_hist_kws : dict
@@ -248,8 +248,8 @@ def corner(
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     limits : list[tuple], length n
         The (min, max) plot limits for each axis.
     labels : list[str], length n
@@ -272,10 +272,10 @@ def corner(
     from psdist.visualization.grid import CornerGrid
     if grid_kws is None:
         grid_kws = dict()
-    cgrid = CornerGrid(n=X.shape[1], **grid_kws)
+    grid = CornerGrid(d=X.shape[1], **grid_kws)
     if labels is not None:
         cgrid.set_labels(labels)
-    cgrid.plot_cloud(
+    grid.plot_cloud(
         X,
         limits=limits,
         autolim_kws=autolim_kws,
@@ -284,7 +284,7 @@ def corner(
         diag_kws=diag_kws,
         **kws,
     )
-    return cgrid
+    return grid
 
 
 def proj2d_interactive_slice(
@@ -301,8 +301,8 @@ def proj2d_interactive_slice(
 
     Parameters
     ----------
-    X : ndarray, shape (k, n)
-        Coordinates of k points in n-dimensional space.
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
     limits : list[(min, max)]
         Limits along each axis.
     nbins : int
@@ -318,14 +318,12 @@ def proj2d_interactive_slice(
         Key word arguments passed to `plot2d`.
     """
     plot_kws.setdefault("kind", "hist")
-
-    n = X.shape[1]
     if limits is None:
-        limits = [(np.min(X[:, i]), np.max(X[:, i])) for i in range(n)]
+        limits = [(np.min(X[:, i]), np.max(X[:, i])) for i in range(X.shape[1])]
     if dims is None:
-        dims = [f"x{i + 1}" for i in range(n)]
+        dims = [f"x{i + 1}" for i in range(X.shape[1])]
     if units is None:
-        units = n * [""]
+        units = X.shape[1] * [""]
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
@@ -343,7 +341,7 @@ def proj2d_interactive_slice(
     autobin = widgets.Checkbox(description="auto plot res", value=False)
     log = widgets.Checkbox(description="log", value=False)
     sliders, checks = [], []
-    for k in range(n):
+    for k in range(X.shape[1]):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
@@ -368,7 +366,7 @@ def proj2d_interactive_slice(
 
     def hide(button):
         """Hide inactive sliders."""
-        for k in range(n):
+        for k in range(X.shape[1]):
             # Hide elements for dimensions being plotted.
             valid = dims[k] not in (dim1.value, dim2.value)
             disp = None if valid else "none"
@@ -388,7 +386,7 @@ def proj2d_interactive_slice(
 
     # Initial hide
     nbins_plot.layout.display = "none"
-    for k in range(n):
+    for k in range(X.shape[1]):
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"

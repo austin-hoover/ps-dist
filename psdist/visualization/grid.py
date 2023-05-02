@@ -99,7 +99,7 @@ class JointGrid:
         Parameters
         ----------
         f : ndarray
-            An n-dimensional image.
+            A d-dimensional image.
         coords : list[ndarray]
             Coordinates along each dimension of `f`.
         marg_kws : dict
@@ -165,7 +165,7 @@ class CornerGrid:
     
     def __init__(
         self, 
-        n=4, 
+        d=4, 
         diag=True, 
         diag_norm="max",
         diag_scale=0.65,
@@ -178,7 +178,7 @@ class CornerGrid:
         """
         Parameters
         ----------
-        n : int
+        d : int
             The number of rows/columns.
         diag : bool
             Whether to include diagonal subplots (univariate plots). If False,
@@ -200,13 +200,12 @@ class CornerGrid:
         """
         # Create figure.
         self.new = True
-        self.n = n
+        self.d = self.nrows = self.ncols = d
         self.corner = corner
         self.diag = diag
         self.diag_norm = diag_norm
         self.diag_scale = diag_scale
         self.diag_rspine = diag_rspine
-        self.nrows = self.ncols = self.n
         if not self.diag:
             self.nrows = self.nrows - 1
             self.ncols = self.ncols - 1
@@ -230,17 +229,17 @@ class CornerGrid:
         self.offdiag_indices = []
         self.offdiag_indices_u = []
         if self.diag:
-            for i in range(self.n):
+            for i in range(self.d):
                 self.diag_axs.append(self.axs[i, i])
                 self.diag_indices.append(i)
-            for i in range(1, self.n):
+            for i in range(1, self.d):
                 for j in range(i):
                     self.offdiag_axs.append(self.axs[i, j])
                     self.offdiag_axs_u.append(self.axs[j, i])
                     self.offdiag_indices.append((j, i))
                     self.offdiag_indices_u.append((i, j))
         else:
-            for i in range(self.n - 1):
+            for i in range(self.d - 1):
                 for j in range(i + 1):
                     self.offdiag_axs.append(self.axs[i, j])
                     self.offdiag_indices.append((j, i + 1))
@@ -296,7 +295,7 @@ class CornerGrid:
         if self.diag:
             labels = [ax.get_xlabel() for ax in self.diag_axs]
         else:
-            labels = [self.axs[-1, i].get_xlabel() for i in range(self.n - 1)]
+            labels = [self.axs[-1, i].get_xlabel() for i in range(self.d - 1)]
             labels = labels + [self.axs[-1, 0].get_ylabel()]
         return labels
 
@@ -315,7 +314,7 @@ class CornerGrid:
         if self.diag:
             limits = [ax.get_xlim() for ax in self.diag_axs]
         else:
-            limits = [self.axs[-1, i].get_xlim() for i in range(self.n - 1)]
+            limits = [self.axs[-1, i].get_xlim() for i in range(self.d - 1)]
             limits = limits + [self.axs[-1, 0].get_ylim()]
         return limits
 
@@ -389,12 +388,12 @@ class CornerGrid:
         diag_kws=None,
         **kws,
     ):
-        """Plot an n-dimensional image.
+        """Plot an image.
 
         Parameters
         ----------
         f : ndarray
-            An n-dimensional image.
+            A d-dimensional image.
         coords : list[ndarray]
             Coordinates along each axis of the grid (if `data` is an image).
         prof_edge_only : bool
@@ -438,7 +437,7 @@ class CornerGrid:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
                 if prof_edge_only:
                     if profx:
-                        kws["profx"] = axis[1] == self.n - 1
+                        kws["profx"] = axis[1] == self.d - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
                 _f = psdist.image.project(f, axis=axis)
@@ -466,13 +465,13 @@ class CornerGrid:
         diag_kws=None,
         **kws,
     ):
-        """Plot an n-dimensional point cloud.
+        """Plot a point cloud.
 
         Parameters
         ----------
-        X : ndarray, shape (k, n)
-            Coordinates of k points in n-dimensional space.
-        limits : list[tuple], length n
+        X : ndarray, shape (n, d)
+            Coordinates of n points in d-dimensional space.
+        limits : list[tuple], length d
             The (min, max) axis limits.
         bins : 'auto', int, list[int]
             The number of bins along each dimension (if plot type requires histogram
@@ -491,7 +490,6 @@ class CornerGrid:
         **kws
             Key word arguments pass to `visualization.cloud.plot2d`
         """
-        n = X.shape[1]
         if diag_kws is None:
             diag_kws = dict()
         diag_kws.setdefault("color", "black")
@@ -512,11 +510,11 @@ class CornerGrid:
         self.new = False
         
         if not psdist.utils.array_like(bins):
-            bins = n * [bins]
+            bins = X.shape[1] * [bins]
 
         # Univariate plots. Remember histogram bins and use them for 2D histograms.
         edges = []
-        for axis in range(self.n):
+        for axis in range(self.d):
             if psdist.utils.array_like(bins[axis]):
                 _edges = bins[axis]
             else:
@@ -533,7 +531,7 @@ class CornerGrid:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
                 if prof_edge_only:
                     if profx:
-                        kws["profx"] = axis[1] == self.n - 1
+                        kws["profx"] = axis[1] == self.d - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
                 if kws["kind"] in ["hist", "contour", "contourf"]:
@@ -736,12 +734,12 @@ class SliceGrid:
         debug=False,
         **kws,
     ):
-        """Plot an n-dimensional image.
+        """Plot a d-dimensional image.
 
         Parameters
         ----------
         f : ndarray
-            An n-dimensional image.
+            An d-dimensional image.
         coords : list[ndarray]
             Coordinates along each axis of the grid (if `data` is an image).
         labels : list[str], length n
@@ -783,12 +781,14 @@ class SliceGrid:
         if type(pad) in [float, int]:
             pad = len(axis_slice) * [pad]
         ind_slice = []
-        for i, steps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
+        for i, nsteps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
             start = int(_pad * f.shape[i])
             stop = f.shape[i] - 1 - start
-            if (stop - start) < steps:
+            if stop - start == nsteps - 1:
+                ind_slice.append(np.arange(nsteps))
+            elif (stop - start) < nsteps:
                 raise ValueError(f"f.shape[{i}] < number of slice indices requested.")
-            ind_slice.append(np.linspace(start, stop, steps).astype(int))
+            ind_slice.append(np.linspace(start, stop, nsteps).astype(int))
         ind_slice = tuple(ind_slice)
         self.ind_slice = ind_slice
 
@@ -887,16 +887,16 @@ class SliceGrid:
         autolim_kws=None,
         **kws,
     ):
-        """Plot an n-dimensional point cloud.
+        """Plot a point cloud.
 
         NOTE: this is not currently working... for the time being, it is recommended
         to generate a 4D histogram and then call `plot_image`.
 
         Parameters
         ----------
-        X : ndarray, shape (k, n)
-            Coordinates of k points in n-dimensional space.
-        labels : list[str], length n
+        X : ndarray, shape (n, d)
+            Coordinates of n points in d-dimensional space.
+        labels : list[str], length d
             Label for each dimension.
         bins_slice : int, list[int], list[ndarray]
             Specifies the bins used for slicing in `axis_slice`. The bin range
