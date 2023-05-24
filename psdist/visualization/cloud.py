@@ -438,7 +438,7 @@ def proj2d_interactive_slice(
         # Update plotting key word arguments.
         if plot_kws["kind"] != "scatter":
             plot_kws["bins"] = "auto" if autobin else nbins_plot
-            plot_kws["limits"] = limits
+            plot_kws["limits"] = [limits[axis_view[0]], limits[axis_view[1]]]
             plot_kws["norm"] = "log" if kws["log"] else None
 
         # Plot the selected points.

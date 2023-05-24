@@ -1,12 +1,13 @@
 # Change Log
 
 
-## [0.1.4] 
+## [0.1.4] — 2023-05-24
 
 * Added absolute vs. relative offset to `visualization.image.plot2d`.
 * Subtact image offset when overlaying profiles in `visualization.image.plot2d`.
 * Fixed bug: `visualization.SliceGrid` gave error when the number of slices requested was the same as the number of indices in the array.
 * Change to convention: 'd' is now used to refer to the number of dimensions, and 'n' is used to refer to the number of points or pixels.
+* Fixed bug in `visualization.cloud.proj2d_interactive_slice`: limits were updating.
 
 
 ## [0.1.3] — 2023-04-20
