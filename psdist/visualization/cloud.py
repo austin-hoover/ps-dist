@@ -385,7 +385,6 @@ def proj2d_interactive_slice(
         element.observe(hide, names="value")
 
     # Initial hide
-    nbins_plot.layout.display = "none"
     for k in range(X.shape[1]):
         if k in default_ind:
             checks[k].layout.display = "none"
