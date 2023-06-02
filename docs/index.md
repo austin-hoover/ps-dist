@@ -21,9 +21,7 @@ Some example notebooks are here: https://github.com/austin-hoover/psdist/tree/ma
 A few examples from my own research are below. (Eventually I will include code here.)
 
 
-### Visualization
-
-#### Interactive slicing
+### Interactive slicing
 
 One-dimensional projections of five-dimensional image:
 
@@ -38,14 +36,14 @@ Two-dimensional projections five-dimensional image:
 Similar functions are available for point cloud data. Passing more than one image to the function enables side-by-side comparisions of multiple high-dimensional distributions with interactive slicing.
 
 
-#### Slice matrix
+### Slice matrix
 
 The following figure represents a four-dimensional slice of a measured five-dimensional phase space distribution, with lower-dimensional projections shown on the side panels.
 
 ![](figures/slice_matrix.png)
 
 
-#### Shell slices
+### Shell slices
 
 Shell slices can be used to visualize the dependence of a distribution in a low-dimensional subspace on the distance from the origin in a different high-dimensional subspace. The figure below selects "shells" based on four-dimensional density contours in the transverse phase space ($x$-$x'$-$y$-$y'$), then plots the distribution along another dimension ($w$) within each shell. The $w$ distribution transitions from unimodal at large transvere amplitude to bimodal in the core.
 
