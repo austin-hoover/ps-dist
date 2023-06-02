@@ -290,7 +290,6 @@ def corner(
 def proj2d_interactive_slice(
     X,
     limits=None,
-    nbins=30,
     default_ind=(0, 1),
     slice_type="int",
     dims=None,
@@ -305,9 +304,6 @@ def proj2d_interactive_slice(
         Coordinates of n points in d-dimensional space.
     limits : list[(min, max)]
         Limits along each axis.
-    nbins : int
-        Default number of bins for slicing/viewing. Both can be changed with
-        sliders.
     default_ind : (i, j)
         Default view axis.
     slice_type : {'int', 'range'}
@@ -329,15 +325,22 @@ def proj2d_interactive_slice(
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
 
     # Widgets
-    nbins_default = nbins
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-    nbins = widgets.IntSlider(
-        min=2, max=100, value=nbins_default, description="grid res"
-    )
-    nbins_plot = widgets.IntSlider(
-        min=2, max=200, value=nbins_default, description="plot res"
-    )
+    n_bins = widgets.BoundedIntText(
+        value=32,
+        min=2,
+        max=150,
+        step=1,
+        description="slice res",
+    )    
+    n_bins_plot = widgets.BoundedIntText(
+        value=64,
+        min=2,
+        max=250,
+        step=1,
+        description="plot res",
+    )    
     autobin = widgets.Checkbox(description="auto plot res", value=False)
     log = widgets.Checkbox(description="log", value=False)
     sliders, checks = [], []
@@ -378,7 +381,7 @@ def proj2d_interactive_slice(
             # Make sliders respond to check boxes.
             if not checks[k].value:
                 sliders[k].layout.display = "none"
-            nbins_plot.layout.display = "none" if autobin.value else None
+            n_bins_plot.layout.display = "none" if autobin.value else None
 
     # Make slider visiblity depend on checkmarks.
     for element in (dim1, dim2, *checks, autobin):
@@ -393,11 +396,16 @@ def proj2d_interactive_slice(
     def update(**kws):
         dim1 = kws["dim1"]
         dim2 = kws["dim2"]
-        nbins = kws["nbins"]
-        nbins_plot = kws["nbins_plot"]
+        n_bins = kws["n_bins"]
+        n_bins_plot = kws["n_bins_plot"]
         autobin = kws["autobin"]
+
+        # Update the slider ranges based on n_bins.
+        for slider in sliders:
+            slider.max = n_bins - 1
+            
         ind, checks = [], []
-        for i in range(100):
+        for i in range(X.shape[1]):
             if f"check{i}" in kws:
                 checks.append(kws[f"check{i}"])
             if f"slider{i}" in kws:
@@ -411,12 +419,12 @@ def proj2d_interactive_slice(
             if check and dim in (dim1, dim2):
                 return
         if dim1 == dim2:
-            return
+            return            
 
         # Slice the distribution
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        edges = [np.linspace(umin, umax, nbins + 1) for (umin, umax) in limits]
+        edges = [np.linspace(umin, umax, n_bins + 1) for (umin, umax) in limits]
         if axis_slice:
             center, width = [], []
             for k in axis_slice:
@@ -436,7 +444,7 @@ def proj2d_interactive_slice(
 
         # Update plotting key word arguments.
         if plot_kws["kind"] != "scatter":
-            plot_kws["bins"] = "auto" if autobin else nbins_plot
+            plot_kws["bins"] = "auto" if autobin else n_bins_plot
             plot_kws["limits"] = [limits[axis_view[0]], limits[axis_view[1]]]
             plot_kws["norm"] = "log" if kws["log"] else None
 
@@ -446,15 +454,16 @@ def proj2d_interactive_slice(
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
+    # Pass key word arguments to `ipywidgets.interactive`.
     kws = dict()
     kws["log"] = log
     kws["autobin"] = autobin
+    kws["n_bins"] = n_bins
+    kws["n_bins_plot"] = n_bins_plot
     kws["dim1"] = dim1
     kws["dim2"] = dim2
     for i, check in enumerate(checks, start=1):
         kws[f"check{i}"] = check
     for i, slider in enumerate(sliders, start=1):
         kws[f"slider{i}"] = slider
-    kws["nbins"] = nbins
-    kws["nbins_plot"] = nbins_plot
     return interactive(update, **kws)
