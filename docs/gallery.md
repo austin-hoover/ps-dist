@@ -1,4 +1,8 @@
-# Gallery
+---
+layout: page
+title: "Gallery"
+<!-- permalink: /URL-PATH -->
+---
 
 
 ## Slice matrix
