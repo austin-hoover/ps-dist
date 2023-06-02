@@ -233,7 +233,7 @@ def slice_planar(X, axis=None, center=None, width=None, limits=None):
         width = np.array(width)
         limits = list(zip(center - 0.5 * width, center + 0.5 * width))  
     limits = np.array(limits)
-    if limits.ndim == 0:
+    if limits.ndim == 1:
         limits = limits[None, :]
     conditions = []
     for j, (umin, umax) in zip(axis, limits):
