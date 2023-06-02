@@ -1,6 +1,14 @@
 # Change Log
 
 
+## [0.1.5] — 2023-06-02
+* Fixed bug with `visualization.cloud.slice_planar` limits when only one pair was provided.
+* Significantly improved ``visualization.cloud.proj2d_interactive_slice`.
+    * Pass an arbitrary number of data sets; outputs side-by-side comparision.
+    * Slice and view resolution is now adjusted using a textbox.
+    * Slice index slider ranges are dynamically adjusted.
+
+
 ## [0.1.4] — 2023-05-24
 
 * Added absolute vs. relative offset to `visualization.image.plot2d`.

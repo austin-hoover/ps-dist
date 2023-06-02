@@ -459,27 +459,15 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
     return None
 
 
-def _normalize(f, norm="volume", pixel_volume=1.0):
-    factor = 1.0
-    if norm == "volume":
-        factor = np.sum(f) * pixel_volume
-    elif norm == "max":
-        factor = np.max(f)
-    if factor == 0.0:
-        return f
-    return f / factor
+# Processing
+
+def blur(f, sigma):
+    """Simple Gaussian blur."""
+    return ndimage.gaussian_filter(f, sigma)
 
 
-def _threshold(f, lmin=None, frac=False):
-    if lmin:
-        if frac:
-            f_max = np.max(f)
-            lmin = lmin * f_max
-        f[f < lmin] = 0.0
-    return f
-
-
-def _clip(f, lmin=None, lmax=None, frac=False):
+def clip(f, lmin=None, lmax=None, frac=False):
+    """Clip between lmin and lmax, can be fractions or absolute values."""
     if not (lmin or lmax):
         return f
     if frac:
@@ -491,6 +479,33 @@ def _clip(f, lmin=None, lmax=None, frac=False):
     return np.clip(f, lmin, lmax)
 
 
+def fill(f, fill_value=None):
+    """Fill masked values."""
+    return np.ma.filled(f, fill_value=fill_value)
+
+
+def normalize(f, norm="volume", pixel_volume=1.0):
+    """Scale to unit volume or unit maximum."""
+    factor = 1.0
+    if norm == "volume":
+        factor = np.sum(f) * pixel_volume
+    elif norm == "max":
+        factor = np.max(f)
+    if factor == 0.0:
+        return f
+    return f / factor
+
+
+def threshold(f, lmin=None, frac=False):
+    """Set pixels less than lmin to zero."""
+    if lmin:
+        if frac:
+            f_max = np.max(f)
+            lmin = lmin * f_max
+        f[f < lmin] = 0.0
+    return f
+
+
 def process(
     f,
     fill_value=None,
@@ -500,9 +515,11 @@ def process(
     clip_type="abs",
     norm=None,
     pixel_volume=1.0,
-    blur=0.0,
+    blur_sigma=None,
 ):
     """Return processed image.
+
+    This is a convenience function mostly for plotting routines.
 
     Parameters
     ----------
@@ -523,19 +540,19 @@ def process(
         Whether to normalize the image by its volume or maximum element.
     pixel_volume : float
         Needed if normalizing by volume.
-    blur : float
+    blur_sigma : float
         Sigma for Gaussian filter.
     """
     if fill_value is not None:
-        f = np.ma.filled(f, fill_value=fill_value)
+        f = fill(f, fill_value=None)
     if thresh is not None:
-        f = _threshold(f, thresh, frac=(thresh_type == "frac"))
+        f = threshold(f, thresh, frac=(thresh_type == "frac"))
     if clip is not None:
-        f = _clip(f, clip[0], clip[1], frac=(clip_type == "frac"))
-    if blur:
-        f = ndimage.gaussian_filter(f, blur)
+        f = clip(f, clip[0], clip[1], frac=(clip_type == "frac"))
+    if blur_sigma is not None:
+        f = blur(f, blur_sigma)
     if norm:
-        f = _normalize(f, norm=norm, pixel_volume=pixel_volume)
+        f = normalize(f, norm=norm, pixel_volume=pixel_volume)
     return f
 
 

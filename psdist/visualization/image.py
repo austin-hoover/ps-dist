@@ -498,12 +498,14 @@ def proj2d_interactive_slice(
                 checks.append(kws[f"check{i}"])
             if f"slider{i}" in kws:
                 ind.append(kws[f"slider{i}"])
+                
         # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
                 return
         if dim1 == dim2:
             return
+            
         # Slice and project the distribution.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
@@ -513,6 +515,7 @@ def proj2d_interactive_slice(
         ind = [ind[k] for k in axis_slice]
         idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
         _f = psdist.image.project(f[idx], axis_view)
+        
         # Update plotting key word arguments.
         if "cmap" in kws:
             plot_kws["cmap"] = kws["cmap"]
@@ -524,6 +527,7 @@ def proj2d_interactive_slice(
             plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh_slider"]
         else:
             plot_kws["process_kws"]["thresh"] = None
+            
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
         ax = plot2d(
@@ -662,10 +666,12 @@ def proj1d_interactive_slice(
                 checks.append(kws[f"check{i}"])
             if f"slider{i}" in kws:
                 ind.append(kws[f"slider{i}"])
+                
         # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim == dim1:
                 return
+                
         # Slice, then project onto the specified axis.
         axis_view = dims.index(dim1)
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
@@ -677,6 +683,7 @@ def proj1d_interactive_slice(
         profile = psdist.image.project(f[idx], axis_view)
         if np.max(profile) > 0:
             profile = profile / np.sum(profile)
+            
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])

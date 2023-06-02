@@ -1,4 +1,4 @@
-"""Plotting routines for point clouds."""
+"""Plotting routines for point data."""
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
@@ -288,20 +288,24 @@ def corner(
 
 
 def proj2d_interactive_slice(
-    X,
+    data=None,
     limits=None,
     default_ind=(0, 1),
     slice_type="int",
     dims=None,
     units=None,
+    autolim_kws=None,
+    fig_kws=None,
     **plot_kws,
 ):
-    """2D partial projection of bunch with interactive slicing.
+    """2D partial projection with interactive slicing.
 
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinates of n points in d-dimensional space.
+    data : ndarray, shape (n, d) or list[ndarray, shape (n, d)]
+        Coordinates of n points in d-dimensional space. Alternatively, a list of k 
+        data sets can be provided. This will generate k figures, allowing side-by-side
+        comparision. There is no limit on the number of figures!
     limits : list[(min, max)]
         Limits along each axis.
     default_ind : (i, j)
@@ -310,16 +314,38 @@ def proj2d_interactive_slice(
         Whether to slice one index along the axis or a range of indices.
     dims, units : list[str], shape (n,)
         Dimension names and units.
+    autolim_kws : dict
+        Key word arguments passed to `auto_limits`.
+    fig_kws : dict
+        Key word arguments passed to `proplot.subplots`.
     **plot_kws
         Key word arguments passed to `plot2d`.
     """
-    plot_kws.setdefault("kind", "hist")
+    if np.ndim(data) == 2:
+        data = [data]
+    n_data = len(data)
+    n_dims = data[0].shape[1]
+    for i in range(1, n_data):
+        if data[i].shape[1] != n_dims:
+            raise ValueError("data must have the same number of dimensions.")
+
+    if fig_kws is None:
+        fig_kws = dict()
+    plot_kws.setdefault("kind", "hist")    
+
     if limits is None:
-        limits = [(np.min(X[:, i]), np.max(X[:, i])) for i in range(X.shape[1])]
+        if autolim_kws is None:
+            autolim_kws = dict()
+        limits_list = np.array([auto_limits(X, **autolim_kws) for X in data])
+        mins = np.min(limits_list[:, :, 0], axis=0)   
+        maxs = np.max(limits_list[:, :, 1], axis=0)
+        # mins = np.min([np.min(X, axis=0) for X in data], axis=0)
+        # maxs = np.max([np.max(X, axis=0) for X in data], axis=0)
+        limits = [(mins[i], maxs[i]) for i in range(n_dims)]
     if dims is None:
-        dims = [f"x{i + 1}" for i in range(X.shape[1])]
+        dims = [f"x{i + 1}" for i in range(n_dims)]
     if units is None:
-        units = X.shape[1] * [""]
+        units = n_dims * [""]
     dims_units = []
     for dim, unit in zip(dims, units):
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
@@ -335,7 +361,7 @@ def proj2d_interactive_slice(
         description="slice res",
     )    
     n_bins_plot = widgets.BoundedIntText(
-        value=64,
+        value=50,
         min=2,
         max=250,
         step=1,
@@ -344,20 +370,20 @@ def proj2d_interactive_slice(
     autobin = widgets.Checkbox(description="auto plot res", value=False)
     log = widgets.Checkbox(description="log", value=False)
     sliders, checks = [], []
-    for k in range(X.shape[1]):
+    for k in range(n_dims):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
-                max=100,
-                value=0,
+                max=(n_bins.value - 1),
+                value=int(n_bins.value / 2),
                 description=dims[k],
                 continuous_update=True,
             )
         elif slice_type == "range":
             slider = widgets.IntRangeSlider(
-                value=(0, 100),
                 min=0,
-                max=100,
+                max=(n_bins.value - 1),
+                value=(0, n_bins.value - 1),
                 description=dims[k],
                 continuous_update=True,
             )
@@ -369,7 +395,7 @@ def proj2d_interactive_slice(
 
     def hide(button):
         """Hide inactive sliders."""
-        for k in range(X.shape[1]):
+        for k in range(n_dims):
             # Hide elements for dimensions being plotted.
             valid = dims[k] not in (dim1.value, dim2.value)
             disp = None if valid else "none"
@@ -388,7 +414,7 @@ def proj2d_interactive_slice(
         element.observe(hide, names="value")
 
     # Initial hide
-    for k in range(X.shape[1]):
+    for k in range(n_dims):
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
@@ -403,9 +429,10 @@ def proj2d_interactive_slice(
         # Update the slider ranges based on n_bins.
         for slider in sliders:
             slider.max = n_bins - 1
-            
+
+        # Collect slice indices.
         ind, checks = [], []
-        for i in range(X.shape[1]):
+        for i in range(1, n_dims + 1):
             if f"check{i}" in kws:
                 checks.append(kws[f"check{i}"])
             if f"slider{i}" in kws:
@@ -419,28 +446,27 @@ def proj2d_interactive_slice(
             if check and dim in (dim1, dim2):
                 return
         if dim1 == dim2:
-            return            
+            return     
 
-        # Slice the distribution
+        # Slice the distributions.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        edges = [np.linspace(umin, umax, n_bins + 1) for (umin, umax) in limits]
-        if axis_slice:
-            center, width = [], []
+        edges = [np.linspace(limits[i][0], limits[i][1], n_bins + 1) for i in range(n_dims)]        
+        _data = []
+        if not axis_slice:
+            _data = data
+        else:
+            slice_limits = []
             for k in axis_slice:
                 imin, imax = ind[k]
                 if imax > len(edges[k]) - 1:
                     print(f"{dims[k]} out of range.")
                     return
-                width.append(edges[k][imax] - edges[k][imin])
-                center.append(0.5 * (edges[k][imax] + edges[k][imin]))
-            _X = psdist.cloud.slice_planar(
-                X, axis=axis_slice, center=center, width=width
-            )
-        else:
-            _X = X[:, :]
-        if _X.shape[0] == 0:
-            return
+                slice_limits.append((edges[k][imin], edges[k][imax]))
+            _data = [psdist.cloud.slice_planar(X, axis=axis_slice, limits=slice_limits) for X in data]
+        for _X in _data:
+            if _X.shape[0] == 0:
+                return
 
         # Update plotting key word arguments.
         if plot_kws["kind"] != "scatter":
@@ -449,9 +475,10 @@ def proj2d_interactive_slice(
             plot_kws["norm"] = "log" if kws["log"] else None
 
         # Plot the selected points.
-        fig, ax = pplt.subplots()
-        plot2d(_X[:, axis_view], ax=ax, **plot_kws)
-        ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
+        fig, axs = pplt.subplots(ncols=n_data, **fig_kws)
+        for ax, _X in zip(axs, _data):
+            plot2d(_X[:, axis_view], ax=ax, **plot_kws)
+        axs.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
         plt.show()
 
     # Pass key word arguments to `ipywidgets.interactive`.
