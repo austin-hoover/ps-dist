@@ -24,12 +24,12 @@ A few examples from my own research are below. (Eventually I will include code h
 ### Interactive slicing
 
 
-One-dimensional projections of five-dimensional image:
+One-dimensional projections of a five-dimensional image:
 
 <video src="https://user-images.githubusercontent.com/58012334/242989106-0ad88e3a-7b10-48d4-9f36-ff8581281e80.mov" controls="controls" style="max-width: 600px;">
 </video>
 
-Two-dimensional projections five-dimensional image:
+Two-dimensional projections of a five-dimensional image:
 
 <video src="https://user-images.githubusercontent.com/58012334/242990288-94b777a6-6f69-44f9-a11f-81ccda179594.mov" controls="controls" style="max-width: 600px;">
 </video>
