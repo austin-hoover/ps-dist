@@ -1,5 +1,3 @@
-# psdist examples
-
 The `psdist` repository is a collection of analysis and visualization methods for position-momentum space (phase space) distributions. Its primary use has been to slice and project high-dimensional data, both in point-cloud and image format.
 
 A few example notebooks are here: https://github.com/austin-hoover/psdist/tree/main/examples.
