@@ -1,6 +1,6 @@
 # psdist
 
-This repository is a collection of analysis and visualization methods for six-dimensional position-momentum space (phase space) distributions. Most of the methods should work for point-cloud or image data of any dimensionality.
+This repository is a collection of analysis and visualization methods for six-dimensional position-momentum space (phase space) distributions. Its primary use has been to slice and project high-dimensional data, both in point-cloud and image form.
 
 
 ## Installation
@@ -10,12 +10,12 @@ https://pypi.org/project/psdist/
 
 ## Examples
 
-Some accelerator physics publications that use methods from this repository:
-* https://journals.aps.org/prab/abstract/10.1103/PhysRevAccelBeams.23.124201
-* https://arxiv.org/abs/2301.04178
+See `/examples` folder and https://austin-hoover.github.io/psdist/.
 
-The following figure represents a four-dimensional slice of a measured five-dimensional phase space distribution, with lower-dimensional projections shown on the side panels.
 
-![](docs/figures/slice_matrix.png)
+## Related packages
 
-Other example figures are at https://austin-hoover.github.io/psdist/.
+* https://github.com/openPMD/openPMD-viewer
+* https://github.com/bwheelz36/ParticlePhaseSpace
+* https://github.com/ColwynGulliford/distgen
+* https://aplpy.readthedocs.io/en/stable/fitsfigure/slicing.html

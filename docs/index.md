@@ -1,28 +1,20 @@
-# psdist
+# psdist examples
 
-This repository is a collection of analysis and visualization methods for position-momentum space (phase space) distributions. Its primary use has been to slice and project high-dimensional data, both in point-cloud and image format.
+The `psdist` repository is a collection of analysis and visualization methods for position-momentum space (phase space) distributions. Its primary use has been to slice and project high-dimensional data, both in point-cloud and image format.
 
+A few example notebooks are here: https://github.com/austin-hoover/psdist/tree/main/examples.
 
-## Installation
-
-https://github.com/austin-hoover/psdist
-
-https://pypi.org/project/psdist/
+Below are a some examples from my own research.
 
 
-## Examples
+### Publications
 
 Some accelerator physics publications that use methods from this repository:
 * https://journals.aps.org/prab/abstract/10.1103/PhysRevAccelBeams.23.124201
 * https://arxiv.org/abs/2301.04178
 
-Some example notebooks are here: https://github.com/austin-hoover/psdist/tree/main/examples.
-
-A few examples from my own research are below. (Eventually I will include code here.)
-
 
 ### Interactive slicing
-
 
 One-dimensional projections of a five-dimensional image:
 
