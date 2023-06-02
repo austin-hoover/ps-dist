@@ -21,6 +21,12 @@ An example notebook is here: https://github.com/austin-hoover/psdist/tree/main/e
 Below are some example figures.
 
 
+### Interactive slicing
+
+<video src="https://user-images.githubusercontent.com/58012334/242989106-0ad88e3a-7b10-48d4-9f36-ff8581281e80.mov" controls="controls" style="max-width: 730px;">
+</video>
+
+
 ### Slice matrix
 
 The following figure represents a four-dimensional slice of a measured five-dimensional phase space distribution, with lower-dimensional projections shown on the side panels.
