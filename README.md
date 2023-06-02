@@ -16,6 +16,14 @@ Some examples in accelerator physics that use methods from this repository:
 
 
 ### Slice matrix
-Each subplot in the figure below shows the measured $x-p_x$ distribution of a hadron beam within a small box in $y-p_y-p_z$ space; $y$ varies along the columns, $p_y$ varies along the rows, and $p_z$ varies with the animation frame number.
+Slice matrix plots represent four-dimensional data. The main figures shows a four-dimensional slice of a measured five-dimensional phase space distribution. Lower dimensional projections are shown on the side panels.
 
-![](examples/figures/view_yyp_slice_xxp_wslice.gif)
+![](examples/figures/slice_matrix.png)
+
+### Shell slices
+Shell slices can be used to visualize the dependence of the distribution in a low-dimensional subspace on the radius in some other high-dimensional subspace. The figure below selects "shells" based on four-dimensional density contours in the $x$-$x'$-$y$-$y'$ plane, then plots the distribution along another dimension ($w$) within each shell.
+
+<img src="examples/figures/shell_slice.png" width="50%">
+
+### Corner plot
+![](examples/figures/corner_log.png)
