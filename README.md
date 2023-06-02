@@ -18,4 +18,4 @@ The following figure represents a four-dimensional slice of a measured five-dime
 
 ![](docs/figures/slice_matrix.png)
 
-Other example figures are at ...
+Other example figures are at https://austin-hoover.github.io/psdist/.
