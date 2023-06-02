@@ -1,7 +1,3 @@
 title: "psdist"
 github_repo: "austin-hoover.github.io"
-
-# remote_theme: jekyll/minima
-
-# toc:
-#    ordered_list: true
+theme: just-the-docs
