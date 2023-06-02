@@ -10,20 +10,12 @@ https://pypi.org/project/psdist/
 
 ## Examples
 
-Some examples in accelerator physics that use methods from this repository:
+Some accelerator physics publications that use methods from this repository:
 * https://journals.aps.org/prab/abstract/10.1103/PhysRevAccelBeams.23.124201
 * https://arxiv.org/abs/2301.04178
 
+The following figure represents a four-dimensional slice of a measured five-dimensional phase space distribution, with lower-dimensional projections shown on the side panels.
 
-### Slice matrix
-Slice matrix plots represent four-dimensional data. The main figures shows a four-dimensional slice of a measured five-dimensional phase space distribution. Lower dimensional projections are shown on the side panels.
+![](docs/figures/slice_matrix.png)
 
-![](examples/figures/slice_matrix.png)
-
-### Shell slices
-Shell slices can be used to visualize the dependence of the distribution in a low-dimensional subspace on the radius in some other high-dimensional subspace. The figure below selects "shells" based on four-dimensional density contours in the $x$-$x'$-$y$-$y'$ plane, then plots the distribution along another dimension ($w$) within each shell.
-
-<img src="examples/figures/shell_slice.png" width="50%">
-
-### Corner plot
-![](examples/figures/corner_log.png)
+Other example figures are at ...
