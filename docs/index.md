@@ -7,7 +7,6 @@ Below are a some examples from my own research.
 
 ### Publications
 
-Some accelerator physics publications that use methods from this repository:
 * https://journals.aps.org/prab/abstract/10.1103/PhysRevAccelBeams.23.124201
 * https://arxiv.org/abs/2301.04178
 
