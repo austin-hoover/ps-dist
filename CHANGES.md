@@ -1,6 +1,10 @@
 # Change Log
 
 
+## [0.1.6] — Unreleased
+* Fixed bug in `visualization.cloud.proj2d_interactive_slice` to allow data sets with different number of points.
+
+
 ## [0.1.5] — 2023-06-02
 * Fixed bug with `visualization.cloud.slice_planar` limits when only one pair was provided.
 * Significantly improved ``visualization.cloud.proj2d_interactive_slice`.

@@ -321,7 +321,7 @@ def proj2d_interactive_slice(
     **plot_kws
         Key word arguments passed to `plot2d`.
     """
-    if np.ndim(data) == 2:
+    if type(data) is not list:
         data = [data]
     n_data = len(data)
     n_dims = data[0].shape[1]
@@ -339,8 +339,6 @@ def proj2d_interactive_slice(
         limits_list = np.array([auto_limits(X, **autolim_kws) for X in data])
         mins = np.min(limits_list[:, :, 0], axis=0)   
         maxs = np.max(limits_list[:, :, 1], axis=0)
-        # mins = np.min([np.min(X, axis=0) for X in data], axis=0)
-        # maxs = np.max([np.max(X, axis=0) for X in data], axis=0)
         limits = [(mins[i], maxs[i]) for i in range(n_dims)]
     if dims is None:
         dims = [f"x{i + 1}" for i in range(n_dims)]
