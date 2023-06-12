@@ -1,9 +1,11 @@
 """Functions for point clouds."""
 import numpy as np
 import scipy.interpolate
+import scipy.special
 import scipy.stats
 
 from psdist import ap
+import psdist.utils as utils
 from psdist.utils import array_like
 from psdist.utils import centers_from_edges
 from psdist.utils import cov2corr
@@ -427,6 +429,8 @@ def downsample(X, samples):
 
 def histogram_bin_edges(X, bins=10, limits=None):
     """Multi-dimensional histogram bin edges."""
+    if X.ndim == 1:
+        return np.histogram_bin_edges(X, bins, limits)
     if not array_like(bins):
         bins = X.shape[1] * [bins]
     if not array_like(limits):
@@ -439,13 +443,19 @@ def histogram_bin_edges(X, bins=10, limits=None):
 
 def histogram(X, bins=10, limits=None, centers=False):
     """Multi-dimensional histogram."""
-    edges = histogram_bin_edges(X, bins=bins, limits=limits)
-    hist, edges = np.histogramdd(X, edges)
+    if X.ndim == 1:
+        bins = np.histogram_bin_edges(X, bins, limits)
+        hist, _ = np.histogram(X, bins=bins)
+        if centers:
+            bins = centers_from_edges(bins)
+        return hist, bins
+    
+    bins = histogram_bin_edges(X, bins=bins, limits=limits)
+    hist, _ = np.histogramdd(X, bins)
     if centers:
-        return hist, [centers_from_edges(e) for e in edges]
-    else:
-        return hist, edges
-
+        bins = [centers_from_edges(b) for b in bins]
+    return hist, bins
+    
 
 def gaussian_kde(X, **kws):
     """Gaussian kernel density estimation (KDE).
@@ -465,3 +475,21 @@ def gaussian_kde(X, **kws):
         The density estimator.
     """
     return scipy.stats.gaussian_kde(X.T, **kws)
+
+
+def radial_histogram(X, axis=None, **kws):
+    if axis is None:
+        axis = tuple(range(X.shape[1]))
+    radii = get_radii(X[:, axis])
+    _centers = False
+    if "centers" in kws:
+        _centers = kws.pop("centers")
+        
+    hist, bins = histogram(radii, **kws)
+    for i in range(len(bins) - 1):
+        rmin = bins[i]
+        rmax = bins[i + 1]
+        hist[i] = hist[i] / utils.volume_sphere_shell(rmin=rmin, rmax=rmax, n=len(axis))
+    if _centers:
+        bins = centers_from_edges(bins)
+    return hist, bins
