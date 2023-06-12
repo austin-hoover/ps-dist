@@ -359,14 +359,14 @@ def proj2d_interactive_slice(
     n_bins = widgets.BoundedIntText(
         value=slice_res,
         min=2,
-        max=None,
+        max=200,
         step=1,
         description="slice res",
     )    
     n_bins_plot = widgets.BoundedIntText(
         value=plot_res,
         min=2,
-        max=None,
+        max=350,
         step=1,
         description="plot res",
     )    
@@ -476,6 +476,8 @@ def proj2d_interactive_slice(
             plot_kws["bins"] = "auto" if autobin else n_bins_plot
             plot_kws["limits"] = [limits[axis_view[0]], limits[axis_view[1]]]
             plot_kws["norm"] = "log" if kws["log"] else None
+            if "colorbar_kw" in plot_kws:
+                plot_kws["colorbar_kws"]["tickminor"] = log
 
         # Plot the selected points.
         fig, axs = pplt.subplots(ncols=n_data, **fig_kws)
