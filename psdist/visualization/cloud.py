@@ -476,8 +476,13 @@ def proj2d_interactive_slice(
             plot_kws["bins"] = "auto" if autobin else n_bins_plot
             plot_kws["limits"] = [limits[axis_view[0]], limits[axis_view[1]]]
             plot_kws["norm"] = "log" if kws["log"] else None
+            
+            # Temporary bug fix. (If we check and then uncheck "log", and 
+            # the colorbar has minor ticks, the tick label formatter will
+            # remain in "log" mode forever after.)
             if "colorbar_kw" in plot_kws:
-                plot_kws["colorbar_kws"]["tickminor"] = log
+                if "tickminor" in plot_kws["colorbar_kw"] and not kws["log"]:
+                    plot_kws["colorbar_kw"]["formatter"] = None
 
         # Plot the selected points.
         fig, axs = pplt.subplots(ncols=n_data, **fig_kws)
