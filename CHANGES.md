@@ -1,11 +1,15 @@
 # Change Log
 
 
-## [0.1.7] — Unreleased
+## [0.1.7] — 2023-06-12
 
 * Add default plot_res and slice_res arguments to `visualization.cloud.proj2d_interactive_slice`.
+* Remove limits on plot_res and slice_res widgets.
+* Fix bug in colorbar tick locator in `visualization.cloud.proj2d_interactive_slice`.
+* Fix `cloud.histogram` to allow one-dimensional arrays.
+* Add radial histogram for point clouds. Counts are normalized by spherical hypershell volume.
 
-
+  
 ## [0.1.6] — 2023-06-07
 
 * Fixed bug in `visualization.cloud.proj2d_interactive_slice` to allow data sets with different numbers of points.
