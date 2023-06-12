@@ -292,6 +292,8 @@ def proj2d_interactive_slice(
     limits=None,
     default_ind=(0, 1),
     slice_type="int",
+    plot_res=64,
+    slice_res=16,
     dims=None,
     units=None,
     autolim_kws=None,
@@ -312,6 +314,9 @@ def proj2d_interactive_slice(
         Default view axis.
     slice_type : {'int', 'range'}
         Whether to slice one index along the axis or a range of indices.
+    plot_res, slice_res : int
+        Default grid resolution for plotting/slicing. These can be updated using
+        the interactive widgets.
     dims, units : list[str], shape (n,)
         Dimension names and units.
     autolim_kws : dict
@@ -352,16 +357,16 @@ def proj2d_interactive_slice(
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
     n_bins = widgets.BoundedIntText(
-        value=32,
+        value=slice_res,
         min=2,
-        max=150,
+        max=None,
         step=1,
         description="slice res",
     )    
     n_bins_plot = widgets.BoundedIntText(
-        value=50,
+        value=plot_res,
         min=2,
-        max=250,
+        max=None,
         step=1,
         description="plot res",
     )    
@@ -424,7 +429,7 @@ def proj2d_interactive_slice(
         n_bins_plot = kws["n_bins_plot"]
         autobin = kws["autobin"]
 
-        # Update the slider ranges based on n_bins.
+        # Update the slider ranges/values based on n_bins.
         for slider in sliders:
             slider.max = n_bins - 1
 
