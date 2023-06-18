@@ -614,7 +614,7 @@ def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
     """
     shape = [len(c) for c in coords]
     edges = [edges_from_centers(c) for c in coords]
-    indices_flat = [np.ravel_multi_index(idx, shape) for idx in indices]
+    indices_flat = np.ravel_multi_index(indices.T, shape)
     idx = np.random.choice(indices_flat, size=samples, replace=True, p=(counts / np.sum(counts)))
     idx = np.unravel_index(idx, shape=shape)
     lb = [edges[axis][idx[axis]] for axis in range(len(shape))]
