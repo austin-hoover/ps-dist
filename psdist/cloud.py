@@ -1,4 +1,6 @@
 """Functions for point clouds."""
+import collections
+
 import numpy as np
 import scipy.interpolate
 import scipy.special
@@ -428,12 +430,49 @@ def downsample(X, samples):
 
 
 def histogram_bin_edges(X, bins=10, limits=None):
-    """Multi-dimensional histogram bin edges."""
+    """Multi-dimensional histogram bin edges.
+
+    This function calls `np.histogram_bin_edges` along each axis of X. 
+    
+    See https://numpy.org/doc/stable/reference/generated/numpy.histogram_bin_edges.html
+
+    Parameters
+    ----------
+    bins : int or str    
+        If `bins` is an int, it defines the number of equal-width bins in the 
+        given range (10, by default). 
+
+        If `bins` is a string, `histogram_bin_edges` will use the method chosen 
+        to calculate the optimal number of bins.
+
+        if `bins` is a sequence of floats, it defines the bin edges, including 
+        the rightmost edge.
+
+        A list of {str / int / float sequence} may be provided such that bins[i] 
+        corresponds to axis i.
+    limits : (float, float)
+        The lower and upper range of the bins.  If not provided, the limits are 
+        ``[(np.min(X[:, i]), np.max(X[:, i])) for i in range(X.shape[1])]``.
+
+    Returns
+    -------
+    edges : list[ndarray]
+        Bin edges along each axis.
+    """
     if X.ndim == 1:
         return np.histogram_bin_edges(X, bins, limits)
+    # `[2, 3, 4, 5]` could mean "2 bins along axis 0, 3 bins along axis 1, ..." 
+    # or "bin edges [2.0, 3.0, 4.0, 5.0] along each axis". We assume the 
+    # former if `bins` is a sequence of int and the latter if `bins` is a
+    # sequence of float.
+    if array_like(bins) and type(bins[0]) is float:
+        bins = X.shape[1] * [bins]
+    # If a single int/str is provided, apply to all axes.
     if not array_like(bins):
         bins = X.shape[1] * [bins]
-    if not array_like(limits):
+    # Same for `limits`. If a (min, max) tuple (or None) is provided, apply 
+    # to all axes.
+    if limits is None or (limits[0] is not None and not array_like(limits[0])):
         limits = X.shape[1] * [limits]
     return [
         np.histogram_bin_edges(X[:, i], bins[i], limits[i]) 
@@ -442,19 +481,79 @@ def histogram_bin_edges(X, bins=10, limits=None):
 
 
 def histogram(X, bins=10, limits=None, centers=False):
-    """Multi-dimensional histogram."""
+    """Multi-dimensional histogram.
+
+    Parameters
+    ----------
+    See `histogram_bin_edges`.
+
+    Returns
+    -------
+    See `np.histogramdd`.
+    """
     if X.ndim == 1:
         bins = np.histogram_bin_edges(X, bins, limits)
         hist, _ = np.histogram(X, bins=bins)
         if centers:
-            bins = centers_from_edges(bins)
+            bins = utils.centers_from_edges(bins)
         return hist, bins
-    
+
     bins = histogram_bin_edges(X, bins=bins, limits=limits)
-    hist, _ = np.histogramdd(X, bins)
+    hist, _ = np.histogramdd(X, bins)   
+    if centers:
+        bins = [utils.centers_from_edges(b) for b in bins]
+    return hist, bins
+
+
+def sparse_histogram(X, bins=10, limits=None, centers=False, eps=1.0e-12):
+    """Compute sparse multidimensional histogram.
+    
+    Parameters
+    ----------
+    Same as `histogram`.
+    eps : float
+        Small constant added to last bin edge to work around np.digitize. (See 
+        comment in code.)
+
+    Returns
+    ------
+    indices : ndarray, shape (k, d)
+        Indices of nonzero bins in d-dimensional histogram.
+    counts : ndarray, shape (k,)
+        Counts of nonzero bins in d-dimensional histogram.
+    bins : list(ndarray)
+        List of bin edges or centers along each axis.
+    """
+    d = X.shape[1]
+    bins = histogram_bin_edges(X, bins=bins, limits=limits)
+    # Add a small number to the last bin edge. np.digitize includes computes index
+    # i such that bins[i-1] <= x < bins[i], but we want bins[i-1] <= x <= bins[i].
+    for axis in range(len(bins)):
+        bins[axis][-1] = bins[axis][-1] + eps
+    # Get multidimensional bin index of each point.
+    indices = []
+    for axis in range(d):
+        idx = np.digitize(X[:, axis], bins[axis])
+        # Drop points outside the bin range.
+        idx = idx[np.logical_and(idx > 0, idx < len(bins[axis]))]
+        # Subtract 1 so that 0 indexes the first bin.
+        idx = idx - 1
+        indices.append(idx)
+    indices = np.vstack(indices).T
+    # Convert to indices in flattened histogram. 
+    shape = [len(b) - 1 for b in bins]
+    indices = [np.ravel_multi_index(idx, shape) for idx in indices]
+    # Count the indices/counts of each nonzero bin.
+    counter = collections.Counter(indices)
+    counts = np.array(list(counter.values()))
+    indices = np.array(list(counter.keys()))
+    # Convert from flat to multidimensional indices.
+    indices = np.unravel_index(indices, shape)
+    indices = np.vstack(indices).T
+    # Return bin centers, rather than edges, if desired.
     if centers:
         bins = [centers_from_edges(b) for b in bins]
-    return hist, bins
+    return indices, counts, bins
     
 
 def gaussian_kde(X, **kws):
@@ -477,19 +576,24 @@ def gaussian_kde(X, **kws):
     return scipy.stats.gaussian_kde(X.T, **kws)
 
 
-def radial_histogram(X, axis=None, **kws):
-    if axis is None:
-        axis = tuple(range(X.shape[1]))
-    radii = get_radii(X[:, axis])
-    _centers = False
-    if "centers" in kws:
-        _centers = kws.pop("centers")
-        
+def radial_histogram(X, **kws):
+    """Count number of points within spherical shells, with counts normalized by shell volume.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n, d)
+        Coordinates of n points in d-dimensional space.
+    **kws
+        Key word arguments for `histogram`.
+    """
+    radii = get_radii(X)
     hist, bins = histogram(radii, **kws)
-    for i in range(len(bins) - 1):
-        rmin = bins[i]
-        rmax = bins[i + 1]
-        hist[i] = hist[i] / utils.volume_sphere_shell(rmin=rmin, rmax=rmax, n=len(axis))
-    if _centers:
-        bins = centers_from_edges(bins)
+    if "centers" in kws and kws["centers"]:
+        _edges = utils.edges_from_centers(bins)
+    else:
+        _edges = bins
+    for i in range(len(_edges) - 1):
+        rmin = _edges[i]
+        rmax = _edges[i + 1]
+        hist[i] = hist[i] / utils.volume_sphere_shell(rmin=rmin, rmax=rmax, n=X.shape[1])
     return hist, bins
