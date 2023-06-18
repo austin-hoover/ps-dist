@@ -560,15 +560,15 @@ def process(
 # ------------------------------------------------------------------------------
 
 
-def sample_grid(f, coords=None, samples=1):
+def sample_hist(f, coords=None, samples=1):
     """Sample from histogram.
 
     Parameters
     ----------
     f : ndarray
-        A d-dimensional histogram.
+        A d-dimensional image/histogram.
     coords : list[ndarray]
-        Coordinates along each axis of the image.
+        Coordinates (bin centers) along each axis.
     samples : int
         The number of samples to draw.
 
@@ -590,4 +590,33 @@ def sample_grid(f, coords=None, samples=1):
     idx = np.unravel_index(idx, shape=f.shape)
     lb = [edges[axis][idx[axis]] for axis in range(f.ndim)]
     ub = [edges[axis][idx[axis] + 1] for axis in range(f.ndim)]
+    return np.squeeze(np.random.uniform(lb, ub).T)
+
+
+def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
+    """Sample from sparse histogram.
+
+    Parameters
+    ----------
+    indices : ndarray, shape (k, d)
+        d-dimensional histogram bin indices.
+    counts : ndarray, shape (k,)
+        Counts in each bin. Does not need to be normalized.
+    coords : list[ndarray]
+        Coordinates (bin centers) along each axis.        
+    samples : int
+        The number of samples to draw.
+
+    Returns
+    -------
+    ndarray, shape (samples, d)
+        Samples drawn from the distribution.
+    """
+    shape = [len(c) for c in coords]
+    edges = [edges_from_centers(c) for c in coords]
+    indices_flat = [np.ravel_multi_index(idx, shape) for idx in indices]
+    idx = np.random.choice(indices_flat, size=samples, replace=True, p=(counts / np.sum(counts)))
+    idx = np.unravel_index(idx, shape=shape)
+    lb = [edges[axis][idx[axis]] for axis in range(len(shape))]
+    ub = [edges[axis][idx[axis] + 1] for axis in range(len(shape))]
     return np.squeeze(np.random.uniform(lb, ub).T)
