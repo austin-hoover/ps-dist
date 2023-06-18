@@ -1,6 +1,15 @@
 # Change Log
 
 
+## [0.1.8] — 
+
+* Allow list of bin edge coordinates in `ps.cloud.histogram_bin_edges` and `ps.cloud.histogram`.
+* Added documentation to histogram functions.
+* Added `ps.cloud.sparse_histogram`.
+* Added `ps.image.sample_sparse_hist` &rarr; `ps.image.sample_hist`.
+* Renamed `ps.image.sample_grid` &rarr; `ps.image.sample_hist`.
+
+
 ## [0.1.7] — 2023-06-12
 
 * Add default plot_res and slice_res arguments to `visualization.cloud.proj2d_interactive_slice`.
