@@ -384,6 +384,7 @@ class CornerGrid:
         prof_edge_only=False,
         lower=True,
         upper=True,
+        diag=True,
         update_limits=True,
         diag_kws=None,
         **kws,
@@ -399,8 +400,8 @@ class CornerGrid:
         prof_edge_only : bool
             If plotting profiles on top of images (on off-diagonal subplots), whether
             to plot x profiles only in bottom row and y profiles only in left column.
-        lower, upper, bool
-            Whether to plot on the lower or upper triangular subplots (or both).
+        lower, upper, diag : bool
+            Whether to plot on the lower triangular, upper triangular, and/or diagonal subplots.
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
@@ -427,9 +428,10 @@ class CornerGrid:
         self.new = False
 
         # Univariate plots.
-        for ax, axis in zip(self.diag_axs, self.diag_indices):
-            profile = psdist.image.project(f, axis=axis)
-            self.plot_diag(coords[axis], profile, axis=axis, **diag_kws)
+        if diag:
+            for ax, axis in zip(self.diag_axs, self.diag_indices):
+                profile = psdist.image.project(f, axis=axis)
+                self.plot_diag(coords[axis], profile, axis=axis, **diag_kws)
 
         # Bivariate plots.
         profx, profy = [kws.pop(key) for key in ("profx", "profy")]
@@ -461,6 +463,7 @@ class CornerGrid:
         prof_edge_only=False,
         lower=True,
         upper=True,
+        diag=True,
         update_limits=True,
         diag_kws=None,
         **kws,
@@ -481,8 +484,8 @@ class CornerGrid:
         prof_edge_only : bool
             If plotting profiles on top of images (on off-diagonal subplots), whether
             to plot x profiles only in bottom row and y profiles only in left column.
-        lower, upper, bool
-            Whether to plot on the lower or upper triangular subplots (or both).
+        lower, upper, diag : bool
+            Whether to plot on the lower triangular, upper triangular, and/or diagonal subplots.
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
@@ -520,7 +523,7 @@ class CornerGrid:
             else:
                 _edges = np.histogram_bin_edges(X[:, axis], bins[axis], limits[axis])
             edges.append(_edges)
-            if self.diag:
+            if self.diag and diag:
                 heights, _ = np.histogram(X[:, axis], _edges)
                 centers = psdist.utils.centers_from_edges(_edges)
                 self.plot_diag(centers, heights, axis=axis, **diag_kws)
