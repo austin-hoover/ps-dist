@@ -331,8 +331,7 @@ def proj2d_interactive_slice(
     if type(data) is not list:
         data = [data]
     if type(data[0]) is not list:
-        for i in range(len(data)):
-            data[i] = [data[i]]
+        data = [data]
 
     n_clouds = len(data)
     n_frames = len(data[0])
@@ -480,7 +479,7 @@ def proj2d_interactive_slice(
         edges = [np.linspace(limits[i][0], limits[i][1], n_bins + 1) for i in range(n_dims)]
         _data = []
         if not axis_slice:
-            _data = [data[i][frame] for i in range(len(data))]
+            _data = [data[i][frame] for i in range(n_clouds)]
         else:
             slice_limits = []
             for k in axis_slice:
@@ -491,7 +490,7 @@ def proj2d_interactive_slice(
                 slice_limits.append((edges[k][imin], edges[k][imax]))
             _data = [
                 psdist.cloud.slice_planar(data[i][frame], axis=axis_slice, limits=slice_limits)
-                for i in range(len(data))
+                for i in range(n_clouds)
             ]
         for _X in _data:
             if _X.shape[0] == 0:
