@@ -274,7 +274,7 @@ def corner(
         grid_kws = dict()
     grid = CornerGrid(d=X.shape[1], **grid_kws)
     if labels is not None:
-        cgrid.set_labels(labels)
+        grid.set_labels(labels)
     grid.plot_cloud(
         X,
         limits=limits,
