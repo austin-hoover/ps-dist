@@ -300,14 +300,16 @@ def proj2d_interactive_slice(
     fig_kws=None,
     **plot_kws,
 ):
-    """2D partial projection with interactive slicing.
+    """2D partial projection of one or more clouds with interactive slicing.
 
     Parameters
     ----------
-    data : ndarray, shape (n, d) or list[ndarray, shape (n, d)]
-        Coordinates of n points in d-dimensional space. Alternatively, a list of k 
-        data sets can be provided. This will generate k figures, allowing side-by-side
-        comparision. There is no limit on the number of figures!
+    data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
+        - Coordinates of n points in d-dimensional space. 
+        - List of K clouds: generates K-column figure.
+        - K lists of L clouds: generates K-column figure with widget to select one
+          of the L frames. Example: Compare the evolution of K=3 bunches at L=6 
+          frames (times).
     limits : list[(min, max)]
         Limits along each axis.
     default_ind : (i, j)
@@ -328,21 +330,38 @@ def proj2d_interactive_slice(
     """
     if type(data) is not list:
         data = [data]
-    n_data = len(data)
-    n_dims = data[0].shape[1]
-    for i in range(1, n_data):
-        if data[i].shape[1] != n_dims:
-            raise ValueError("data must have the same number of dimensions.")
+    if type(data[0]) is not list:
+        for i in range(len(data)):
+            data[i] = [data[i]]
+
+    n_clouds = len(data)
+    n_frames = len(data[0])
+    n_dims = data[0][0].shape[1]
+    
+    for i in range(n_clouds):
+        if len(data[i]) != n_frames:
+            raise ValueError("lists must have same length")
+            
+    for i in range(n_clouds):
+        for j in range(n_frames):
+            if data[i][j].shape[1] != n_dims:
+                raise ValueError("data must have the same number of dimensions.")
 
     if fig_kws is None:
         fig_kws = dict()
     plot_kws.setdefault("kind", "hist")    
 
     if limits is None:
+        # Compute min/max across all clouds and frames.
         if autolim_kws is None:
             autolim_kws = dict()
-        limits_list = np.array([auto_limits(X, **autolim_kws) for X in data])
-        mins = np.min(limits_list[:, :, 0], axis=0)   
+        limits_list = [
+            auto_limits(data[i][j], **autolim_kws)
+            for i in range(n_clouds)
+            for j in range(n_frames)
+        ]
+        limits_list = np.array(limits_list)  # cloud, frame, dim, min/max
+        mins = np.min(limits_list[:, :, 0], axis=0)    
         maxs = np.max(limits_list[:, :, 1], axis=0)
         limits = [(mins[i], maxs[i]) for i in range(n_dims)]
     if dims is None:
@@ -356,6 +375,7 @@ def proj2d_interactive_slice(
     # Widgets
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
+    frame = widgets.BoundedIntText(min=0, max=(n_frames - 1), description="frame")
     n_bins = widgets.BoundedIntText(
         value=slice_res,
         min=2,
@@ -421,8 +441,11 @@ def proj2d_interactive_slice(
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
+    if n_frames == 1:
+        frame.layout.display = "none"
 
     def update(**kws):
+        frame = kws["frame"]
         dim1 = kws["dim1"]
         dim2 = kws["dim2"]
         n_bins = kws["n_bins"]
@@ -444,7 +467,7 @@ def proj2d_interactive_slice(
                     _ind = (_ind, _ind + 1)
                 ind.append(_ind)
 
-        # Exit if input does not make sense.
+        # Exit if input is invalid.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
                 return
@@ -454,10 +477,10 @@ def proj2d_interactive_slice(
         # Slice the distributions.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        edges = [np.linspace(limits[i][0], limits[i][1], n_bins + 1) for i in range(n_dims)]        
+        edges = [np.linspace(limits[i][0], limits[i][1], n_bins + 1) for i in range(n_dims)]
         _data = []
         if not axis_slice:
-            _data = data
+            _data = [data[i][frame] for i in range(len(data))]
         else:
             slice_limits = []
             for k in axis_slice:
@@ -466,26 +489,29 @@ def proj2d_interactive_slice(
                     print(f"{dims[k]} out of range.")
                     return
                 slice_limits.append((edges[k][imin], edges[k][imax]))
-            _data = [psdist.cloud.slice_planar(X, axis=axis_slice, limits=slice_limits) for X in data]
+            _data = [
+                psdist.cloud.slice_planar(data[i][frame], axis=axis_slice, limits=slice_limits)
+                for i in range(len(data))
+            ]
         for _X in _data:
             if _X.shape[0] == 0:
                 return
-
+                
         # Update plotting key word arguments.
         if plot_kws["kind"] != "scatter":
             plot_kws["bins"] = "auto" if autobin else n_bins_plot
             plot_kws["limits"] = [limits[axis_view[0]], limits[axis_view[1]]]
             plot_kws["norm"] = "log" if kws["log"] else None
             
-            # Temporary bug fix. (If we check and then uncheck "log", and 
+            # Temporary bug fix: If we check and then uncheck "log", and 
             # the colorbar has minor ticks, the tick label formatter will
-            # remain in "log" mode forever after.)
+            # remain in "log" mode forever after.
             if "colorbar_kw" in plot_kws:
                 if "tickminor" in plot_kws["colorbar_kw"] and not kws["log"]:
                     plot_kws["colorbar_kw"]["formatter"] = None
 
         # Plot the selected points.
-        fig, axs = pplt.subplots(ncols=n_data, **fig_kws)
+        fig, axs = pplt.subplots(ncols=n_clouds, **fig_kws)
         for ax, _X in zip(axs, _data):
             plot2d(_X[:, axis_view], ax=ax, **plot_kws)
         axs.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
@@ -497,6 +523,7 @@ def proj2d_interactive_slice(
     kws["autobin"] = autobin
     kws["n_bins"] = n_bins
     kws["n_bins_plot"] = n_bins_plot
+    kws["frame"] = frame
     kws["dim1"] = dim1
     kws["dim2"] = dim2
     for i, check in enumerate(checks, start=1):
