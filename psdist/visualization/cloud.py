@@ -224,6 +224,7 @@ def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
     psdist.visualization.grid.JointGrid
     """
     from psdist.visualization.grid import JointGrid
+
     if grid_kws is None:
         grid_kws = dict()
     grid = JointGrid(**grid_kws)
@@ -270,6 +271,7 @@ def corner(
         The `CornerGrid` on which the plot was drawn.
     """
     from psdist.visualization.grid import CornerGrid
+
     if grid_kws is None:
         grid_kws = dict()
     grid = CornerGrid(d=X.shape[1], **grid_kws)
@@ -296,6 +298,7 @@ def proj2d_interactive_slice(
     slice_res=16,
     dims=None,
     units=None,
+    options=None,
     autolim_kws=None,
     fig_kws=None,
     **plot_kws,
@@ -305,22 +308,29 @@ def proj2d_interactive_slice(
     Parameters
     ----------
     data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
-        - Coordinates of n points in d-dimensional space. 
-        - List of K clouds: generates K-column figure.
+        - Coordinates of n points in d-dimensional space.
+        - List of L clouds: generates widget to select the frame to plot.
         - K lists of L clouds: generates K-column figure with widget to select one
-          of the L frames. Example: Compare the evolution of K=3 bunches at L=6 
-          frames (times).
+          of the L frames.
+          Example: Compare the evolution of K=3 bunches at L=6 frames.
     limits : list[(min, max)]
         Limits along each axis.
-    default_ind : (i, j)
+    default_ind : (int, int)
         Default view axis.
-    slice_type : {'int', 'range'}
+    slice_type : {"int", "range"}
         Whether to slice one index along the axis or a range of indices.
     plot_res, slice_res : int
         Default grid resolution for plotting/slicing. These can be updated using
         the interactive widgets.
     dims, units : list[str], shape (n,)
         Dimension names and units.
+    options : dict
+        Determines the widgets to be displayed. Options are:
+        - "auto_plot_res": automatically select plot resolution.
+        - "discrete": discrete colormap norm. (Default: False).
+        - "ellipse": plot rms ellipse. (Default: False)
+        - "log": logarithmic colormap scaling. (Default: True)
+        - "normalize": normalize x-px, y-py, z-pz to unit covariance matrix. (Default: False)
     autolim_kws : dict
         Key word arguments passed to `auto_limits`.
     fig_kws : dict
@@ -336,11 +346,11 @@ def proj2d_interactive_slice(
     n_clouds = len(data)
     n_frames = len(data[0])
     n_dims = data[0][0].shape[1]
-    
+
     for i in range(n_clouds):
         if len(data[i]) != n_frames:
             raise ValueError("lists must have same length")
-            
+
     for i in range(n_clouds):
         for j in range(n_frames):
             if data[i][j].shape[1] != n_dims:
@@ -348,7 +358,16 @@ def proj2d_interactive_slice(
 
     if fig_kws is None:
         fig_kws = dict()
-    plot_kws.setdefault("kind", "hist")    
+    plot_kws.setdefault("kind", "hist")
+    plot_kws.setdefault(
+        "rms_ellipse_kws",
+        {
+            "level": [1.0, 2.0, 3.0, 4.0, 5.0],
+            "color": "white",
+            "alpha": 0.2,
+            "lw": 0.4,
+        },
+    )
 
     if limits is None:
         # Compute min/max across all clouds and frames.
@@ -360,7 +379,7 @@ def proj2d_interactive_slice(
             for j in range(n_frames)
         ]
         limits_list = np.array(limits_list)  # cloud, frame, dim, min/max
-        mins = np.min(limits_list[:, :, 0], axis=0)    
+        mins = np.min(limits_list[:, :, 0], axis=0)
         maxs = np.max(limits_list[:, :, 1], axis=0)
         limits = [(mins[i], maxs[i]) for i in range(n_dims)]
     if dims is None:
@@ -372,88 +391,124 @@ def proj2d_interactive_slice(
         dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
 
     # Widgets
-    dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
-    dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-    frame = widgets.BoundedIntText(min=0, max=(n_frames - 1), description="frame")
-    n_bins = widgets.BoundedIntText(
+    _widgets = dict()
+    _widgets["dim1"] = widgets.Dropdown(
+        options=dims, index=default_ind[0], description="dim 1"
+    )
+    _widgets["dim2"] = widgets.Dropdown(
+        options=dims, index=default_ind[1], description="dim 2"
+    )
+    _widgets["frame"] = widgets.BoundedIntText(
+        min=0, max=(n_frames - 1), description="frame"
+    )
+    _widgets["slice_res"] = widgets.BoundedIntText(
         value=slice_res,
         min=2,
         max=200,
         step=1,
-        description="slice res",
-    )    
-    n_bins_plot = widgets.BoundedIntText(
+        description="slice_res",
+    )
+    _widgets["plot_res"] = widgets.BoundedIntText(
         value=plot_res,
         min=2,
         max=350,
         step=1,
-        description="plot res",
-    )    
-    autobin = widgets.Checkbox(description="auto plot res", value=False)
-    log = widgets.Checkbox(description="log", value=False)
-    sliders, checks = [], []
+        description="plot_res",
+    )
+    _widgets["auto_plot_res"] = widgets.Checkbox(
+        description="auto_plot_res", value=False
+    )
+    _widgets["log"] = widgets.Checkbox(description="log", value=False)
+    _widgets["normalize"] = widgets.Checkbox(description="normalize", value=False)
+    _widgets["discrete"] = widgets.Checkbox(description="discrete", value=False)
+    _widgets["ellipse"] = widgets.Checkbox(description="ellipse", value=False)
+
+    # Sliders and checkboxes for slicing:
+    _widgets["sliders"] = []
+    _widgets["checks"] = []
     for k in range(n_dims):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
-                max=(n_bins.value - 1),
-                value=int(n_bins.value / 2),
+                max=(_widgets["slice_res"].value - 1),
+                value=int(_widgets["slice_res"].value / 2),
                 description=dims[k],
                 continuous_update=True,
             )
         elif slice_type == "range":
             slider = widgets.IntRangeSlider(
                 min=0,
-                max=(n_bins.value - 1),
-                value=(0, n_bins.value - 1),
+                max=(_widgets["slice_res"].value - 1),
+                value=(0, _widgets["slice_res"].value - 1),
                 description=dims[k],
                 continuous_update=True,
             )
         else:
             raise ValueError("Invalid `slice_type`.")
         slider.layout.display = "none"
-        sliders.append(slider)
-        checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
+        _widgets["sliders"].append(slider)
+        _widgets["checks"].append(widgets.Checkbox(description=f"slice {dims[k]}"))
 
     def hide(button):
         """Hide inactive sliders."""
         for k in range(n_dims):
             # Hide elements for dimensions being plotted.
-            valid = dims[k] not in (dim1.value, dim2.value)
+            valid = dims[k] not in [_widgets["dim1"].value, _widgets["dim2"].value]
             disp = None if valid else "none"
-            for element in [sliders[k], checks[k]]:
+            for element in [_widgets["sliders"][k], _widgets["checks"][k]]:
                 element.layout.display = disp
             # Uncheck boxes for dimensions being plotted.
-            if not valid and checks[k].value:
-                checks[k].value = False
+            if not valid and _widgets["checks"][k].value:
+                _widgets["checks"][k].value = False
             # Make sliders respond to check boxes.
-            if not checks[k].value:
-                sliders[k].layout.display = "none"
-            n_bins_plot.layout.display = "none" if autobin.value else None
+            if not _widgets["checks"][k].value:
+                _widgets["sliders"][k].layout.display = "none"
+            _widgets["plot_res"].layout.display = (
+                "none" if _widgets["auto_plot_res"].value else None
+            )
 
     # Make slider visiblity depend on checkmarks.
-    for element in (dim1, dim2, *checks, autobin):
+    for element in (
+        _widgets["dim1"],
+        _widgets["dim2"],
+        *_widgets["checks"],
+        _widgets["auto_plot_res"],
+    ):
         element.observe(hide, names="value")
 
     # Initial hide
     for k in range(n_dims):
         if k in default_ind:
-            checks[k].layout.display = "none"
-            sliders[k].layout.display = "none"
+            _widgets["checks"][k].layout.display = "none"
+            _widgets["sliders"][k].layout.display = "none"
     if n_frames == 1:
-        frame.layout.display = "none"
+        _widgets["frame"].layout.display = "none"
+
+    # Set default options.
+    if options is None:
+        options = dict()
+    options.setdefault("auto_plot_res", False)
+    options.setdefault("discrete", False)
+    options.setdefault("ellipse", False)
+    options.setdefault("log", True)
+    options.setdefault("normalize", False)
+
+    # Show/hide widgets based on `options`.
+    for name, setting in options.items():
+        _widgets[name].layout.display = None if setting else "none"
 
     def update(**kws):
+        # Collect key word arguments.
         frame = kws["frame"]
         dim1 = kws["dim1"]
         dim2 = kws["dim2"]
-        n_bins = kws["n_bins"]
-        n_bins_plot = kws["n_bins_plot"]
-        autobin = kws["autobin"]
+        slice_res = kws["slice_res"]
+        plot_res = kws["plot_res"]
+        auto_plot_res = kws["auto_plot_res"]
 
-        # Update the slider ranges/values based on n_bins.
-        for slider in sliders:
-            slider.max = n_bins - 1
+        # Update the slider ranges/values based on slice_res.
+        for slider in _widgets["sliders"]:
+            slider.max = slice_res - 1
 
         # Collect slice indices.
         ind, checks = [], []
@@ -471,12 +526,15 @@ def proj2d_interactive_slice(
             if check and dim in (dim1, dim2):
                 return
         if dim1 == dim2:
-            return     
+            return
 
         # Slice the distributions.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        edges = [np.linspace(limits[i][0], limits[i][1], n_bins + 1) for i in range(n_dims)]
+        edges = [
+            np.linspace(limits[i][0], limits[i][1], slice_res + 1)
+            for i in range(n_dims)
+        ]
         _data = []
         if not axis_slice:
             _data = [data[i][frame] for i in range(n_clouds)]
@@ -489,20 +547,32 @@ def proj2d_interactive_slice(
                     return
                 slice_limits.append((edges[k][imin], edges[k][imax]))
             _data = [
-                psdist.cloud.slice_planar(data[i][frame], axis=axis_slice, limits=slice_limits)
+                psdist.cloud.slice_planar(
+                    data[i][frame], axis=axis_slice, limits=slice_limits
+                )
                 for i in range(n_clouds)
             ]
         for _X in _data:
             if _X.shape[0] == 0:
                 return
-                
+
+        # Remove linear correlations.
+        _limits = [limits[k] for k in axis_view]
+        if kws["normalize"]:
+            _data = [
+                psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
+            ]
+            _limits = auto_limits(np.vstack(_data))
+
         # Update plotting key word arguments.
         if plot_kws["kind"] != "scatter":
-            plot_kws["bins"] = "auto" if autobin else n_bins_plot
-            plot_kws["limits"] = [limits[axis_view[0]], limits[axis_view[1]]]
+            plot_kws["bins"] = "auto" if auto_plot_res else plot_res
+            plot_kws["limits"] = _limits
             plot_kws["norm"] = "log" if kws["log"] else None
-            
-            # Temporary bug fix: If we check and then uncheck "log", and 
+            plot_kws["discrete"] = kws["discrete"]
+            plot_kws["rms_ellipse"] = kws["ellipse"]
+
+            # Temporary bug fix: If we check and then uncheck "log", and
             # the colorbar has minor ticks, the tick label formatter will
             # remain in "log" mode forever after.
             if "colorbar_kw" in plot_kws:
@@ -513,20 +583,28 @@ def proj2d_interactive_slice(
         fig, axs = pplt.subplots(ncols=n_clouds, **fig_kws)
         for ax, _X in zip(axs, _data):
             plot2d(_X[:, axis_view], ax=ax, **plot_kws)
-        axs.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
+        axs.format(
+            xlabel=dims_units[axis_view[0]], 
+            ylabel=dims_units[axis_view[1]],
+            xlim=_limits[0],
+            ylim=_limits[1],
+        )
         plt.show()
 
     # Pass key word arguments to `ipywidgets.interactive`.
     kws = dict()
-    kws["log"] = log
-    kws["autobin"] = autobin
-    kws["n_bins"] = n_bins
-    kws["n_bins_plot"] = n_bins_plot
-    kws["frame"] = frame
-    kws["dim1"] = dim1
-    kws["dim2"] = dim2
-    for i, check in enumerate(checks, start=1):
+    kws["frame"] = _widgets["frame"]
+    kws["dim1"] = _widgets["dim1"]
+    kws["dim2"] = _widgets["dim2"]
+    kws["slice_res"] = _widgets["slice_res"]
+    kws["plot_res"] = _widgets["plot_res"]
+    kws["auto_plot_res"] = _widgets["auto_plot_res"]
+    kws["log"] = _widgets["log"]
+    kws["discrete"] = _widgets["discrete"]
+    kws["ellipse"] = _widgets["ellipse"]
+    kws["normalize"] = _widgets["normalize"]
+    for i, check in enumerate(_widgets["checks"], start=1):
         kws[f"check{i}"] = check
-    for i, slider in enumerate(sliders, start=1):
+    for i, slider in enumerate(_widgets["sliders"], start=1):
         kws[f"slider{i}"] = slider
     return interactive(update, **kws)
