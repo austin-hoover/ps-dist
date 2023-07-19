@@ -1,13 +1,16 @@
 # Change Log
 
 
-## [0.1.8] — 
+## [0.1.8] — 2023-07-19
 
+* Add options dict to `visualization.cloud.proj2d_interactive_slice` to decide which checkboxes appear.
+* Enable multiple sets of clouds to be compared in `visualization.cloud.proj2d_interactive_slice`.
+* Enable three levels of axis limit sharing in `visualization.cloud.proj2d_interactive_slice`.
 * Allow list of bin edge coordinates in `ps.cloud.histogram_bin_edges` and `ps.cloud.histogram`.
-* Added documentation to histogram functions.
-* Added `ps.cloud.sparse_histogram`.
-* Added `ps.image.sample_sparse_hist` &rarr; `ps.image.sample_hist`.
-* Renamed `ps.image.sample_grid` &rarr; `ps.image.sample_hist`.
+* Add documentation to histogram functions.
+* Add `cloud.sparse_histogram`.
+* Add `image.sample_sparse_hist` &rarr; `ps.image.sample_hist`.
+* Rename `image.sample_grid` &rarr; `ps.image.sample_hist`.
 
 
 ## [0.1.7] — 2023-06-12
