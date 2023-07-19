@@ -131,3 +131,10 @@ def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind="line", **kws):
     elif kind in ["linefilled", "stepfilled"]:
         return func(x, offset, y + offset, **kws)
     return func(x, y + offset, **kws)
+
+
+def stack_limits(limits_list):
+    limits_list = np.array(limits_list)
+    mins = np.min(limits_list[:, :, 0], axis=0)
+    maxs = np.max(limits_list[:, :, 1], axis=0)
+    return [(mins[i], maxs[i]) for i in range(len(mins))]

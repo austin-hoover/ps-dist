@@ -14,7 +14,7 @@ import psdist.visualization.visualization as vis
 def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
     """Determine axis limits from coordinate array.
 
-    Parametersv
+    Parameters
     ----------
     X : ndarray, shape (n, d)
         Coordinate array for n points in d-dimensional space.
@@ -114,8 +114,6 @@ def scatter(X, ax=None, samples=None, **kws):
 
 def hist(X, ax=None, bins="auto", limits=None, **kws):
     """Convenience function for 2D histogram with auto-binning.
-
-    For more options, I recommend seaborn.histplot.
 
     Parameters
     ----------
@@ -292,6 +290,7 @@ def corner(
 def proj2d_interactive_slice(
     data=None,
     limits=None,
+    share_limits=2,
     default_ind=(0, 1),
     slice_type="int",
     plot_res=64,
@@ -303,7 +302,7 @@ def proj2d_interactive_slice(
     fig_kws=None,
     **plot_kws,
 ):
-    """2D partial projection of one or more clouds with interactive slicing.
+    """2D partial projection of one or more clouds (or series of clouds) with interactive slicing.
 
     Parameters
     ----------
@@ -315,6 +314,10 @@ def proj2d_interactive_slice(
           Example: Compare the evolution of K=3 bunches at L=6 frames.
     limits : list[(min, max)]
         Limits along each axis.
+    share_limits : 0, 1, 2
+        Whether to share axis limits across frames. If 0, don't share. If 1, share
+        between each subplot for each figure (frame). If 2, share for all 
+        figures/subplots.
     default_ind : (int, int)
         Default view axis.
     slice_type : {"int", "range"}
@@ -331,6 +334,7 @@ def proj2d_interactive_slice(
         - "ellipse": plot rms ellipse. (Default: False)
         - "log": logarithmic colormap scaling. (Default: True)
         - "normalize": normalize x-px, y-py, z-pz to unit covariance matrix. (Default: False)
+        - "profiles": plot profiles (line-outs) on bottom and left spines.
     autolim_kws : dict
         Key word arguments passed to `auto_limits`.
     fig_kws : dict
@@ -338,21 +342,24 @@ def proj2d_interactive_slice(
     **plot_kws
         Key word arguments passed to `plot2d`.
     """
+    # TODO: 
+    # - clean up
+    
     if type(data) is not list:
         data = [data]
     if type(data[0]) is not list:
         data = [data]
 
-    n_clouds = len(data)
-    n_frames = len(data[0])
+    n_rows = len(data)
+    n_cols = len(data[0])
     n_dims = data[0][0].shape[1]
 
-    for i in range(n_clouds):
-        if len(data[i]) != n_frames:
+    for i in range(n_rows):
+        if len(data[i]) != n_cols:
             raise ValueError("lists must have same length")
 
-    for i in range(n_clouds):
-        for j in range(n_frames):
+    for i in range(n_rows):
+        for j in range(n_cols):
             if data[i][j].shape[1] != n_dims:
                 raise ValueError("data must have the same number of dimensions.")
 
@@ -367,21 +374,39 @@ def proj2d_interactive_slice(
             "alpha": 0.2,
             "lw": 0.4,
         },
-    )
-
+    )        
+        
+    # Compute limits [(xmin, xmax), ...] for each data[i][j].
+    if autolim_kws is None:
+        autolim_kws = dict()
     if limits is None:
-        # Compute min/max across all clouds and frames.
-        if autolim_kws is None:
-            autolim_kws = dict()
-        limits_list = [
-            auto_limits(data[i][j], **autolim_kws)
-            for i in range(n_clouds)
-            for j in range(n_frames)
-        ]
-        limits_list = np.array(limits_list)  # cloud, frame, dim, min/max
-        mins = np.min(limits_list[:, :, 0], axis=0)
-        maxs = np.max(limits_list[:, :, 1], axis=0)
-        limits = [(mins[i], maxs[i]) for i in range(n_dims)]
+        n_rows = len(data)
+        n_cols = len(data[0])
+        limits_list = []
+        for i in range(n_rows):
+            limits_list.append([])
+            for j in range(n_cols):
+                limits = auto_limits(data[i][j], **autolim_kws)
+                limits_list[i].append(limits)
+        limits_list = np.array(limits_list)
+        if share_limits == 1:
+            for j in range(n_cols):
+                mins = np.min(limits_list[:, j, :, 0], axis=0)
+                maxs = np.max(limits_list[:, j, :, 1], axis=0)
+                limits = [(mins[k], maxs[k]) for k in range(n_dims)]
+                for i in range(n_rows):
+                    limits_list[i, j] = limits
+        elif share_limits == 2:
+            mins = np.min(limits_list[:, :, :, 0], axis=(0, 1))
+            maxs = np.max(limits_list[:, :, :, 1], axis=(0, 1))
+            limits = [(mins[k], maxs[k]) for k in range(n_dims)]
+            for i in range(n_rows):
+                for j in range(n_cols):
+                    limits_list[i, j] = limits
+    else:
+        limits_list = [[limits for _ in range(n_cols)] for _ in range(n_rows)]
+                
+    # Set axis labels.
     if dims is None:
         dims = [f"x{i + 1}" for i in range(n_dims)]
     if units is None:
@@ -392,15 +417,9 @@ def proj2d_interactive_slice(
 
     # Widgets
     _widgets = dict()
-    _widgets["dim1"] = widgets.Dropdown(
-        options=dims, index=default_ind[0], description="dim 1"
-    )
-    _widgets["dim2"] = widgets.Dropdown(
-        options=dims, index=default_ind[1], description="dim 2"
-    )
-    _widgets["frame"] = widgets.BoundedIntText(
-        min=0, max=(n_frames - 1), description="frame"
-    )
+    _widgets["dim1"] = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
+    _widgets["dim2"] = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
+    _widgets["frame"] = widgets.BoundedIntText(min=0, max=(n_cols - 1), description="frame")
     _widgets["slice_res"] = widgets.BoundedIntText(
         value=slice_res,
         min=2,
@@ -422,6 +441,7 @@ def proj2d_interactive_slice(
     _widgets["normalize"] = widgets.Checkbox(description="normalize", value=False)
     _widgets["discrete"] = widgets.Checkbox(description="discrete", value=False)
     _widgets["ellipse"] = widgets.Checkbox(description="ellipse", value=False)
+    _widgets["profiles"] = widgets.Checkbox(description="profiles", value=False)
 
     # Sliders and checkboxes for slicing:
     _widgets["sliders"] = []
@@ -481,7 +501,7 @@ def proj2d_interactive_slice(
         if k in default_ind:
             _widgets["checks"][k].layout.display = "none"
             _widgets["sliders"][k].layout.display = "none"
-    if n_frames == 1:
+    if n_cols == 1:
         _widgets["frame"].layout.display = "none"
 
     # Set default options.
@@ -492,6 +512,7 @@ def proj2d_interactive_slice(
     options.setdefault("ellipse", False)
     options.setdefault("log", True)
     options.setdefault("normalize", False)
+    options.setdefault("profiles", False)
 
     # Show/hide widgets based on `options`.
     for name, setting in options.items():
@@ -527,50 +548,47 @@ def proj2d_interactive_slice(
                 return
         if dim1 == dim2:
             return
+        
+        # Collect data.        
+        _data = [data[index][frame] for index in range(n_rows)]
+        _limits_list = limits_list[:, frame, :, :]
+        
+        # Normalize coordinates.
+        if kws["normalize"]:
+            _data = [psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data]
+            _limits_list = [auto_limits(_X, **autolim_kws) for _X in _data]
+            if share_limits > 0:
+                _limits_list = [vis.stack_limits(_limits_list) for _ in range(len(_data))]
 
-        # Slice the distributions.
+        # Slice.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        edges = [
-            np.linspace(limits[i][0], limits[i][1], slice_res + 1)
-            for i in range(n_dims)
-        ]
-        _data = []
-        if not axis_slice:
-            _data = [data[i][frame] for i in range(n_clouds)]
-        else:
-            slice_limits = []
-            for k in axis_slice:
-                imin, imax = ind[k]
-                if imax > len(edges[k]) - 1:
-                    print(f"{dims[k]} out of range.")
-                    return
-                slice_limits.append((edges[k][imin], edges[k][imax]))
-            _data = [
-                psdist.cloud.slice_planar(
-                    data[i][frame], axis=axis_slice, limits=slice_limits
-                )
-                for i in range(n_clouds)
-            ]
+        if axis_slice:
+            for index in range(n_rows):
+                slice_limits = []
+                for k in axis_slice:
+                    (imin, imax) = ind[k]
+                    (xmin, xmax) = _limits_list[index][k]
+                    edges = np.linspace(xmin, xmax, slice_res + 1)
+                    if imax > len(edges) - 1:
+                        print(f"{dims[k]} out of range.")
+                        return
+                    slice_limits.append((edges[imin], edges[imax]))
+                _data[index] = psdist.cloud.slice_planar(_data[index], axis=axis_slice, limits=slice_limits)
+                
+        # Handle empty slice (do nothing).
         for _X in _data:
             if _X.shape[0] == 0:
                 return
-
-        # Remove linear correlations.
-        _limits = [limits[k] for k in axis_view]
-        if kws["normalize"]:
-            _data = [
-                psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
-            ]
-            _limits = auto_limits(np.vstack(_data))
-
+                                                                                
         # Update plotting key word arguments.
         if plot_kws["kind"] != "scatter":
             plot_kws["bins"] = "auto" if auto_plot_res else plot_res
-            plot_kws["limits"] = _limits
             plot_kws["norm"] = "log" if kws["log"] else None
             plot_kws["discrete"] = kws["discrete"]
             plot_kws["rms_ellipse"] = kws["ellipse"]
+            plot_kws["profx"] = kws["profiles"]
+            plot_kws["profy"] = kws["profiles"]
 
             # Temporary bug fix: If we check and then uncheck "log", and
             # the colorbar has minor ticks, the tick label formatter will
@@ -578,16 +596,19 @@ def proj2d_interactive_slice(
             if "colorbar_kw" in plot_kws:
                 if "tickminor" in plot_kws["colorbar_kw"] and not kws["log"]:
                     plot_kws["colorbar_kw"]["formatter"] = None
-
+                            
         # Plot the selected points.
-        fig, axs = pplt.subplots(ncols=n_clouds, **fig_kws)
-        for ax, _X in zip(axs, _data):
-            plot2d(_X[:, axis_view], ax=ax, **plot_kws)
+        sharex = (share_limits and n_rows)
+        fig, axs = pplt.subplots(ncols=n_rows, sharex=sharex, sharey=sharex, **fig_kws)
+        for index, ax in enumerate(axs):
+            limits = [_limits_list[index][k] for k in axis_view]
+            if plot_kws["kind"] != "scatter":
+                plot_kws["limits"] = limits
+            plot2d(_data[index][:, axis_view], ax=ax, **plot_kws)
+            ax.format(xlim=limits[0], ylim=limits[1])
         axs.format(
             xlabel=dims_units[axis_view[0]], 
             ylabel=dims_units[axis_view[1]],
-            xlim=_limits[0],
-            ylim=_limits[1],
         )
         plt.show()
 
@@ -603,6 +624,7 @@ def proj2d_interactive_slice(
     kws["discrete"] = _widgets["discrete"]
     kws["ellipse"] = _widgets["ellipse"]
     kws["normalize"] = _widgets["normalize"]
+    kws["profiles"] = _widgets["profiles"]
     for i, check in enumerate(_widgets["checks"], start=1):
         kws[f"check{i}"] = check
     for i, slider in enumerate(_widgets["sliders"], start=1):
