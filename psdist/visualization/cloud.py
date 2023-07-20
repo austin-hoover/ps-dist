@@ -343,7 +343,8 @@ def proj2d_interactive_slice(
         Key word arguments passed to `plot2d`.
     """
     # TODO: 
-    # - clean up
+    # - Clean up.
+    # - Don't display units if coordinates are normalized.
     
     if type(data) is not list:
         data = [data]

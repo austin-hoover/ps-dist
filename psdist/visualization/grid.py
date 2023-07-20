@@ -12,8 +12,6 @@ from psdist.visualization.visualization import plot1d
 class JointGrid:
     """Grid for joint plots.
 
-    https://seaborn.pydata.org/generated/seaborn.JointGrid.html
-
     Attributes
     -----------
     fig : proplot.figure.Figure
@@ -29,9 +27,9 @@ class JointGrid:
     ):
         """Constructor.
 
-        marg_kws : dict
+        panel_kws : dict
             Key word arguments for `ax.panel`.
-        marg_fmt_kws_x, marg_fmt_kws_y : dict
+        panel_fmt_kws_x, panel_fmt_kws_y : dict
             Key word arguments for `ax.format` for each of the panel axs.
         **fig_kws
             Key word arguments passed to `proplot.subplots`.
@@ -56,44 +54,44 @@ class JointGrid:
             kws.setdefault("yspineloc", "neither")
             ax.format(**kws)
 
-    def plot_cloud(self, X, marg_hist_kws=None, marg_kws=None, **kws):
+    def plot_cloud(self, X, panel_hist_kws=None, panel_kws=None, **kws):
         """Plot a 2D point cloud.
 
         Parameters
         ----------
         X : ndarray, shape (k, 2)
             Coordinates of k points in 2-dimensional space.
-        marg_hist_kws : dict
+        panel_hist_kws : dict
             Key word arguments passed to `np.histogram` for 1D histograms.
-        marg_kws : dict
+        panel_kws : dict
             Key word arguments passed to `visualization.plot1d`.
         **kws
             Key word arguments passed to `visualization.image.plot2d.`
         """
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault("kind", "step")
-        marg_kws.setdefault("lw", 1.0)
-        if marg_hist_kws is None:
-            marg_hist_kws = dict()
-        marg_hist_kws.setdefault("bins", "auto")
+        if panel_kws is None:
+            panel_kws = dict()
+        panel_kws.setdefault("kind", "step")
+        panel_kws.setdefault("lw", 1.0)
+        if panel_hist_kws is None:
+            panel_hist_kws = dict()
+        panel_hist_kws.setdefault("bins", "auto")
         kws.setdefault("kind", "hist")
         if kws["kind"] == "hist":
             kws.setdefault("mask", True)
-            kws.setdefault("bins", marg_hist_kws["bins"])
+            kws.setdefault("bins", panel_hist_kws["bins"])
         if kws["kind"] != "scatter":
             kws.setdefault("colorbar_kw", dict())
             kws["colorbar_kw"].setdefault("pad", 2.0)
         for axis in range(2):
-            profile, edges = np.histogram(X[:, axis], **marg_hist_kws)
+            profile, edges = np.histogram(X[:, axis], **panel_hist_kws)
             profile = profile / np.max(profile)
             centers = psdist.utils.centers_from_edges(edges)
             plot1d(
-                centers, profile, ax=self.panel_axs[axis], flipxy=bool(axis), **marg_kws
+                centers, profile, ax=self.panel_axs[axis], flipxy=bool(axis), **panel_kws
             )
         vis_cloud.plot2d(X, ax=self.ax, **kws)
 
-    def plot_image(self, f, coords=None, marg_kws=None, **kws):
+    def plot_image(self, f, coords=None, panel_kws=None, **kws):
         """Plot a 2D image.
 
         Parameters
@@ -102,18 +100,18 @@ class JointGrid:
             A d-dimensional image.
         coords : list[ndarray]
             Coordinates along each dimension of `f`.
-        marg_kws : dict
+        panel_kws : dict
             Key word arguments passed to `visualization.plot1d`.
         **kws
             Key word arguments passed to `visualization.image.plot2d.`
         """
         kws.setdefault("colorbar_kw", dict())
         kws["colorbar_kw"].setdefault("pad", 2.0)
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault("color", "black")
-        marg_kws.setdefault("kind", "step")
-        marg_kws.setdefault("lw", 1.0)
+        if panel_kws is None:
+            panel_kws = dict()
+        panel_kws.setdefault("color", "black")
+        panel_kws.setdefault("kind", "step")
+        panel_kws.setdefault("lw", 1.0)
         if coords is None:
             coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
         _out = vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
@@ -129,7 +127,7 @@ class JointGrid:
                 profile,
                 ax=self.panel_axs[axis],
                 flipxy=bool(axis),
-                **marg_kws,
+                **panel_kws,
             )
         return _out
 
