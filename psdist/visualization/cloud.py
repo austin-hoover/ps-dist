@@ -668,6 +668,7 @@ def proj1d_interactive_slice(
     options=None,
     labels=None,
     legend=False,
+    update_limits_on_slice=False,
     legend_kws=None,
     autolim_kws=None,
     fig_kws=None,
@@ -713,7 +714,10 @@ def proj1d_interactive_slice(
     labels : list[str]
         Labels for legend.
     legend : bool
-        Whether to include legend
+        Whether to include legend.
+    update_limits_on_slice : bool
+        Recompute limits when the distribution is sliced. Otherwise, keep the limits
+        from the full distribution.
     legend_kws : bool
         Key word arguments for legend.
     autolim_kws : dict
@@ -903,7 +907,7 @@ def proj1d_interactive_slice(
 
         # Update the slider ranges/values based on slice_res.
         for slider in _widgets["sliders"]:
-            slider.max = slice_res - 1
+            slider.max = kws["slice_res"] - 1
 
         # Collect slice indices.
         ind, checks = [], []
@@ -956,6 +960,12 @@ def proj1d_interactive_slice(
         for _X in _data:
             if _X.shape[0] == 0:
                 return
+
+        # Recompute limits from sliced data.
+        if update_limits_on_slice:
+            limits = vis.combine_limits(
+                [auto_limits(_X, **autolim_kws) for _X in _data]
+            )
 
         # Create figure.
         bins = "auto" if kws["auto_plot_res"] else kws["plot_res"]
