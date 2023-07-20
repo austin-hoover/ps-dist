@@ -512,8 +512,7 @@ def sparse_histogram(X, bins=10, limits=None, centers=False, eps=1.0e-12):
     ----------
     Same as `histogram`.
     eps : float
-        Small constant added to last bin edge to work around np.digitize. (See 
-        comment in code.)
+        Small constant added to largest bin edge.
 
     Returns
     ------
@@ -524,35 +523,32 @@ def sparse_histogram(X, bins=10, limits=None, centers=False, eps=1.0e-12):
     bins : list(ndarray)
         List of bin edges or centers along each axis.
     """
-    d = X.shape[1]
     bins = histogram_bin_edges(X, bins=bins, limits=limits)
-    # Add a small number to the last bin edge. np.digitize includes computes index
-    # i such that bins[i-1] <= x < bins[i], but we want bins[i-1] <= x <= bins[i].
+    shape = [len(bins[axis]) for axis in range(X.shape[1])]
     for axis in range(len(bins)):
         bins[axis][-1] = bins[axis][-1] + eps
     # Get multidimensional bin index of each point.
     indices = []
-    for axis in range(d):
+    valid = np.full(X.shape[0], True)
+    for axis in range(X.shape[1]):
         idx = np.digitize(X[:, axis], bins[axis])
-        # Drop points outside the bin range.
-        idx = idx[np.logical_and(idx > 0, idx < len(bins[axis]))]
-        # Subtract 1 so that 0 indexes the first bin.
-        idx = idx - 1
+        valid = np.logical_and(valid, np.logical_and(idx > 0, idx < len(bins[axis])))
+        idx = idx - 1  # 0 indexes first bin
         indices.append(idx)
-    indices = np.vstack(indices).T
-    # Convert to indices in flattened histogram. 
-    shape = [len(b) - 1 for b in bins]
-    indices = [np.ravel_multi_index(idx, shape) for idx in indices]
+    for axis in range(X.shape[1]):
+        indices[axis] = indices[axis][valid]
+    # Convert to flat indices.
+    shape = [len(bins[axis]) for axis in range(X.shape[1])]
+    indices = np.ravel_multi_index(indices, shape)
     # Count the indices/counts of each nonzero bin.
     counter = collections.Counter(indices)
     counts = np.array(list(counter.values()))
     indices = np.array(list(counter.keys()))
-    # Convert from flat to multidimensional indices.
+    # Convert to multidimensional indices.
     indices = np.unravel_index(indices, shape)
     indices = np.vstack(indices).T
-    # Return bin centers, rather than edges, if desired.
     if centers:
-        bins = [centers_from_edges(b) for b in bins]
+        bins = [centers_from_edges(bins[axis]) for axis in range(X.shape[1])]
     return indices, counts, bins
     
 
