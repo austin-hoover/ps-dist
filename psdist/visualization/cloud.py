@@ -285,13 +285,13 @@ def corner(
         **kws,
     )
     return grid
-
+    
 
 def proj2d_interactive_slice(
     data=None,
     limits=None,
-    share_limits=2,
-    default_ind=(0, 1),
+    share_limits=1,
+    default_axis=(0, 1),
     slice_type="int",
     plot_res=64,
     slice_res=16,
@@ -302,7 +302,8 @@ def proj2d_interactive_slice(
     fig_kws=None,
     **plot_kws,
 ):
-    """2D partial projection of one or more clouds (or series of clouds) with interactive slicing.
+    """Two-dimensional partial projection of one or more clouds (or series of clouds) 
+    with interactive slicing.
 
     Parameters
     ----------
@@ -318,7 +319,7 @@ def proj2d_interactive_slice(
         Whether to share axis limits across frames. If 0, don't share. If 1, share
         between each subplot for each figure (frame). If 2, share for all 
         figures/subplots.
-    default_ind : (int, int)
+    default_axis : (int, int)
         Default view axis.
     slice_type : {"int", "range"}
         Whether to slice one index along the axis or a range of indices.
@@ -329,13 +330,13 @@ def proj2d_interactive_slice(
         Dimension names and units.
     options : dict
         Determines the widgets to be displayed. Options are:
-        - "auto_plot_res": Automatically select plot resolution.
-        - "discrete": Discrete colormap norm. (Default: False).
-        - "ellipse": Plot rms ellipse. (Default: False)
-        - "log": Logarithmic colormap scaling. (Default: True)
+        - "auto_plot_res": Option to set bins="auto" in histogram.
+        - "discrete": Option for discrete colormap norm. (Default: False).
+        - "ellipse": Option to plot rms ellipse. (Default: False)
+        - "log": Option for logarithmic colormap scaling. (Default: True)
         - "mask": Option to include a small offset so that there are no zero bins. (Default: False) 
-        - "normalize": Normalize x-px, y-py, z-pz to unit covariance matrix. (Default: False)
-        - "profiles": Plot profiles (line-outs) on bottom and left spines.
+        - "normalize": Option to normalize x-px, y-py, z-pz to unit covariance matrix. (Default: False)
+        - "profiles": Option to plot profiles (line-outs) on bottom and left spines.        
     autolim_kws : dict
         Key word arguments passed to `auto_limits`.
     fig_kws : dict
@@ -343,14 +344,10 @@ def proj2d_interactive_slice(
     **plot_kws
         Key word arguments passed to `plot2d`.
     """
-    # TODO: 
-    # - Clean up.
-    # - Don't display units if coordinates are normalized.
-    
     if type(data) is not list:
         data = [data]
     if type(data[0]) is not list:
-        data = [data]
+        data = [[data[k]] for k in range(len(data))]
 
     n_rows = len(data)
     n_cols = len(data[0])
@@ -382,27 +379,18 @@ def proj2d_interactive_slice(
     # Compute limits [(xmin, xmax), ...] for each data[i][j].
     if autolim_kws is None:
         autolim_kws = dict()
-    if limits is None:
-        n_rows = len(data)
-        n_cols = len(data[0])
-        limits_list = []
+    if limits is None:        
+        limits_list = np.zeros((n_rows, n_cols, n_dims, 2))
         for i in range(n_rows):
-            limits_list.append([])
             for j in range(n_cols):
-                limits = auto_limits(data[i][j], **autolim_kws)
-                limits_list[i].append(limits)
-        limits_list = np.array(limits_list)
+                limits_list[i, j, :, :] = auto_limits(data[i][j], **autolim_kws)
         if share_limits == 1:
             for j in range(n_cols):
-                mins = np.min(limits_list[:, j, :, 0], axis=0)
-                maxs = np.max(limits_list[:, j, :, 1], axis=0)
-                limits = [(mins[k], maxs[k]) for k in range(n_dims)]
+                limits = vis.combine_limits(limits_list[:, j, :, :])
                 for i in range(n_rows):
                     limits_list[i, j] = limits
         elif share_limits == 2:
-            mins = np.min(limits_list[:, :, :, 0], axis=(0, 1))
-            maxs = np.max(limits_list[:, :, :, 1], axis=(0, 1))
-            limits = [(mins[k], maxs[k]) for k in range(n_dims)]
+            limits = vis.combine_limits(limits_list.reshape((n_rows * n_cols, n_dims, 2)))
             for i in range(n_rows):
                 for j in range(n_cols):
                     limits_list[i, j] = limits
@@ -420,8 +408,8 @@ def proj2d_interactive_slice(
 
     # Widgets
     _widgets = dict()
-    _widgets["dim1"] = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
-    _widgets["dim2"] = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
+    _widgets["dim1"] = widgets.Dropdown(options=dims, index=default_axis[0], description="dim 1")
+    _widgets["dim2"] = widgets.Dropdown(options=dims, index=default_axis[1], description="dim 2")
     _widgets["frame"] = widgets.BoundedIntText(min=0, max=(n_cols - 1), description="frame")
     _widgets["slice_res"] = widgets.BoundedIntText(
         value=slice_res,
@@ -500,7 +488,7 @@ def proj2d_interactive_slice(
 
     # Initial hide
     for k in range(n_dims):
-        if k in default_ind:
+        if k in default_axis:
             _widgets["checks"][k].layout.display = "none"
             _widgets["sliders"][k].layout.display = "none"
     if n_cols == 1:
@@ -561,7 +549,7 @@ def proj2d_interactive_slice(
             _data = [psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data]
             _limits_list = [auto_limits(_X, **autolim_kws) for _X in _data]
             if share_limits > 0:
-                _limits_list = [vis.stack_limits(_limits_list) for _ in range(len(_data))]
+                _limits_list = [vis.combine_limits(_limits_list) for _ in range(len(_data))]
 
         # Slice.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
@@ -605,18 +593,23 @@ def proj2d_interactive_slice(
                 if "tickminor" in plot_kws["colorbar_kw"] and not kws["log"]:
                     plot_kws["colorbar_kw"]["formatter"] = None
                             
-        # Plot the selected points.
-        sharex = (share_limits and n_rows)
-        fig, axs = pplt.subplots(ncols=n_rows, sharex=sharex, sharey=sharex, **fig_kws)
+        # Create figure.
+        fig, axs = pplt.subplots(
+            ncols=n_rows, 
+            sharex=(share_limits and n_rows), 
+            sharey=(share_limits and n_rows), 
+            **fig_kws
+        )
         for index, ax in enumerate(axs):
             limits = [_limits_list[index][k] for k in axis_view]
             if plot_kws["kind"] != "scatter":
                 plot_kws["limits"] = limits
             plot2d(_data[index][:, axis_view], ax=ax, **plot_kws)
             ax.format(xlim=limits[0], ylim=limits[1])
+        labels = dims_units if _widgets["normalize"].value else dims
         axs.format(
-            xlabel=dims_units[axis_view[0]], 
-            ylabel=dims_units[axis_view[1]],
+            xlabel=labels[axis_view[0]], 
+            ylabel=labels[axis_view[1]],
         )
         plt.show()
 
@@ -642,3 +635,57 @@ def proj2d_interactive_slice(
     for i, slider in enumerate(_widgets["sliders"], start=1):
         kws[f"slider{i}"] = slider
     return interactive(update, **kws)
+
+
+def proj1d_interactive_slice(
+    data=None,
+    limits=None,
+    share_limits=False,
+    default_axis=0,
+    slice_type="int",
+    plot_res=64,
+    slice_res=16,
+    dims=None,
+    units=None,
+    options=None,
+    autolim_kws=None,
+    fig_kws=None,
+    **plot_kws,
+):
+    """One-dimensional partial projection of one or more clouds (or series of clouds)
+    with interactive slicing.
+
+    Parameters
+    ----------
+    data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
+        - Coordinates of n points in d-dimensional space.
+        - List of L clouds: generates widget to select the frame to plot.
+        - K lists of L clouds: generates K-column figure with widget to select one
+          of the L frames.
+          Example: Compare the evolution of K=3 bunches at L=6 frames.
+    limits : list[(min, max)]
+        Limits along each axis.
+    share_limits : bool
+        Whether to share axis limits across frames.
+    default_axis : int
+        Default view axis.
+    slice_type : {"int", "range"}
+        Whether to slice one index along the axis or a range of indices.
+    plot_res, slice_res : int
+        Default grid resolution for plotting/slicing. These can be updated using
+        the interactive widgets.
+    dims, units : list[str], shape (n,)
+        Dimension names and units.
+    options : dict
+        Determines the widgets to be displayed. Options are:
+        - "auto_plot_res": Option to set bins="auto" in histogram.
+        - "log": Option for logarithmic y axis scale. (Default: True)
+        - "normalize": Option to normalize to unit variance. (Default: False)
+    autolim_kws : dict
+        Key word arguments passed to `auto_limits`.
+    fig_kws : dict
+        Key word arguments passed to `proplot.subplots`.
+    **plot_kws
+        Key word arguments passed to `plot1d`.
+    """
+    raise NotImplementedError
