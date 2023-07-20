@@ -329,12 +329,13 @@ def proj2d_interactive_slice(
         Dimension names and units.
     options : dict
         Determines the widgets to be displayed. Options are:
-        - "auto_plot_res": automatically select plot resolution.
-        - "discrete": discrete colormap norm. (Default: False).
-        - "ellipse": plot rms ellipse. (Default: False)
-        - "log": logarithmic colormap scaling. (Default: True)
-        - "normalize": normalize x-px, y-py, z-pz to unit covariance matrix. (Default: False)
-        - "profiles": plot profiles (line-outs) on bottom and left spines.
+        - "auto_plot_res": Automatically select plot resolution.
+        - "discrete": Discrete colormap norm. (Default: False).
+        - "ellipse": Plot rms ellipse. (Default: False)
+        - "log": Logarithmic colormap scaling. (Default: True)
+        - "mask": Option to include a small offset so that there are no zero bins. (Default: False) 
+        - "normalize": Normalize x-px, y-py, z-pz to unit covariance matrix. (Default: False)
+        - "profiles": Plot profiles (line-outs) on bottom and left spines.
     autolim_kws : dict
         Key word arguments passed to `auto_limits`.
     fig_kws : dict
@@ -366,6 +367,7 @@ def proj2d_interactive_slice(
 
     if fig_kws is None:
         fig_kws = dict()
+        
     plot_kws.setdefault("kind", "hist")
     plot_kws.setdefault(
         "rms_ellipse_kws",
@@ -435,13 +437,12 @@ def proj2d_interactive_slice(
         step=1,
         description="plot_res",
     )
-    _widgets["auto_plot_res"] = widgets.Checkbox(
-        description="auto_plot_res", value=False
-    )
-    _widgets["log"] = widgets.Checkbox(description="log", value=False)
-    _widgets["normalize"] = widgets.Checkbox(description="normalize", value=False)
+    _widgets["auto_plot_res"] = widgets.Checkbox(description="auto_plot_res", value=False)
     _widgets["discrete"] = widgets.Checkbox(description="discrete", value=False)
     _widgets["ellipse"] = widgets.Checkbox(description="ellipse", value=False)
+    _widgets["log"] = widgets.Checkbox(description="log", value=False)
+    _widgets["mask"] = widgets.Checkbox(description="mask", value=True)
+    _widgets["normalize"] = widgets.Checkbox(description="normalize", value=False)
     _widgets["profiles"] = widgets.Checkbox(description="profiles", value=False)
 
     # Sliders and checkboxes for slicing:
@@ -512,6 +513,7 @@ def proj2d_interactive_slice(
     options.setdefault("discrete", False)
     options.setdefault("ellipse", False)
     options.setdefault("log", True)
+    options.setdefault("mask", False)
     options.setdefault("normalize", False)
     options.setdefault("profiles", False)
 
@@ -582,14 +584,19 @@ def proj2d_interactive_slice(
             if _X.shape[0] == 0:
                 return
                                                                                 
-        # Update plotting key word arguments.
+        # Update plotting key word arguments.        
         if plot_kws["kind"] != "scatter":
             plot_kws["bins"] = "auto" if auto_plot_res else plot_res
-            plot_kws["norm"] = "log" if kws["log"] else None
             plot_kws["discrete"] = kws["discrete"]
-            plot_kws["rms_ellipse"] = kws["ellipse"]
+            plot_kws["mask"] = kws["mask"]
+            plot_kws["norm"] = "log" if kws["log"] else None
             plot_kws["profx"] = kws["profiles"]
             plot_kws["profy"] = kws["profiles"]
+            plot_kws["rms_ellipse"] = kws["ellipse"]
+
+            # Add a small offset to the image if we are not masking and are using a logarithmic colormap.
+            if plot_kws["norm"] == "log" and not plot_kws["mask"]:
+                plot_kws.setdefault("offset", 1.0)
 
             # Temporary bug fix: If we check and then uncheck "log", and
             # the colorbar has minor ticks, the tick label formatter will
@@ -615,17 +622,21 @@ def proj2d_interactive_slice(
 
     # Pass key word arguments to `ipywidgets.interactive`.
     kws = dict()
-    kws["frame"] = _widgets["frame"]
-    kws["dim1"] = _widgets["dim1"]
-    kws["dim2"] = _widgets["dim2"]
-    kws["slice_res"] = _widgets["slice_res"]
-    kws["plot_res"] = _widgets["plot_res"]
-    kws["auto_plot_res"] = _widgets["auto_plot_res"]
-    kws["log"] = _widgets["log"]
-    kws["discrete"] = _widgets["discrete"]
-    kws["ellipse"] = _widgets["ellipse"]
-    kws["normalize"] = _widgets["normalize"]
-    kws["profiles"] = _widgets["profiles"]
+    for key in [
+        "frame",
+        "dim1",
+        "dim2",
+        "slice_res",
+        "plot_res",
+        "auto_plot_res",
+        "discrete",
+        "ellipse",
+        "log",
+        "mask",
+        "normalize",
+        "profiles",
+    ]:
+        kws[key] = _widgets[key]
     for i, check in enumerate(_widgets["checks"], start=1):
         kws[f"check{i}"] = check
     for i, slider in enumerate(_widgets["sliders"], start=1):
