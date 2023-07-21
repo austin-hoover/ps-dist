@@ -7,7 +7,7 @@ import psdist as ps
 
 def test_sparse_histogram():
     n_points = int(1.00e+04)
-    n_dims = 2
+    n_dims = 4
     n_bins = 10
     state = np.random.RandomState(1234)
     X = state.normal(size=(n_points, n_dims))

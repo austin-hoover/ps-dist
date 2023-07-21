@@ -33,8 +33,8 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share=None):
         
     Returns
     -------
-    mins, maxs : list
-        The new limits.
+    limits : list[tuple]
+        The limits [(xmin, xmax), (ymin, ymax), ...].
     """        
     if X.ndim == 1:
         X = X[:, None]
@@ -61,8 +61,7 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share=None):
             for k in axis:
                 limits[k] = (_min, _max)
     if zero_center:
-        maxs = np.max([np.abs(mins), np.abs(maxs)], axis=0)
-        mins = -maxs                    
+        limits = vis.center_limits(limits)
     if len(limits) == 1:
         limits = limits[0]
     return limits

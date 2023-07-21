@@ -134,7 +134,41 @@ def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind="line", **kws):
 
 
 def combine_limits(limits_list):
+    """Combine a stack of limits, keeping min/max values.
+
+    Example: [[(-1, 1), (-3, 2)], [(-1, 2), (-1, 3)]] --> [(-1, 2), (-3, 3)].
+
+    Parameters
+    ----------
+    limits_list : list[list[tuple]]
+        Each element is a set of limits [(xmin, xmax), (ymin, ymax), ...].
+
+    Returns
+    -------
+    list[tuple]
+        New set of limits [(xmin, xmax), (ymin, ymax), ...]. 
+    """
     limits_list = np.array(limits_list)
     mins = np.min(limits_list[:, :, 0], axis=0)
     maxs = np.max(limits_list[:, :, 1], axis=0)
-    return [(mins[i], maxs[i]) for i in range(len(mins))]
+    return list(zip(mins, maxs))
+    
+
+def center_limits(limits):
+    """Center limits at zero.
+
+    Example: [(-3, 1), (-4, 5)] --> [(-3, 3), (-5, 5)].
+
+    Parameters
+    ----------
+    limits : list[tuple]
+        A set of limits [(xmin, xmax), (ymin, ymax), ...]. 
+
+    Returns
+    -------
+    limits : list[tuple]
+        A new set of limits centered at zero [(-x, x), (-y, y), ...]. 
+    """
+    mins, maxs = list(zip(*limits))
+    maxs = np.max([np.abs(mins), np.abs(maxs)], axis=0)
+    return list(zip(-maxs, maxs))
