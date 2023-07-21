@@ -11,7 +11,7 @@ import psdist.visualization.image as vis_image
 import psdist.visualization.visualization as vis
 
 
-def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
+def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share=None):
     """Determine axis limits from coordinate array.
 
     Parameters
@@ -25,14 +25,19 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
         Fractional padding to apply to the limits.
     zero_center : bool
         Whether to center the limits on zero.
-    share_xy : bool
-        Whether to share x/y limits (and x'/y').
-
+    share : tuple[int] or list[tuple[int]]
+        Limits are shared betweent the dimensions in each set. For example, 
+        if `share=(0, 1)`, axis 0 and 1 will share limits. Or if 
+        `share=[(0, 1), (4, 5)]` axis 0/1 will share limits, and axis 4/5
+        will share limits.
+        
     Returns
     -------
     mins, maxs : list
         The new limits.
-    """
+    """        
+    if X.ndim == 1:
+        X = X[:, None]
     if sigma is None:
         mins = np.min(X, axis=0)
         maxs = np.max(X, axis=0)
@@ -46,20 +51,21 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share_xy=False):
     padding = deltas * pad
     mins = mins - padding
     maxs = maxs + padding
+    limits = [(_min, _max) for _min, _max in zip(mins, maxs)]
+    if share:
+        if np.ndim(share[0]) == 0:
+            share = [share]
+        for axis in share:
+            _min = min([limits[k][0] for k in axis])
+            _max = max([limits[k][1] for k in axis])
+            for k in axis:
+                limits[k] = (_min, _max)
     if zero_center:
         maxs = np.max([np.abs(mins), np.abs(maxs)], axis=0)
-        mins = -maxs
-    if share_xy:
-        widths = np.abs(mins - maxs)
-        for i, j in [[0, 2], [1, 3]]:
-            delta = 0.5 * (widths[i] - widths[j])
-            if delta < 0.0:
-                mins[i] -= abs(delta)
-                maxs[i] += abs(delta)
-            elif delta > 0.0:
-                mins[j] -= abs(delta)
-                maxs[j] += abs(delta)
-    return [(_min, _max) for _min, _max in zip(mins, maxs)]
+        mins = -maxs                    
+    if len(limits) == 1:
+        limits = limits[0]
+    return limits
 
 
 def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
