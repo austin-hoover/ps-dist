@@ -6,21 +6,23 @@ import numpy as np
 import proplot as pplt
 
 import psdist.image
-from psdist.utils import edges_from_centers
+import psdist.utils
 import psdist.visualization as vis
 
 
 def plot_profiles(
     f,
     coords=None,
+    edges=None,
     ax=None,
     profx=True,
     profy=True,
     scale=0.12,
     start="edge",
+    keep_limits=False,
     **kws,
 ):
-    """Plot the one-dimensional profiles of a two-dimensional image.
+    """Overlay one-dimensional profiles on a two-dimensional image.
 
     Parameters
     ----------
@@ -28,6 +30,8 @@ def plot_profiles(
         A two-dimensional image.
     coords: (xcoords, ycoords)
         Lists specifying pixel center coordinates along each axis.
+    coords: (xcoords, ycoords)
+        Lists specifying pixel edge coordinates along each axis. Can be None.
     ax : matplotlib.pyplt.Axes
         The axis on which to plot.
     profx, profy : bool
@@ -37,33 +41,45 @@ def plot_profiles(
     start : {'edge', 'center'}
         Whether to start the plot at the center or edge of the first row/column.
     **kws
-        Key word arguments passed to `psdist.visualization.plot1d`.
+        Key word arguments passed to `psdist.visualization.plot_profile`.
     """
     kws.setdefault("kind", "step")
     kws.setdefault("lw", 1.0)
     kws.setdefault("color", "white")
     kws.setdefault("alpha", 0.6)
-
+    if keep_limits:
+        _limits = [ax.get_xlim(), ax.get_ylim()]
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
-
-    edges = [edges_from_centers(c) for c in coords]
+        if edges is not None:
+            coords = [psdist.utils.centers_from_edges(e) for e in edges]
+        else:
+            coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+    if edges is None:
+        edges = [psdist.utils.edges_from_centers(c) for c in coords]
     for axis, proceed in enumerate([profx, profy]):
         if proceed:
             profile = psdist.image.project(f, axis=axis)
-            # Scale
             profile_max = np.max(profile)
             if profile_max > 0.0:
                 profile = profile / profile_max
-            j = int(axis == 0)
-            profile = profile * scale * np.abs(coords[j][-1] - coords[j][0])
-            # Start from ax spine.
+            index = int(axis == 0)
+            profile = profile * scale * np.abs(coords[index][-1] - coords[index][0])
             offset = 0.0
             if start == "edge":
-                offset = edges[j][0]
+                offset = edges[index][0]
             elif start == "center":
-                offset = coords[j][0]
-            vis.plot1d(coords[axis], profile, ax=ax, offset=offset, flipxy=axis, **kws)
+                offset = coords[index][0]
+            vis.plot_profile(
+                profile=profile, 
+                coords=coords[axis], 
+                edges=edges[axis],
+                ax=ax, 
+                offset=offset, 
+                orientation=("horizontal" if axis else "vertical"),
+                **kws
+            )
+        if keep_limits:
+            ax.format(xlim=_limits[0], ylim=_limits[1])
     return ax
 
 
@@ -192,7 +208,7 @@ def plot2d(
         kws["vmin"] = 1.0
         kws["vmax"] = 1.0
 
-    # Plot.
+    # Plot the image.
     mesh = func(coords[0].T, coords[1].T, f.T, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
@@ -202,7 +218,7 @@ def plot2d(
         if prof_kws is None:
             prof_kws = dict()
         if kind == "contourf":
-            prof_kws.setdefault("start", "center")
+            prof_kws.setdefault("keep_limits", True)
         plot_profiles(f - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws)
     if return_mesh:
         return ax, mesh
@@ -224,7 +240,7 @@ def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
     grid_kws : dict
         Key word arguments passed to `JointGrid`.
     marg_kws : dict
-        Key word arguments passed to `visualization.plot1d`.
+        Key word arguments passed to `visualization.plot_profile`.
     **kws
         Key word arguments passed to `visualization.image.plot2d.`
 
@@ -687,7 +703,7 @@ def proj1d_interactive_slice(
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        vis.plot1d(coords[axis_view], profile, ax=ax, **plot_kws)
+        vis.plot_profile(coords[axis_view], profile, ax=ax, **plot_kws)
         plt.show()
 
     kws = {"dim1": dim1}

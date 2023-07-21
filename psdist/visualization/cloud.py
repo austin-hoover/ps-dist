@@ -166,7 +166,7 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
 
 
 def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **kws):
-    """Plot
+    """Two-dimensional density plot.
 
     Parameters
     ----------
@@ -218,7 +218,7 @@ def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
     marg_hist_kws : dict
         Key word arguments passed to `np.histogram` for 1D histograms.
     marg_kws : dict
-        Key word arguments passed to `visualization.plot1d`.
+        Key word arguments passed to `visualization.plot_profile`.
     **kws
         Key word arguments passed to `visualization.image.plot2d.`
 
@@ -264,7 +264,7 @@ def corner(
     update_limits : bool
         Whether to extend the existing plot limits.
     diag_kws : dict
-        Key word argument passed to `visualization.plot1d`.
+        Key word argument passed to `visualization.plot_profile`.
     **kws
         Key word arguments pass to `visualization.cloud.plot2d`
 
@@ -730,7 +730,7 @@ def proj1d_interactive_slice(
     fig_kws : dict
         Key word arguments passed to `proplot.subplots`.
     **plot_kws
-        Key word arguments passed to `plot1d`.
+        Key word arguments passed to `plot_profile`.
     """
     if type(data) is not list:
         data = [data]
@@ -994,7 +994,7 @@ def proj1d_interactive_slice(
             plot_kws["label"] = labels[index]
             plot_kws["alpha"] = kws["alpha"]
             plot_kws["kind"] = kws["kind"]
-            vis.plot1d(bin_centers, hist, ax=ax, **plot_kws)
+            vis.plot_profile(bin_centers, hist, ax=ax, **plot_kws)
 
         if kws["log"]:
             ax.format(yscale="log", yformatter="log")

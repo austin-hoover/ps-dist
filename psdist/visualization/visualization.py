@@ -98,40 +98,89 @@ def fit_normal(x, y):
     return func(x, sigma, mu, amplitude, offset), sigma, mu, amplitude, offset
 
 
-def plot1d(x, y, ax=None, offset=0.0, flipxy=False, kind="line", **kws):
-    """Convenience function for one-dimensional line/step/bar plots."""
-    kws.setdefault("color", "black")
+def plot_profile(
+    profile,
+    coords=None, 
+    edges=None, 
+    ax=None, 
+    orientation="vertical", 
+    kind="line", 
+    fill=False,
+    offset=0.0, 
+    scale=None,
+    **kws
+):
+    """Plot one-dimensional profile.
 
-    func = ax.plot
-    if kind in ["line", "step"]:
-        if flipxy:
-            func = ax.plotx
+    Parameters
+    ----------
+    profile : ndarray, shape (n,)
+        A one-dimensional profile.
+    coords : ndarray, shape (n,)
+        Coordinate of the points in `profile`. Can be None if `edges` is not None.
+    edges : ndarray, shape (n + 1,)
+        Bin edges (if the profile is a histogram). Can be None if `centers` is not None.
+    ax : Axes
+        The plotting axis.
+    orientation : {"vertical", "horizontal"}
+        Whether to plot on the x or y axis.
+    kind : {"line", "step", "bar"}
+        Whether to plot a line or a piecewise-constant curve.
+        "line" calls `ax.plot`, `ax.plotx`, `ax.fill_between`, or `ax.fill_between_x`.
+        "step" calls `ax.stairs`.
+        "bar" calls `ax.bar` or `ax.barh`.
+    fill : bool
+        Whether to fill below the curve.
+    offset : float
+        Offset applied to the profile.
+    scale : {None, "density", "max", float}
+        Scale the profile by density (area under curve), max value, or value provided.
+    **kws
+        Key word arguments passed to the plotting function.
+    """
+    if coords is None and edges is None:
+        raise ValueError("coords or edges must be provided")
+    if coords is None and edges is not None:
+        coords = psdist.utils.centers_from_edges(edges)
+    if edges is None and coords is not None:
+        edges = psdist.utils.edges_from_centers(coords)
+
+    profile = np.array(profile)
+    coords = np.array(coords)
+    edges = np.array(edges)
+
+    if scale:
+        if scale == "density":
+            profile = profile / np.sum(profile * np.diff(edges))
+        elif scale == "max":
+            profile = profile / np.max(profile)
+        elif type(scale) in [int, float]:
+            profile = profile / scale
+    
+    if kind == "step":
+        return ax.stairs(profile + offset, edges=edges, fill=fill, baseline=offset, orientation=orientation, **kws)
+    if kind == "line":
+        profile = profile + offset
+        if fill:
+            if orientation == "horizontal":
+                return ax.fill_betweenx(coords, offset, profile, **kws)
+            else:
+                return ax.fill_between(coords, offset, profile, **kws)
         else:
-            func = ax.plot
-        if kind == "step":
-            kws.setdefault("drawstyle", "steps-mid")
-    elif kind in ["linefilled", "stepfilled"]:
-        if flipxy:
-            func = ax.fill_betweenx
-        else:
-            func = ax.fill_between
-        kws.setdefault("alpha", 1.0)
-        if kind == "stepfilled":
-            kws.setdefault("step", "mid")
+            coords = np.hstack([coords[0], coords, coords[-1]]) 
+            profile = np.hstack([offset, profile, offset])
+            if orientation == "horizontal":
+                return ax.plotx(coords, profile, **kws)
+            else:
+                return ax.plot(coords, profile, **kws)
     elif kind == "bar":
-        if flipxy:
-            func = ax.barh
+        if orientation == "horizontal":
+            return ax.barh(coords, profile, left=(offset * np.ones(len(coords))), **kws)
         else:
-            func = ax.bar
-
-    # Handle offset
-    if kind == "bar":
-        kws["left" if flipxy else "bottom"] = offset * np.ones(len(x))
-        return func(x, y, **kws)
-    elif kind in ["linefilled", "stepfilled"]:
-        return func(x, offset, y + offset, **kws)
-    return func(x, y + offset, **kws)
-
+            return ax.bar(coords, profile, bottom=(offset * np.ones(len(coords))), **kws)
+    else:
+        raise ValueError("Invalid plot kind") 
+    
 
 def combine_limits(limits_list):
     """Combine a stack of limits, keeping min/max values.

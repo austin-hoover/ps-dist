@@ -6,7 +6,7 @@ import psdist.cloud
 import psdist.utils
 import psdist.visualization.cloud as vis_cloud
 import psdist.visualization.image as vis_image
-from psdist.visualization.visualization import plot1d
+from psdist.visualization.visualization import plot_profile
 
 
 class JointGrid:
@@ -18,80 +18,85 @@ class JointGrid:
         The main figure.
     ax : proplot.gridspec.SubplotGrid
         The main axis.
-    ax_panel_x, ax_panel_y : proplot.gridspec.SubplotGrid
-        The panel (marginal) axes on the top and right.
+    ax_marg_x, ax_marg_y : proplot.gridspec.SubplotGrid
+        The marginal (panel) axes on the top and right.
     """
 
     def __init__(
-        self, panel_kws=None, panel_fmt_kws_x=None, panel_fmt_kws_y=None, **fig_kws
+        self, marg_kws=None, marg_fmt_kws=None, marg_fmt_kws_x=None, marg_fmt_kws_y=None, **fig_kws
     ):
         """Constructor.
 
-        panel_kws : dict
+        marg_kws : dict
             Key word arguments for `ax.panel`.
-        panel_fmt_kws_x, panel_fmt_kws_y : dict
-            Key word arguments for `ax.format` for each of the panel axs.
+        marg_fmt_kws, marg_fmt_kws_x, marg_fmt_kws_y : dict
+            Key word arguments for `ax.format` for each of the marginal (panel) axs.
         **fig_kws
             Key word arguments passed to `proplot.subplots`.
         """
         self.fig, self.ax = pplt.subplots(**fig_kws)
+        if marg_kws is None:
+            marg_kws = dict()
+        if marg_fmt_kws is None:
+            marg_fmt_kws = dict()
+        if marg_fmt_kws_x is None:
+            marg_fmt_kws_x = dict()
+        if marg_fmt_kws_y is None:
+            marg_fmt_kws_y = dict()
 
-        if panel_kws is None:
-            panel_kws = dict()
-        panel_kws.setdefault("space", 0.0)
-        self.ax_panel_x = self.ax.panel("t", **panel_kws)
-        self.ax_panel_y = self.ax.panel("r", **panel_kws)
-        self.panel_axs = [self.ax_panel_x, self.ax_panel_y]
-        if panel_fmt_kws_x is None:
-            panel_fmt_kws_x = dict()
-        if panel_fmt_kws_y is None:
-            panel_fmt_kws_y = dict()
-        panel_fmt_kws = [panel_fmt_kws_x, panel_fmt_kws_y]
-        for i, key in enumerate(["ylim", "xlim"]):
-            panel_fmt_kws[i].setdefault(key, (0.0, 1.1))
-        for ax, kws in zip(self.panel_axs, panel_fmt_kws):
-            kws.setdefault("xspineloc", "neither")
-            kws.setdefault("yspineloc", "neither")
-            ax.format(**kws)
+        marg_fmt_kws_x.setdefault("xspineloc", "bottom")
+        marg_fmt_kws_x.setdefault("yspineloc", "left")
+        marg_fmt_kws_y.setdefault("xspineloc", "bottom")
+        marg_fmt_kws_y.setdefault("yspineloc", "left")
+    
+        self.ax_marg_x = self.ax.panel("t", **marg_kws)
+        self.ax_marg_y = self.ax.panel("r", **marg_kws)
+        self.marg_axs = [self.ax_marg_x, self.ax_marg_y]
+        for ax in self.marg_axs:
+            ax.format(**marg_fmt_kws)
+        self.marg_axs[0].format(**marg_fmt_kws_x)
+        self.marg_axs[1].format(**marg_fmt_kws_y)
 
-    def plot_cloud(self, X, panel_hist_kws=None, panel_kws=None, **kws):
+    def plot_cloud(self, X, marg_hist_kws=None, marg_kws=None, **kws):
         """Plot a 2D point cloud.
 
         Parameters
         ----------
         X : ndarray, shape (k, 2)
             Coordinates of k points in 2-dimensional space.
-        panel_hist_kws : dict
+        marg_hist_kws : dict
             Key word arguments passed to `np.histogram` for 1D histograms.
-        panel_kws : dict
-            Key word arguments passed to `visualization.plot1d`.
+        marg_kws : dict
+            Key word arguments passed to `visualization.plot_profile`.
         **kws
             Key word arguments passed to `visualization.image.plot2d.`
         """
-        if panel_kws is None:
-            panel_kws = dict()
-        panel_kws.setdefault("kind", "step")
-        panel_kws.setdefault("lw", 1.0)
-        if panel_hist_kws is None:
-            panel_hist_kws = dict()
-        panel_hist_kws.setdefault("bins", "auto")
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault("kind", "step")
+        marg_kws.setdefault("lw", 1.0)
+        marg_kws.setdefault("scale", "density")
+        if marg_hist_kws is None:
+            marg_hist_kws = dict()
+        marg_hist_kws.setdefault("bins", "auto")
         kws.setdefault("kind", "hist")
         if kws["kind"] == "hist":
             kws.setdefault("mask", True)
-            kws.setdefault("bins", panel_hist_kws["bins"])
+            kws.setdefault("bins", marg_hist_kws["bins"])
         if kws["kind"] != "scatter":
             kws.setdefault("colorbar_kw", dict())
             kws["colorbar_kw"].setdefault("pad", 2.0)
         for axis in range(2):
-            profile, edges = np.histogram(X[:, axis], **panel_hist_kws)
-            profile = profile / np.max(profile)
-            centers = psdist.utils.centers_from_edges(edges)
-            plot1d(
-                centers, profile, ax=self.panel_axs[axis], flipxy=bool(axis), **panel_kws
+            profile, edges = np.histogram(X[:, axis], **marg_hist_kws)
+            plot_profile(
+                profile=profile,
+                edges=edges,
+                ax=self.marg_axs[axis], 
+                orientation=("horizontal" if bool(axis) else "vertical"), **marg_kws
             )
         vis_cloud.plot2d(X, ax=self.ax, **kws)
 
-    def plot_image(self, f, coords=None, panel_kws=None, **kws):
+    def plot_image(self, f, coords=None, marg_kws=None, **kws):
         """Plot a 2D image.
 
         Parameters
@@ -100,36 +105,29 @@ class JointGrid:
             A d-dimensional image.
         coords : list[ndarray]
             Coordinates along each dimension of `f`.
-        panel_kws : dict
-            Key word arguments passed to `visualization.plot1d`.
+        marg_kws : dict
+            Key word arguments passed to `visualization.plot_profile`.
         **kws
             Key word arguments passed to `visualization.image.plot2d.`
         """
         kws.setdefault("colorbar_kw", dict())
         kws["colorbar_kw"].setdefault("pad", 2.0)
-        if panel_kws is None:
-            panel_kws = dict()
-        panel_kws.setdefault("color", "black")
-        panel_kws.setdefault("kind", "step")
-        panel_kws.setdefault("lw", 1.0)
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault("color", "black")
+        marg_kws.setdefault("kind", "step")
+        marg_kws.setdefault("lw", 1.0)
+        marg_kws.setdefault("scale", "density")
         if coords is None:
             coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
-        _out = vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
-        fx = psdist.image.project(f, axis=0)
-        fy = psdist.image.project(f, axis=0)
-        fx = fx / np.max(fx)
-        fy = fy / np.max(fy)
         for axis in range(2):
-            profile = psdist.image.project(f, axis)
-            profile = profile / np.max(profile)
-            plot1d(
-                coords[axis],
-                profile,
-                ax=self.panel_axs[axis],
-                flipxy=bool(axis),
-                **panel_kws,
+            plot_profile(
+                profile=psdist.image.project(f, axis),
+                coords=coords[axis],
+                ax=self.marg_axs[axis], 
+                orientation=("horizontal" if bool(axis) else "vertical"), **marg_kws
             )
-        return _out
+        return vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
 
     def colorbar(self, mappable, **kws):
         """Add a colorbar."""
@@ -271,7 +269,7 @@ class CornerGrid:
                 self.format_diag(yspineloc="right")
             else:
                 self.format_diag(yspineloc="neither")
-        self.format_diag(ylim=(0.0, 1.0))
+        # self.format_diag(ylim=(0.0, 1.0))
         self.axs.format(xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3))
             
     def format_offdiag(self, **kws):
@@ -363,17 +361,6 @@ class CornerGrid:
         if np.all(locs == locs.astype(int)):
             locs = locs.astype(int)
         self.axs[0, 0].yaxis.set_ticklabels(locs)
-        
-    def plot_diag(self, x, y, axis=0, **kws):
-        """Plot data on diagonal subplot. The plot is assumed to represent
-        a probability density, so is normalized by area."""
-        if self.diag_norm == "max":
-            y = y / np.max(y)
-        elif self.diag_norm == "area":
-            dx = np.abs(np.diff(x)[0])
-            y = y / (np.sum(y) * dx)
-        y = y * self.diag_scale
-        return plot1d(x, y, ax=self.diag_axs[axis], **kws)
 
     def plot_image(
         self,
@@ -403,7 +390,7 @@ class CornerGrid:
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
-            Key word argument passed to `visualization.plot1d`.
+            Key word argument passed to `visualization.plot_profile`.
         **kws
             Key word arguments pass to `visualization.image.plot2d`
         """
@@ -429,7 +416,7 @@ class CornerGrid:
         if diag:
             for ax, axis in zip(self.diag_axs, self.diag_indices):
                 profile = psdist.image.project(f, axis=axis)
-                self.plot_diag(coords[axis], profile, axis=axis, **diag_kws)
+                plot_profile(profile=profile, coords=coords[axis], ax=self.diag_axs[axis], scale="max", **diag_kws)
 
         # Bivariate plots.
         profx, profy = [kws.pop(key) for key in ("profx", "profy")]
@@ -487,7 +474,7 @@ class CornerGrid:
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
-            Key word argument passed to `visualization.plot1d`.
+            Key word argument passed to `visualization.plot_profile`.
         **kws
             Key word arguments pass to `visualization.cloud.plot2d`
         """
@@ -524,7 +511,7 @@ class CornerGrid:
             if self.diag and diag:
                 heights, _ = np.histogram(X[:, axis], _edges)
                 centers = psdist.utils.centers_from_edges(_edges)
-                self.plot_diag(centers, heights, axis=axis, **diag_kws)
+                plot_profile(profile=heights, coords=centers, ax=self.diag_axs[axis], **diag_kws)
 
         # Bivariate plots:
         profx, profy = [kws.pop(key) for key in ("profx", "profy")]
