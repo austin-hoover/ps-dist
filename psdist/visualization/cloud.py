@@ -622,7 +622,7 @@ def proj2d_interactive_slice(
                 plot_kws["limits"] = limits
             plot2d(_data[index][:, axis_view], ax=ax, **plot_kws)
             ax.format(xlim=limits[0], ylim=limits[1])
-        labels = dims_units if _widgets["normalize"].value else dims
+        labels = dims if _widgets["normalize"].value else dims_units
         axs.format(
             xlabel=labels[axis_view[0]],
             ylabel=labels[axis_view[1]],
@@ -993,13 +993,10 @@ def proj1d_interactive_slice(
 
         if kws["log"]:
             ax.format(yscale="log", yformatter="log")
+        labels = dims if _widgets["normalize"].value else dims_units
         ax.format(
             xlim=limits[axis_view],
-            xlabel=(
-                dims_units[axis_view]
-                if _widgets["normalize"].value
-                else dims[axis_view]
-            ),
+            xlabel=labels[axis_view],
         )
         if legend and (labels is not None):
             ax.legend(**legend_kws)
