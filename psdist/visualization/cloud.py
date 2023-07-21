@@ -999,10 +999,9 @@ def proj1d_interactive_slice(
 
         if kws["log"]:
             ax.format(yscale="log", yformatter="log")
-        labels = dims if _widgets["normalize"].value else dims_units
         ax.format(
             xlim=limits[axis_view],
-            xlabel=labels[axis_view],
+            xlabel=dims[axis_view] if _widgets["normalize"].value else dims_units[axis_view],
         )
         if legend and (labels is not None):
             ax.legend(**legend_kws)
