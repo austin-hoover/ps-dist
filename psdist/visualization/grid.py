@@ -58,6 +58,15 @@ class JointGrid:
         self.marg_axs[0].format(**marg_fmt_kws_x)
         self.marg_axs[1].format(**marg_fmt_kws_y)
 
+    def get_default_marg_kws(self, marg_kws=None):
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault("color", "black")
+        marg_kws.setdefault("kind", "step")
+        marg_kws.setdefault("lw", 1.0)
+        marg_kws.setdefault("scale", "density")
+        return marg_kws
+
     def plot_cloud(self, X, marg_hist_kws=None, marg_kws=None, **kws):
         """Plot a 2D point cloud.
 
@@ -72,11 +81,7 @@ class JointGrid:
         **kws
             Key word arguments passed to `visualization.image.plot2d.`
         """
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault("kind", "step")
-        marg_kws.setdefault("lw", 1.0)
-        marg_kws.setdefault("scale", "density")
+        marg_kws = self.get_default_marg_kws(marg_kws)
         if marg_hist_kws is None:
             marg_hist_kws = dict()
         marg_hist_kws.setdefault("bins", "auto")
@@ -111,14 +116,9 @@ class JointGrid:
         **kws
             Key word arguments passed to `visualization.image.plot2d.`
         """
+        marg_kws = self.get_default_marg_kws(marg_kws)
         kws.setdefault("colorbar_kw", dict())
         kws["colorbar_kw"].setdefault("pad", 2.0)
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault("color", "black")
-        marg_kws.setdefault("kind", "step")
-        marg_kws.setdefault("lw", 1.0)
-        marg_kws.setdefault("scale", "density")
         if coords is None:
             coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
         for axis in range(2):
