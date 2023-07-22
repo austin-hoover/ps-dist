@@ -101,6 +101,8 @@ def fit_normal(x, y):
 def scale_profile(profile, scale=None, edges=None, coords=None):
     if not scale:
         return profile
+    if np.max(profile) <= 0.0:
+        return profile
     if scale == "density":
         if edges is None:
             if coords is not None:
