@@ -61,7 +61,7 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share=None):
             for k in axis:
                 limits[k] = (_min, _max)
     if zero_center:
-        limits = vis.center_limits(limits)
+        limits = psdist.visualization.center_limits(limits)
     if len(limits) == 1:
         limits = limits[0]
     return limits
@@ -86,7 +86,7 @@ def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
     if center_at_mean:
         center = (0.0, 0.0)
     Sigma = np.cov(X.T)
-    return vis.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
+    return psdist.visualization.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
 
 def scatter(X, ax=None, samples=None, **kws):
@@ -391,11 +391,11 @@ def proj2d_interactive_slice(
                 limits_list[i, j, :, :] = auto_limits(data[i][j], **autolim_kws)
         if share_limits == 1:
             for j in range(n_cols):
-                limits = vis.combine_limits(limits_list[:, j, :, :])
+                limits = psdist.visualization.combine_limits(limits_list[:, j, :, :])
                 for i in range(n_rows):
                     limits_list[i, j] = limits
         elif share_limits == 2:
-            limits = vis.combine_limits(
+            limits = psdist.visualization.combine_limits(
                 limits_list.reshape((n_rows * n_cols, n_dims, 2))
             )
             for i in range(n_rows):
@@ -567,7 +567,7 @@ def proj2d_interactive_slice(
             _limits_list = [auto_limits(_X, **autolim_kws) for _X in _data]
             if share_limits > 0:
                 _limits_list = [
-                    vis.combine_limits(_limits_list) for _ in range(len(_data))
+                    psdist.visualization.combine_limits(_limits_list) for _ in range(len(_data))
                 ]
 
         # Slice.
@@ -777,11 +777,11 @@ def proj1d_interactive_slice(
     if limits is None:
         limits_list = np.zeros((n_cols, n_dims, 2))
         for j in range(n_cols):
-            limits_list[j] = vis.combine_limits(
+            limits_list[j] = psdist.visualization.combine_limits(
                 [auto_limits(data[i][j], **autolim_kws) for i in range(n_rows)]
             )
         if share_limits:
-            limits = vis.combine_limits(limits_list)
+            limits = psdist.visualization.combine_limits(limits_list)
             for j in range(n_cols):
                 limits_list[j] = limits
     else:
@@ -832,7 +832,7 @@ def proj1d_interactive_slice(
     _widgets["log"] = widgets.Checkbox(description="log", value=False)
     _widgets["normalize"] = widgets.Checkbox(description="normalize", value=False)
     _widgets["scale"] = widgets.Dropdown(
-        options=["none", "area", "max"], description="scale", value="area"
+        options=["none", "density", "max"], description="scale", value="density"
     )
 
     # Sliders and checkboxes for slicing:
@@ -939,7 +939,7 @@ def proj1d_interactive_slice(
             _data = [
                 psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
             ]
-            limits = vis.combine_limits(
+            limits = psdist.visualization.combine_limits(
                 [auto_limits(_X, **autolim_kws) for _X in _data]
             )
 
@@ -968,7 +968,7 @@ def proj1d_interactive_slice(
 
         # Recompute limits from sliced data.
         if update_limits_on_slice:
-            limits = vis.combine_limits(
+            limits = psdist.visualization.combine_limits(
                 [auto_limits(_X, **autolim_kws) for _X in _data]
             )
 
@@ -980,21 +980,15 @@ def proj1d_interactive_slice(
             # Bin data
             points = _data[index][:, axis_view]
             bin_edges = np.histogram_bin_edges(points, bins, limits[axis_view])
-            bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
             hist, _ = np.histogram(points, bins=bin_edges)
-
-            # Scale histograms
-            if kws["scale"] == "max":
-                hist = hist / np.max(hist)
-            elif kws["scale"] == "area":
-                hist = hist / np.sum(hist * np.diff(bin_edges))
 
             # Plot
             plot_kws["color"] = colors[index]
             plot_kws["label"] = labels[index]
             plot_kws["alpha"] = kws["alpha"]
             plot_kws["kind"] = kws["kind"]
-            vis.plot_profile(bin_centers, hist, ax=ax, **plot_kws)
+            plot_kws["scale"] = kws["scale"]
+            psdist.visualization.plot_profile(profile=hist, edges=bin_edges, ax=ax, **plot_kws)
 
         if kws["log"]:
             ax.format(yscale="log", yformatter="log")
