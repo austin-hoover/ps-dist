@@ -98,6 +98,24 @@ def fit_normal(x, y):
     return func(x, sigma, mu, amplitude, offset), sigma, mu, amplitude, offset
 
 
+def scale_profile(profile, scale=None, edges=None, coords=None):
+    if not scale:
+        return profile
+    if scale == "density":
+        if edges is None:
+            if coords is not None:
+                edges = psdist.utils.edges_from_centers(coords)
+            else:
+                edges = np.arange(len(profile) + 1)
+        return profile / np.sum(profile * np.diff(edges))
+    elif scale == "max":
+        return profile / np.max(profile)
+    elif type(scale) in [int, float]:
+        return profile / scale
+    else:
+        return profile
+        
+
 def plot_profile(
     profile,
     coords=None, 
@@ -145,17 +163,10 @@ def plot_profile(
     if edges is None and coords is not None:
         edges = psdist.utils.edges_from_centers(coords)
 
-    profile = np.array(profile)
     coords = np.array(coords)
     edges = np.array(edges)
-
-    if scale:
-        if scale == "density":
-            profile = profile / np.sum(profile * np.diff(edges))
-        elif scale == "max":
-            profile = profile / np.max(profile)
-        elif type(scale) in [int, float]:
-            profile = profile / scale
+    profile = np.array(profile)
+    profile = scale_profile(profile, scale=scale, edges=edges)
     
     if kind == "step":
         return ax.stairs(profile + offset, edges=edges, fill=fill, baseline=offset, orientation=orientation, **kws)

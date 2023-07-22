@@ -7,6 +7,7 @@ import psdist.utils
 import psdist.visualization.cloud as vis_cloud
 import psdist.visualization.image as vis_image
 from psdist.visualization.visualization import plot_profile
+from psdist.visualization.visualization import scale_profile
 
 
 class JointGrid:
@@ -139,10 +140,6 @@ class JointGrid:
 class CornerGrid:
     """Grid for corner plots.
 
-    * https://seaborn.pydata.org/generated/seaborn.PairGrid.html
-    * https://corner.readthedocs.io/en/latest/
-    * https://pandas.pydata.org/docs/reference/api/pandas.plotting.scatter_matrix.html
-
     Attributes
     ----------
     fig : proplot.figure.Figure
@@ -163,9 +160,9 @@ class CornerGrid:
         self, 
         d=4, 
         diag=True, 
-        diag_norm="max",
-        diag_scale=0.65,
+        diag_shrink=1.0,
         diag_rspine=False,
+        diag_share=True,
         limits=None, 
         labels=None, 
         corner=True,
@@ -179,12 +176,13 @@ class CornerGrid:
         diag : bool
             Whether to include diagonal subplots (univariate plots). If False,
             we have an (n - 1) x (n - 1) grid instead of an n x n grid.
-        diag_norm : {"max", "area"}
-            Normalize 1D histograms max value or the area under the curve.
-        diag_scale : float
-            Scale the 1D histograms by this value.
+        diag_shrink : float in range [0, 1]
+            Scales the maximum y value of the diagonal profile plots.
         diag_rspine : bool
             Whether to include right spine on diagonal subplots (if `corner`).
+        diag_share : bool
+            Whether to share diagonal axis limits; i.e., whether we can compare
+            the areas under the diagonal profile plots.
         limits : list[tuple], length n
             The (min, max) for each dimension. (These can be set later.)
         labels : list[str]
@@ -199,9 +197,11 @@ class CornerGrid:
         self.d = self.nrows = self.ncols = d
         self.corner = corner
         self.diag = diag
-        self.diag_norm = diag_norm
-        self.diag_scale = diag_scale
+        self.diag_shrink = diag_shrink
         self.diag_rspine = diag_rspine
+        self.diag_share = diag_share
+        self.diag_ymin = None
+        self.diag_yscale = self.d * [None]
         if not self.diag:
             self.nrows = self.nrows - 1
             self.ncols = self.ncols - 1
@@ -269,14 +269,9 @@ class CornerGrid:
                 self.format_diag(yspineloc="right")
             else:
                 self.format_diag(yspineloc="neither")
-        # self.format_diag(ylim=(0.0, 1.0))
         self.axs.format(xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3))
-            
-    def format_offdiag(self, **kws):
-        """Format off-diagonal subplots."""
-        for ax in [self.offdiag_axs + self.offdiag_axs_u]:
-            ax.format(**kws)
-            
+        self.set_diag_scale("linear")
+                        
     def format_diag(self, **kws):
         """Format diagonal subplots."""
         for ax in self.diag_axs:
@@ -285,6 +280,11 @@ class CornerGrid:
             for ax in self.diag_axs[1:]:
                 ax.format(yticklabels=[])
         self._fake_diag_yticks()
+
+    def format_offdiag(self, **kws):
+        """Format off-diagonal subplots."""
+        for ax in [self.offdiag_axs + self.offdiag_axs_u]:
+            ax.format(**kws)
 
     def get_labels(self):
         """Return the dimension labels."""
@@ -337,7 +337,16 @@ class CornerGrid:
             for i in range(self.ncols):
                 self.axs[:, i].format(xlim=limits[i])
         self.limits = self.get_limits()
-        
+
+    def get_default_diag_kws(self, diag_kws=None):
+        if diag_kws is None:
+            diag_kws = dict()
+        diag_kws.setdefault("color", "black")
+        diag_kws.setdefault("lw", 1.0)
+        diag_kws.setdefault("kind", "step")
+        diag_kws.setdefault("scale", "density")
+        return diag_kws
+
     def _fake_diag_yticks(self):
         """The yticks on the (0, 0) subplot correspond to the other subplots in the row.
         
@@ -361,6 +370,68 @@ class CornerGrid:
         if np.all(locs == locs.astype(int)):
             locs = locs.astype(int)
         self.axs[0, 0].yaxis.set_ticklabels(locs)
+
+    def _force_non_negative_diag_ymin(self):
+        """Force diagonal ymins to be at least zero."""
+        if any([ax.get_ylim()[0] < 0.0 for ax in self.diag_axs]):
+            self.format_diag(ylim=0.0)   
+
+    def set_diag_scale(self, scale="linear", pad=0.05):
+        """Set diagonal y axis scale.
+
+        Parameters
+        ----------
+        scale : {"linear", "log"}
+            If "linear", scale runs from 0 to 1. If "log", scale runs from half the
+            minimum plotted value to 1.
+        """
+        if scale == "linear":
+            ymin = 0.0
+            ymax = 1.0 / self.diag_shrink
+            delta = ymax - ymin
+            ymax = ymin + delta * (1.0 + pad)
+            self.format_diag(yscale="linear", yformatter="auto", ymin=ymin, ymax=ymax)
+        elif scale == "log":
+            ymin = self.diag_ymin
+            ymax = 1.0
+            log_ymin = np.log10(ymin)
+            log_ymax = np.log10(ymax)
+            log_delta = log_ymax - log_ymin
+            log_delta = log_delta / self.diag_shrink
+            ymax = 10.0 ** (log_ymin + log_delta * (1.0 + pad))
+            self.format_diag(yscale="log", yformatter="log", ymin=ymin, ymax=ymax)
+
+    def _plot_diag(self, get_data, **kws):
+        # Compute one-dimensional probabiliy density functions.
+        if "scale" in kws:
+            kws.pop("scale")
+        profiles, edges_list = [], []
+        for axis in range(self.d):
+            profile, edges = get_data(axis)
+            profile = scale_profile(profile, edges=edges, scale="density")
+            profiles.append(profile)
+            edges_list.append(edges)
+        # Update scaling factor for each profile, taking into account all existing plots.
+        for axis in range(self.d):
+            if self.diag_yscale[axis] is None:
+                self.diag_yscale[axis] = -np.inf
+        if self.diag_share:
+            max_value = max([np.max(profile) for profile in profiles])
+            for axis in range(self.d):
+                self.diag_yscale[axis] = max(self.diag_yscale[axis], max_value)
+        else:
+            for axis in range(self.d):
+                self.diag_yscale[axis] = max(self.diag_yscale[axis], np.max(profiles[axis]))
+        # Plot the profiles.
+        for axis in range(self.d):
+            if self.diag_yscale[axis]:
+                profiles[axis] = profiles[axis] / self.diag_yscale[axis]
+            plot_profile(profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws)
+        # Compute min positive value for log scaling.
+        for axis in range(self.d):
+            if not self.diag_ymin:
+                self.diag_ymin = np.inf
+            self.diag_ymin = min(self.diag_ymin, np.min(profile[profile > 0.0]))
 
     def plot_image(
         self,
@@ -394,30 +465,29 @@ class CornerGrid:
         **kws
             Key word arguments pass to `visualization.image.plot2d`
         """
-        if diag_kws is None:
-            diag_kws = dict()
-        diag_kws.setdefault("color", "black")
-        diag_kws.setdefault("lw", 1.0)
-        diag_kws.setdefault("kind", "step")
+        diag_kws = self.get_default_diag_kws(diag_kws)
         kws.setdefault("kind", "pcolor")
         kws.setdefault("profx", False)
         kws.setdefault("profy", False)
+        kws.setdefault("process_kws", dict())
+        kws["process_kws"].setdefault("norm", "max")
 
         if coords is None:
             coords = [np.arange(f.shape[i]) for i in range(f.ndim)]
+        edges = [psdist.utils.edges_from_centers(c) for c in coords]
 
         if update_limits:
-            edges = [psdist.utils.edges_from_centers(c) for c in coords]
             limits = [(np.min(e), np.max(e)) for e in edges]
             self.set_limits(limits, expand=(not self.new))
         self.new = False
 
         # Univariate plots.
-        if diag:
-            for ax, axis in zip(self.diag_axs, self.diag_indices):
-                profile = psdist.image.project(f, axis=axis)
-                plot_profile(profile=profile, coords=coords[axis], ax=self.diag_axs[axis], scale="max", **diag_kws)
-
+        if self.diag and diag:
+            self._plot_diag(
+                lambda axis: (psdist.image.project(f, axis=axis), edges[axis]), 
+                **diag_kws
+            )
+        
         # Bivariate plots.
         profx, profy = [kws.pop(key) for key in ("profx", "profy")]
         if lower:
@@ -427,17 +497,14 @@ class CornerGrid:
                         kws["profx"] = axis[1] == self.d - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
-                _f = psdist.image.project(f, axis=axis)
-                _f = _f / np.max(_f)
-                _coords = [coords[k] for k in axis]
-                vis_image.plot2d(_f, coords=_coords, ax=ax, **kws)
+                vis_image.plot2d(psdist.image.project(f, axis=axis), coords=[coords[k] for k in axis], ax=ax, **kws)
         if not self.corner and upper:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
                 _f = psdist.image.project(f, axis=axis)
                 _f = _f / np.max(_f)
                 _coords = [coords[k] for k in axis]
                 vis_image.plot2d(_f, coords=_coords, ax=ax, **kws)
-        self._fake_diag_yticks()
+        self._cleanup()
             
     def plot_cloud(
         self,
@@ -478,11 +545,7 @@ class CornerGrid:
         **kws
             Key word arguments pass to `visualization.cloud.plot2d`
         """
-        if diag_kws is None:
-            diag_kws = dict()
-        diag_kws.setdefault("color", "black")
-        diag_kws.setdefault("lw", 1.0)
-        diag_kws.setdefault("kind", "step")
+        diag_kws = self.get_default_diag_kws(diag_kws)
         kws.setdefault("kind", "hist")
         kws.setdefault("profx", False)
         kws.setdefault("profy", False)
@@ -500,21 +563,20 @@ class CornerGrid:
         if not psdist.utils.array_like(bins):
             bins = X.shape[1] * [bins]
 
-        # Univariate plots. Remember histogram bins and use them for 2D histograms.
+        # Compute histogram bin edges.
         edges = []
         for axis in range(self.d):
             if psdist.utils.array_like(bins[axis]):
-                _edges = bins[axis]
+                edges.append(bins[axis])
             else:
-                _edges = np.histogram_bin_edges(X[:, axis], bins[axis], limits[axis])
-            edges.append(_edges)
-            if self.diag and diag:
-                heights, _ = np.histogram(X[:, axis], _edges)
-                centers = psdist.utils.centers_from_edges(_edges)
-                plot_profile(profile=heights, coords=centers, ax=self.diag_axs[axis], **diag_kws)
+                edges.append(np.histogram_bin_edges(X[:, axis], bins[axis], limits[axis]))
 
+        # Univariate plots.
+        if self.diag and diag:
+            self._plot_diag(lambda axis: np.histogram(X[:, axis], edges[axis]), **diag_kws)
+        
         # Bivariate plots:
-        profx, profy = [kws.pop(key) for key in ("profx", "profy")]
+        profx, profy = [kws.pop(key) for key in ["profx", "profy"]]
         if lower:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
                 if prof_edge_only:
@@ -530,7 +592,11 @@ class CornerGrid:
                 if kws["kind"] in ["hist", "contour", "contourf"]:
                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
                 vis_cloud.plot2d(X[:, axis], ax=ax, **kws)
+        self._cleanup()
+
+    def _cleanup(self):
         self._fake_diag_yticks()
+        self._force_non_negative_diag_ymin()
 
 
 class SliceGrid:
