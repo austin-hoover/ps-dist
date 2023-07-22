@@ -158,6 +158,8 @@ def plot_profile(
     **kws
         Key word arguments passed to the plotting function.
     """
+    kws.setdefault("lw", 1.5)
+    
     if coords is None and edges is None:
         raise ValueError("coords or edges must be provided")
     if coords is None and edges is not None:
