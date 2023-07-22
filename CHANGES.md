@@ -1,5 +1,16 @@
 # Change Log
 
+## [0.1.9] — 2023-07-22
+
+* Improve diagonal axis sharing in `visualization.CornerGrid`.
+* Rename function `visualization.plot1d` &rarr; `visualization.plot_projection` and improve the function.
+* Add function `visualization.cloud.proj1d_interactive_slice`.
+* Rename function `visualization.stack_limits` &rarr; `visualization.combine_limits`.
+* Add function `visualization.center_limits`.
+* Add mask option to `visualization.cloud.proj2d_interactive_slice`.
+* Fix bug in `cloud.sparse_histogram`.
+* In `visualization.JointGrid`, change all "panel_" variables to "marg_".
+
 
 ## [0.1.8] — 2023-07-19
 
