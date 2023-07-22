@@ -116,19 +116,19 @@ def scale_profile(profile, scale=None, edges=None, coords=None):
         return profile / scale
     else:
         return profile
-        
+
 
 def plot_profile(
     profile,
-    coords=None, 
-    edges=None, 
-    ax=None, 
-    orientation="vertical", 
-    kind="line", 
+    coords=None,
+    edges=None,
+    ax=None,
+    orientation="vertical",
+    kind="line",
     fill=False,
-    offset=0.0, 
+    offset=0.0,
     scale=None,
-    **kws
+    **kws,
 ):
     """Plot one-dimensional profile.
 
@@ -159,7 +159,7 @@ def plot_profile(
         Key word arguments passed to the plotting function.
     """
     kws.setdefault("lw", 1.5)
-    
+
     if coords is None and edges is None:
         raise ValueError("coords or edges must be provided")
     if coords is None and edges is not None:
@@ -171,9 +171,16 @@ def plot_profile(
     edges = np.array(edges)
     profile = np.array(profile)
     profile = scale_profile(profile, scale=scale, edges=edges)
-    
+
     if kind == "step":
-        return ax.stairs(profile + offset, edges=edges, fill=fill, baseline=offset, orientation=orientation, **kws)
+        return ax.stairs(
+            profile + offset,
+            edges=edges,
+            fill=fill,
+            baseline=offset,
+            orientation=orientation,
+            **kws,
+        )
     if kind == "line":
         profile = profile + offset
         if fill:
@@ -182,7 +189,7 @@ def plot_profile(
             else:
                 return ax.fill_between(coords, offset, profile, **kws)
         else:
-            coords = np.hstack([coords[0], coords, coords[-1]]) 
+            coords = np.hstack([coords[0], coords, coords[-1]])
             profile = np.hstack([offset, profile, offset])
             if orientation == "horizontal":
                 return ax.plotx(coords, profile, **kws)
@@ -192,10 +199,12 @@ def plot_profile(
         if orientation == "horizontal":
             return ax.barh(coords, profile, left=(offset * np.ones(len(coords))), **kws)
         else:
-            return ax.bar(coords, profile, bottom=(offset * np.ones(len(coords))), **kws)
+            return ax.bar(
+                coords, profile, bottom=(offset * np.ones(len(coords))), **kws
+            )
     else:
-        raise ValueError("Invalid plot kind") 
-    
+        raise ValueError("Invalid plot kind")
+
 
 def combine_limits(limits_list):
     """Combine a stack of limits, keeping min/max values.
@@ -210,13 +219,13 @@ def combine_limits(limits_list):
     Returns
     -------
     list[tuple]
-        New set of limits [(xmin, xmax), (ymin, ymax), ...]. 
+        New set of limits [(xmin, xmax), (ymin, ymax), ...].
     """
     limits_list = np.array(limits_list)
     mins = np.min(limits_list[:, :, 0], axis=0)
     maxs = np.max(limits_list[:, :, 1], axis=0)
     return list(zip(mins, maxs))
-    
+
 
 def center_limits(limits):
     """Center limits at zero.
@@ -226,12 +235,12 @@ def center_limits(limits):
     Parameters
     ----------
     limits : list[tuple]
-        A set of limits [(xmin, xmax), (ymin, ymax), ...]. 
+        A set of limits [(xmin, xmax), (ymin, ymax), ...].
 
     Returns
     -------
     limits : list[tuple]
-        A new set of limits centered at zero [(-x, x), (-y, y), ...]. 
+        A new set of limits centered at zero [(-x, x), (-y, y), ...].
     """
     mins, maxs = list(zip(*limits))
     maxs = np.max([np.abs(mins), np.abs(maxs)], axis=0)

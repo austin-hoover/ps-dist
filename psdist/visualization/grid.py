@@ -24,7 +24,12 @@ class JointGrid:
     """
 
     def __init__(
-        self, marg_kws=None, marg_fmt_kws=None, marg_fmt_kws_x=None, marg_fmt_kws_y=None, **fig_kws
+        self,
+        marg_kws=None,
+        marg_fmt_kws=None,
+        marg_fmt_kws_x=None,
+        marg_fmt_kws_y=None,
+        **fig_kws,
     ):
         """Constructor.
 
@@ -49,7 +54,7 @@ class JointGrid:
         marg_fmt_kws_x.setdefault("yspineloc", "left")
         marg_fmt_kws_y.setdefault("xspineloc", "bottom")
         marg_fmt_kws_y.setdefault("yspineloc", "left")
-    
+
         self.ax_marg_x = self.ax.panel("t", **marg_kws)
         self.ax_marg_y = self.ax.panel("r", **marg_kws)
         self.marg_axs = [self.ax_marg_x, self.ax_marg_y]
@@ -97,8 +102,9 @@ class JointGrid:
             plot_profile(
                 profile=profile,
                 edges=edges,
-                ax=self.marg_axs[axis], 
-                orientation=("horizontal" if bool(axis) else "vertical"), **marg_kws
+                ax=self.marg_axs[axis],
+                orientation=("horizontal" if bool(axis) else "vertical"),
+                **marg_kws,
             )
         vis_cloud.plot2d(X, ax=self.ax, **kws)
 
@@ -125,8 +131,9 @@ class JointGrid:
             plot_profile(
                 profile=psdist.image.project(f, axis),
                 coords=coords[axis],
-                ax=self.marg_axs[axis], 
-                orientation=("horizontal" if bool(axis) else "vertical"), **marg_kws
+                ax=self.marg_axs[axis],
+                orientation=("horizontal" if bool(axis) else "vertical"),
+                **marg_kws,
             )
         return vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
 
@@ -155,18 +162,18 @@ class CornerGrid:
     offdiag_indices : list[2-tuple of int]
         Indices of the dimensions plotted on each off-diagonal subplot.
     """
-    
+
     def __init__(
-        self, 
-        d=4, 
-        diag=True, 
+        self,
+        d=4,
+        diag=True,
         diag_shrink=1.0,
         diag_rspine=False,
         diag_share=True,
-        limits=None, 
-        labels=None, 
+        limits=None,
+        labels=None,
         corner=True,
-        **fig_kws
+        **fig_kws,
     ):
         """
         Parameters
@@ -253,7 +260,7 @@ class CornerGrid:
             for i in range(self.nrows):
                 for j in range(self.ncols):
                     if j > i:
-                        self.axs[i, j].axis("off")   
+                        self.axs[i, j].axis("off")
         self.axs[:-1, :].format(xticklabels=[])
         for i in range(self.nrows):
             for j in range(self.ncols):
@@ -261,7 +268,7 @@ class CornerGrid:
                 if i != self.nrows - 1:
                     ax.format(xticklabels=[])
                 if j != 0:
-                    if not (i == j and self.diag_rspine and self.corner and self.diag):                
+                    if not (i == j and self.diag_rspine and self.corner and self.diag):
                         ax.format(yticklabels=[])
         self.axs.format(xspineloc="bottom", yspineloc="left")
         if self.corner:
@@ -269,9 +276,11 @@ class CornerGrid:
                 self.format_diag(yspineloc="right")
             else:
                 self.format_diag(yspineloc="neither")
-        self.axs.format(xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3))
+        self.axs.format(
+            xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3)
+        )
         self.set_diag_scale("linear")
-                        
+
     def format_diag(self, **kws):
         """Format diagonal subplots."""
         for ax in self.diag_axs:
@@ -299,7 +308,7 @@ class CornerGrid:
         """Set the dimension labels."""
         for ax, label in zip(self.axs[-1, :], labels):
             ax.format(xlabel=label)
-        for ax, label in zip(self.axs[int(self.diag):, 0], labels[1:]):
+        for ax, label in zip(self.axs[int(self.diag) :, 0], labels[1:]):
             ax.format(ylabel=label)
         if self.diag and not self.corner:
             self.axs[0, 0].format(ylabel=labels[0])
@@ -349,7 +358,7 @@ class CornerGrid:
 
     def _fake_diag_yticks(self):
         """The yticks on the (0, 0) subplot correspond to the other subplots in the row.
-        
+
         Source: pandas.plotting.scatterplot_matrix.
         """
         if self.corner or not self.diag:
@@ -357,7 +366,7 @@ class CornerGrid:
         limits = self.limits
         if limits is None:
             limits = self.get_limits()
-            
+
         lim1 = limits[0]
         locs = self.axs[0, 0].xaxis.get_majorticklocs()
         locs = locs[(lim1[0] <= locs) & (locs <= lim1[1])]
@@ -374,7 +383,7 @@ class CornerGrid:
     def _force_non_negative_diag_ymin(self):
         """Force diagonal ymins to be at least zero."""
         if any([ax.get_ylim()[0] < 0.0 for ax in self.diag_axs]):
-            self.format_diag(ylim=0.0)   
+            self.format_diag(ylim=0.0)
 
     def set_diag_scale(self, scale="linear", pad=0.05):
         """Set diagonal y axis scale.
@@ -421,12 +430,16 @@ class CornerGrid:
                 self.diag_yscale[axis] = max(self.diag_yscale[axis], max_value)
         else:
             for axis in range(self.d):
-                self.diag_yscale[axis] = max(self.diag_yscale[axis], np.max(profiles[axis]))
+                self.diag_yscale[axis] = max(
+                    self.diag_yscale[axis], np.max(profiles[axis])
+                )
         # Plot the profiles.
         for axis in range(self.d):
             if self.diag_yscale[axis]:
                 profiles[axis] = profiles[axis] / self.diag_yscale[axis]
-            plot_profile(profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws)
+            plot_profile(
+                profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws
+            )
         # Compute min positive value for log scaling.
         for axis in range(self.d):
             if not self.diag_ymin:
@@ -484,10 +497,10 @@ class CornerGrid:
         # Univariate plots.
         if self.diag and diag:
             self._plot_diag(
-                lambda axis: (psdist.image.project(f, axis=axis), edges[axis]), 
-                **diag_kws
+                lambda axis: (psdist.image.project(f, axis=axis), edges[axis]),
+                **diag_kws,
             )
-        
+
         # Bivariate plots.
         profx, profy = [kws.pop(key) for key in ("profx", "profy")]
         if lower:
@@ -497,7 +510,12 @@ class CornerGrid:
                         kws["profx"] = axis[1] == self.d - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
-                vis_image.plot2d(psdist.image.project(f, axis=axis), coords=[coords[k] for k in axis], ax=ax, **kws)
+                vis_image.plot2d(
+                    psdist.image.project(f, axis=axis),
+                    coords=[coords[k] for k in axis],
+                    ax=ax,
+                    **kws,
+                )
         if not self.corner and upper:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
                 _f = psdist.image.project(f, axis=axis)
@@ -505,7 +523,7 @@ class CornerGrid:
                 _coords = [coords[k] for k in axis]
                 vis_image.plot2d(_f, coords=_coords, ax=ax, **kws)
         self._cleanup()
-            
+
     def plot_cloud(
         self,
         X,
@@ -559,7 +577,7 @@ class CornerGrid:
             self.set_limits(limits, expand=(not self.new))
         limits = self.get_limits()
         self.new = False
-        
+
         if not psdist.utils.array_like(bins):
             bins = X.shape[1] * [bins]
 
@@ -569,12 +587,16 @@ class CornerGrid:
             if psdist.utils.array_like(bins[axis]):
                 edges.append(bins[axis])
             else:
-                edges.append(np.histogram_bin_edges(X[:, axis], bins[axis], limits[axis]))
+                edges.append(
+                    np.histogram_bin_edges(X[:, axis], bins[axis], limits[axis])
+                )
 
         # Univariate plots.
         if self.diag and diag:
-            self._plot_diag(lambda axis: np.histogram(X[:, axis], edges[axis]), **diag_kws)
-        
+            self._plot_diag(
+                lambda axis: np.histogram(X[:, axis], edges[axis]), **diag_kws
+            )
+
         # Bivariate plots:
         profx, profy = [kws.pop(key) for key in ["profx", "profy"]]
         if lower:

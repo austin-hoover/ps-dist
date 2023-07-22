@@ -461,6 +461,7 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
 
 # Processing
 
+
 def blur(f, sigma):
     """Simple Gaussian blur."""
     return ndimage.gaussian_filter(f, sigma)
@@ -603,7 +604,7 @@ def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
     counts : ndarray, shape (k,)
         Counts in each bin. Does not need to be normalized.
     coords : list[ndarray]
-        Coordinates (bin centers) along each axis.        
+        Coordinates (bin centers) along each axis.
     samples : int
         The number of samples to draw.
 
@@ -615,7 +616,9 @@ def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
     shape = [len(c) for c in coords]
     edges = [edges_from_centers(c) for c in coords]
     indices_flat = np.ravel_multi_index(indices.T, shape)
-    idx = np.random.choice(indices_flat, size=samples, replace=True, p=(counts / np.sum(counts)))
+    idx = np.random.choice(
+        indices_flat, size=samples, replace=True, p=(counts / np.sum(counts))
+    )
     idx = np.unravel_index(idx, shape=shape)
     lb = [edges[axis][idx[axis]] for axis in range(len(shape))]
     ub = [edges[axis][idx[axis] + 1] for axis in range(len(shape))]

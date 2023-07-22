@@ -235,7 +235,7 @@ def slice_planar(X, axis=None, center=None, width=None, limits=None):
             width = np.full(d, width)
         center = np.array(center)
         width = np.array(width)
-        limits = list(zip(center - 0.5 * width, center + 0.5 * width))  
+        limits = list(zip(center - 0.5 * width, center + 0.5 * width))
     limits = np.array(limits)
     if limits.ndim == 1:
         limits = limits[None, :]
@@ -432,26 +432,26 @@ def downsample(X, samples):
 def histogram_bin_edges(X, bins=10, limits=None):
     """Multi-dimensional histogram bin edges.
 
-    This function calls `np.histogram_bin_edges` along each axis of X. 
-    
+    This function calls `np.histogram_bin_edges` along each axis of X.
+
     See https://numpy.org/doc/stable/reference/generated/numpy.histogram_bin_edges.html
 
     Parameters
     ----------
-    bins : int or str    
-        If `bins` is an int, it defines the number of equal-width bins in the 
-        given range (10, by default). 
+    bins : int or str
+        If `bins` is an int, it defines the number of equal-width bins in the
+        given range (10, by default).
 
-        If `bins` is a string, `histogram_bin_edges` will use the method chosen 
+        If `bins` is a string, `histogram_bin_edges` will use the method chosen
         to calculate the optimal number of bins.
 
-        if `bins` is a sequence of floats, it defines the bin edges, including 
+        if `bins` is a sequence of floats, it defines the bin edges, including
         the rightmost edge.
 
-        A list of {str / int / float sequence} may be provided such that bins[i] 
+        A list of {str / int / float sequence} may be provided such that bins[i]
         corresponds to axis i.
     limits : (float, float)
-        The lower and upper range of the bins.  If not provided, the limits are 
+        The lower and upper range of the bins.  If not provided, the limits are
         ``[(np.min(X[:, i]), np.max(X[:, i])) for i in range(X.shape[1])]``.
 
     Returns
@@ -461,8 +461,8 @@ def histogram_bin_edges(X, bins=10, limits=None):
     """
     if X.ndim == 1:
         return np.histogram_bin_edges(X, bins, limits)
-    # `[2, 3, 4, 5]` could mean "2 bins along axis 0, 3 bins along axis 1, ..." 
-    # or "bin edges [2.0, 3.0, 4.0, 5.0] along each axis". We assume the 
+    # `[2, 3, 4, 5]` could mean "2 bins along axis 0, 3 bins along axis 1, ..."
+    # or "bin edges [2.0, 3.0, 4.0, 5.0] along each axis". We assume the
     # former if `bins` is a sequence of int and the latter if `bins` is a
     # sequence of float.
     if array_like(bins) and type(bins[0]) is float:
@@ -470,13 +470,12 @@ def histogram_bin_edges(X, bins=10, limits=None):
     # If a single int/str is provided, apply to all axes.
     if not array_like(bins):
         bins = X.shape[1] * [bins]
-    # Same for `limits`. If a (min, max) tuple (or None) is provided, apply 
+    # Same for `limits`. If a (min, max) tuple (or None) is provided, apply
     # to all axes.
     if limits is None or (limits[0] is not None and not array_like(limits[0])):
         limits = X.shape[1] * [limits]
     return [
-        np.histogram_bin_edges(X[:, i], bins[i], limits[i]) 
-        for i in range(X.shape[1])
+        np.histogram_bin_edges(X[:, i], bins[i], limits[i]) for i in range(X.shape[1])
     ]
 
 
@@ -499,7 +498,7 @@ def histogram(X, bins=10, limits=None, centers=False):
         return hist, bins
 
     bins = histogram_bin_edges(X, bins=bins, limits=limits)
-    hist, _ = np.histogramdd(X, bins)   
+    hist, _ = np.histogramdd(X, bins)
     if centers:
         bins = [utils.centers_from_edges(b) for b in bins]
     return hist, bins
@@ -507,7 +506,7 @@ def histogram(X, bins=10, limits=None, centers=False):
 
 def sparse_histogram(X, bins=10, limits=None, centers=False, eps=1.0e-12):
     """Compute sparse multidimensional histogram.
-    
+
     Parameters
     ----------
     Same as `histogram`.
@@ -550,7 +549,7 @@ def sparse_histogram(X, bins=10, limits=None, centers=False, eps=1.0e-12):
     if centers:
         bins = [centers_from_edges(bins[axis]) for axis in range(X.shape[1])]
     return indices, counts, bins
-    
+
 
 def gaussian_kde(X, **kws):
     """Gaussian kernel density estimation (KDE).
@@ -591,5 +590,7 @@ def radial_histogram(X, **kws):
     for i in range(len(_edges) - 1):
         rmin = _edges[i]
         rmax = _edges[i + 1]
-        hist[i] = hist[i] / utils.volume_sphere_shell(rmin=rmin, rmax=rmax, n=X.shape[1])
+        hist[i] = hist[i] / utils.volume_sphere_shell(
+            rmin=rmin, rmax=rmax, n=X.shape[1]
+        )
     return hist, bins

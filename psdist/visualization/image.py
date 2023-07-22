@@ -10,6 +10,10 @@ import psdist.utils
 import psdist.visualization as vis
 
 
+# TO DO
+# - Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
+#   `options` input; see the cloud version of these functions.
+
 def plot_profiles(
     f,
     coords=None,
@@ -70,13 +74,13 @@ def plot_profiles(
             elif start == "center":
                 offset = coords[index][0]
             psdist.visualization.plot_profile(
-                profile=profile, 
-                coords=coords[axis], 
+                profile=profile,
+                coords=coords[axis],
                 edges=edges[axis],
-                ax=ax, 
-                offset=offset, 
+                ax=ax,
+                offset=offset,
                 orientation=("horizontal" if axis else "vertical"),
-                **kws
+                **kws,
             )
         if keep_limits:
             ax.format(xlim=_limits[0], ylim=_limits[1])
@@ -106,7 +110,9 @@ def plot_rms_ellipse(
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
     center = psdist.image.mean(f, coords) if center_at_mean else (0.0, 0.0)
     Sigma = psdist.image.cov(f, coords)
-    return psdist.visualization.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
+    return psdist.visualization.rms_ellipse(
+        Sigma, center, level=level, ax=ax, **ellipse_kws
+    )
 
 
 def plot2d(
@@ -151,7 +157,7 @@ def plot2d(
     process_kws : dict
         Key word arguments passed to `psdist.image.process`.
     offset, offset_type : float, {"relative", "absolute"}
-        Adds offset to the image (helpful to get rid of zeros for logarithmic 
+        Adds offset to the image (helpful to get rid of zeros for logarithmic
         color scales. If offset_type is 'relative' add `min(f) * offset` to
         the image. Otherwise add `offset`.
     mask : bool
@@ -219,7 +225,9 @@ def plot2d(
             prof_kws = dict()
         if kind == "contourf":
             prof_kws.setdefault("keep_limits", True)
-        plot_profiles(f - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws)
+        plot_profiles(
+            f - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws
+        )
     if return_mesh:
         return ax, mesh
     else:
@@ -249,6 +257,7 @@ def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
     psdist.visualization.grid.JointGrid
     """
     from psdist.visualization.grid import JointGrid
+
     if grid_kws is None:
         grid_kws = dict()
     grid = JointGrid(**grid_kws)
@@ -296,6 +305,7 @@ def corner(
         The `CornerGrid` on which the plot was drawn.
     """
     from psdist.visualization.grid import CornerGrid
+
     if grid_kws is None:
         grid_kws = dict()
     grid = CornerGrid(d=f.ndim, **grid_kws)
@@ -355,6 +365,7 @@ def slice_matrix(
         The `SliceGrid` on which the plot was drawn.
     """
     from psdist.visualization.grid import SliceGrid
+
     if grid_kws is None:
         grid_kws = dict()
     grid_kws.setdefault("space", 0.2)
@@ -514,14 +525,14 @@ def proj2d_interactive_slice(
                 checks.append(kws[f"check{i}"])
             if f"slider{i}" in kws:
                 ind.append(kws[f"slider{i}"])
-                
+
         # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim in (dim1, dim2):
                 return
         if dim1 == dim2:
             return
-            
+
         # Slice and project the distribution.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
@@ -531,7 +542,7 @@ def proj2d_interactive_slice(
         ind = [ind[k] for k in axis_slice]
         idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
         _f = psdist.image.project(f[idx], axis_view)
-        
+
         # Update plotting key word arguments.
         if "cmap" in kws:
             plot_kws["cmap"] = kws["cmap"]
@@ -543,7 +554,7 @@ def proj2d_interactive_slice(
             plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh_slider"]
         else:
             plot_kws["process_kws"]["thresh"] = None
-            
+
         # Plot the projection onto the specified axes.
         fig, ax = pplt.subplots()
         ax = plot2d(
@@ -682,12 +693,12 @@ def proj1d_interactive_slice(
                 checks.append(kws[f"check{i}"])
             if f"slider{i}" in kws:
                 ind.append(kws[f"slider{i}"])
-                
+
         # Return nothing if input does not make sense.
         for dim, check in zip(dims, checks):
             if check and dim == dim1:
                 return
-                
+
         # Slice, then project onto the specified axis.
         axis_view = dims.index(dim1)
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
@@ -699,12 +710,16 @@ def proj1d_interactive_slice(
         profile = psdist.image.project(f[idx], axis_view)
 
         # Make it a probability density function.
-        profile = psdist.visualization.scale_profile(profile, coords=coords[axis_view], scale="density")
-        
+        profile = psdist.visualization.scale_profile(
+            profile, coords=coords[axis_view], scale="density"
+        )
+
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        psdist.visualization.plot_profile(profile=profile, coords=coords[axis_view], ax=ax, **plot_kws)
+        psdist.visualization.plot_profile(
+            profile=profile, coords=coords[axis_view], ax=ax, **plot_kws
+        )
         plt.show()
 
     kws = {"dim1": dim1}

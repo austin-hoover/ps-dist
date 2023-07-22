@@ -26,16 +26,16 @@ def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share=None):
     zero_center : bool
         Whether to center the limits on zero.
     share : tuple[int] or list[tuple[int]]
-        Limits are shared betweent the dimensions in each set. For example, 
-        if `share=(0, 1)`, axis 0 and 1 will share limits. Or if 
+        Limits are shared betweent the dimensions in each set. For example,
+        if `share=(0, 1)`, axis 0 and 1 will share limits. Or if
         `share=[(0, 1), (4, 5)]` axis 0/1 will share limits, and axis 4/5
         will share limits.
-        
+
     Returns
     -------
     limits : list[tuple]
         The limits [(xmin, xmax), (ymin, ymax), ...].
-    """        
+    """
     if X.ndim == 1:
         X = X[:, None]
     if sigma is None:
@@ -86,7 +86,9 @@ def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
     if center_at_mean:
         center = (0.0, 0.0)
     Sigma = np.cov(X.T)
-    return psdist.visualization.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
+    return psdist.visualization.rms_ellipse(
+        Sigma, center, level=level, ax=ax, **ellipse_kws
+    )
 
 
 def scatter(X, ax=None, samples=None, **kws):
@@ -567,7 +569,8 @@ def proj2d_interactive_slice(
             _limits_list = [auto_limits(_X, **autolim_kws) for _X in _data]
             if share_limits > 0:
                 _limits_list = [
-                    psdist.visualization.combine_limits(_limits_list) for _ in range(len(_data))
+                    psdist.visualization.combine_limits(_limits_list)
+                    for _ in range(len(_data))
                 ]
 
         # Slice.
@@ -988,13 +991,17 @@ def proj1d_interactive_slice(
             plot_kws["alpha"] = kws["alpha"]
             plot_kws["kind"] = kws["kind"]
             plot_kws["scale"] = kws["scale"]
-            psdist.visualization.plot_profile(profile=hist, edges=bin_edges, ax=ax, **plot_kws)
+            psdist.visualization.plot_profile(
+                profile=hist, edges=bin_edges, ax=ax, **plot_kws
+            )
 
         if kws["log"]:
             ax.format(yscale="log", yformatter="log")
         ax.format(
             xlim=limits[axis_view],
-            xlabel=dims[axis_view] if _widgets["normalize"].value else dims_units[axis_view],
+            xlabel=dims[axis_view]
+            if _widgets["normalize"].value
+            else dims_units[axis_view],
         )
         if legend and (labels is not None):
             ax.legend(**legend_kws)
