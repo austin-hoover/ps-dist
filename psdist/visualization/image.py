@@ -69,7 +69,7 @@ def plot_profiles(
                 offset = edges[index][0]
             elif start == "center":
                 offset = coords[index][0]
-            vis.plot_profile(
+            psdist.visualization.plot_profile(
                 profile=profile, 
                 coords=coords[axis], 
                 edges=edges[axis],
@@ -106,7 +106,7 @@ def plot_rms_ellipse(
         coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
     center = psdist.image.mean(f, coords) if center_at_mean else (0.0, 0.0)
     Sigma = psdist.image.cov(f, coords)
-    return vis.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
+    return psdist.visualization.rms_ellipse(Sigma, center, level=level, ax=ax, **ellipse_kws)
 
 
 def plot2d(
@@ -697,13 +697,14 @@ def proj1d_interactive_slice(
         ind = [ind[k] for k in axis_slice]
         idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
         profile = psdist.image.project(f[idx], axis_view)
-        if np.max(profile) > 0:
-            profile = profile / np.sum(profile)
-            
+
+        # Make it a probability density function.
+        profile = psdist.visualization.scale_profile(profile, coords=coords[axis_view], scale="density")
+        
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        vis.plot_profile(coords[axis_view], profile, ax=ax, **plot_kws)
+        psdist.visualization.plot_profile(profile=profile, coords=coords[axis_view], ax=ax, **plot_kws)
         plt.show()
 
     kws = {"dim1": dim1}
