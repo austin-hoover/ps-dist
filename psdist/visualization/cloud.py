@@ -758,12 +758,14 @@ def proj1d_interactive_slice(
 
     # Plot color cycle.
     if colors is None:
-        if n_rows == 1:
-            colors = ["black"]
         if cycle is None:
             colors = pplt.Cycle(pplt.rc["cycle"]).by_key()["color"]
         else:
             colors = pplt.Cycle(cycle).by_key()["color"]
+    if n_rows == 1:
+        for key in ["color", "c"]:
+            if key in plot_kws:
+                colors = n_cols * [plot_kws.pop(key)]
 
     # Legend
     if legend_kws is None:
