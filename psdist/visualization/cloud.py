@@ -354,7 +354,7 @@ def proj2d_interactive_slice(
     if type(data) is not list:
         data = [data]
     if type(data[0]) is not list:
-        data = [[data[k]] for k in range(len(data))]
+        data = [data]
 
     n_rows = len(data)
     n_cols = len(data[0])
@@ -608,7 +608,7 @@ def proj2d_interactive_slice(
 
             # Add a small offset to the image if we are not masking and are using a logarithmic colormap.
             if plot_kws["norm"] == "log" and not plot_kws["mask"]:
-                plot_kws.setdefault("offset", 1.0)
+                plot_kws["offset"] = 1.0
 
             # Temporary bug fix: If we check and then uncheck "log", and
             # the colorbar has minor ticks, the tick label formatter will
@@ -620,8 +620,8 @@ def proj2d_interactive_slice(
         # Create figure.
         fig, axs = pplt.subplots(
             ncols=n_rows,
-            sharex=(share_limits and n_rows),
-            sharey=(share_limits and n_rows),
+            sharex=(share_limits and n_rows > 1),
+            sharey=(share_limits and n_rows > 1),
             **fig_kws,
         )
         for index, ax in enumerate(axs):
@@ -738,7 +738,7 @@ def proj1d_interactive_slice(
     if type(data) is not list:
         data = [data]
     if type(data[0]) is not list:
-        data = [[data[k]] for k in range(len(data))]
+        data = [data]
 
     n_rows = len(data)
     n_cols = len(data[0])
