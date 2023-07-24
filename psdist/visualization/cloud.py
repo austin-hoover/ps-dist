@@ -526,6 +526,9 @@ def proj2d_interactive_slice(
     for name, setting in options.items():
         _widgets[name].layout.display = None if setting else "none"
 
+    plot_kws.setdefault("offset", 0.0)
+    default_offset = plot_kws["offset"]
+
     def update(**kws):
         # Collect key word arguments.
         frame = kws["frame"]
@@ -608,7 +611,12 @@ def proj2d_interactive_slice(
 
             # Add a small offset to the image if we are not masking and are using a logarithmic colormap.
             if plot_kws["norm"] == "log" and not plot_kws["mask"]:
-                plot_kws["offset"] = 1.0
+                if default_offset > 0.0:
+                    plot_kws["offset"] = default_offset
+                else:
+                    plot_kws["offset"] = 1.0
+            else:
+                plot_kws["offset"] = default_offset
 
             # Temporary bug fix: If we check and then uncheck "log", and
             # the colorbar has minor ticks, the tick label formatter will
