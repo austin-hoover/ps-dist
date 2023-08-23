@@ -1,5 +1,4 @@
 import sys
-
 import numpy as np
 
 sys.path.append("..")
@@ -17,4 +16,8 @@ def test_project():
 
 
 def test_slice_idx():
-    return
+    f = np.random.normal(size=(6, 4, 12, 8, 2, 9))
+    axis = (2, 0, 3, 5)
+    ind = (3, (3, 9), [4, 5, 6], 1)
+    idx = ps.image.slice_idx(f.ndim, axis=axis, ind=ind)
+    f[idx]
