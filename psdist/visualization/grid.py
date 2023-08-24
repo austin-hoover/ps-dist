@@ -169,7 +169,7 @@ class CornerGrid:
         diag=True,
         diag_shrink=1.0,
         diag_rspine=False,
-        diag_share=True,
+        diag_share=False,
         limits=None,
         labels=None,
         corner=True,
