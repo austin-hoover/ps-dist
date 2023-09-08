@@ -10,7 +10,7 @@ from psdist.utils import centers_from_edges
 
 
 # Analysis
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 
 
 def get_grid_coords(*coords):
@@ -185,9 +185,8 @@ def corr(f, coords=None):
     return cov2corr(cov(f, coords))
 
 
-# Transformation
-# ------------------------------------------------------------------------------
-
+# Transforms
+# --------------------------------------------------------------------------------------
 
 def slice_idx(d=1, axis=0, ind=0):
     """Return planar slice index array.
@@ -460,7 +459,7 @@ def copy_into_new_dim(f, shape=None, axis=-1, method="broadcast", copy=False):
 
 
 # Processing
-
+# --------------------------------------------------------------------------------------
 
 def blur(f, sigma):
     """Simple Gaussian blur."""
@@ -558,7 +557,7 @@ def process(
 
 
 # Sampling
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 
 
 def sample_hist(f, coords=None, samples=1):

@@ -15,7 +15,7 @@ from psdist.utils import random_selection
 
 
 # Analysis
-# ------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------
 def mean(X):
     """Compute mean (centroid).
 
@@ -120,12 +120,14 @@ def enclosing_ellipsoid(X, axis=None, fraction=1.0):
     return radii[index]
 
 
-## Statistical distance measures (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
-## [...]
+# Distance metrics (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
+# --------------------------------------------------------------------------------------
+## - Wasserstein
+## - MMD
 
 
-# Transformation
-# ------------------------------------------------------------------------------
+# Transforms
+# --------------------------------------------------------------------------------------
 
 
 def project(X, axis=None):
@@ -426,8 +428,7 @@ def downsample(X, samples):
 
 
 # Density estimation
-# ------------------------------------------------------------------------------
-
+# --------------------------------------------------------------------------------------
 
 def histogram_bin_edges(X, bins=10, limits=None):
     """Multi-dimensional histogram bin edges.
@@ -590,7 +591,6 @@ def radial_histogram(X, **kws):
     for i in range(len(_edges) - 1):
         rmin = _edges[i]
         rmax = _edges[i + 1]
-        hist[i] = hist[i] / utils.volume_sphere_shell(
-            rmin=rmin, rmax=rmax, n=X.shape[1]
-        )
+        hist[i] = hist[i] / utils.sphere_shell_volume(rmin=rmin, rmax=rmax, d=X.shape[1])
     return hist, bins
+    

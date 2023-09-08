@@ -1,5 +1,11 @@
 # Change Log
 
+
+## [0.1.10] — 2023-09-08
+
+* Add distribution generators (Gaussian and Waterbag). 
+
+
 ## [0.1.9] — 2023-07-22
 
 * Improve diagonal axis sharing in `visualization.CornerGrid`.
