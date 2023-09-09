@@ -567,7 +567,7 @@ def sample_hist(f, coords=None, samples=1):
     ----------
     f : ndarray
         A d-dimensional image/histogram.
-    coords : list[ndarray]
+    coords : list[ndarray], length d
         Coordinates (bin centers) along each axis.
     samples : int
         The number of samples to draw.
@@ -593,7 +593,7 @@ def sample_hist(f, coords=None, samples=1):
     return np.squeeze(np.random.uniform(lb, ub).T)
 
 
-def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
+def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1, noise=0.0):
     """Sample from sparse histogram.
 
     Parameters
@@ -602,10 +602,15 @@ def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
         d-dimensional histogram bin indices.
     counts : ndarray, shape (k,)
         Counts in each bin. Does not need to be normalized.
-    coords : list[ndarray]
+    coords : list[ndarray], length d
         Coordinates (bin centers) along each axis.
     samples : int
         The number of samples to draw.
+    noise : float
+        Add noise to each particle; a number is drawn uniformly from a box 
+        centered on the particle with dimensions equal to the histogram 
+        bin dimensions. `noise` scales the box dimensions relative to the
+        bin dimensions.
 
     Returns
     -------
@@ -621,4 +626,9 @@ def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1):
     idx = np.unravel_index(idx, shape=shape)
     lb = [edges[axis][idx[axis]] for axis in range(len(shape))]
     ub = [edges[axis][idx[axis] + 1] for axis in range(len(shape))]
-    return np.squeeze(np.random.uniform(lb, ub).T)
+    X = np.squeeze(np.random.uniform(lb, ub).T)
+    if noise:
+        width = noise
+        deltas = 0.5 * noise * np.array([np.mean(np.diff(c)) for c in coords])
+        X = X + np.random.uniform(low=-deltas, high=deltas, size=X.shape)
+    return X
