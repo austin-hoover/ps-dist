@@ -1,6 +1,6 @@
 # psdist
 
-This repository is a collection of analysis and visualization methods for six-dimensional position-momentum space (phase space) distributions. Its primary use has been to slice and project high-dimensional data, both in point-cloud and image form.
+This repository is a collection of analysis and visualization methods for six-dimensional position-momentum space (phase space) distributions.
 
 
 ## Installation
