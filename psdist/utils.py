@@ -61,4 +61,4 @@ def sphere_volume(r=1.0, d=3):
 
 
 def sphere_shell_volume(rmin=0.0, rmax=1.0, d=3):
-    return volume_sphere(r=rmax, d=d) - volume_sphere(r=rmin, d=d)
+    return sphere_volume(r=rmax, d=d) - sphere_volume(r=rmin, d=d)
