@@ -185,6 +185,36 @@ def corr(f, coords=None):
     return cov2corr(cov(f, coords))
 
 
+def expected_value(func=None, f=None, coords=None):
+    pdf = np.copy(f) / np.sum(f)    
+    pdf_flat = pdf.ravel()
+    E = 0.0
+    for i, z in enumerate(get_grid_coords(*coords)):
+        E += func(z) * pdf_flat[i]
+    return E
+
+
+def moment(axis=(0, 0), order=(1, 1), f=None, coords=None):
+    func = lambda z: np.prod([z[k] ** order[i] for i, k in enumerate(axis)])
+    return expected_value(func, f, coords)
+
+
+def halo_parameter(f=None, coords=None):
+    pdf = f.copy() / np.sum(f)
+    q2 = moment(axis=(0,), order=(2,), f=f, coords=coords)
+    p2 = moment(axis=(1,), order=(2,), f=f, coords=coords)
+    q4 = moment(axis=(0,), order=(4,), f=f, coords=coords)
+    p4 = moment(axis=(1,), order=(4,), f=f, coords=coords)
+    qp = moment(axis=(0, 1), order=(1, 1), f=f, coords=coords)
+    q2p2 = moment(axis=(0, 1), order=(2, 2), f=f, coords=coords)
+    qp3 = moment(axis=(0, 1), order=(1, 3), f=f, coords=coords)
+    q3p = moment(axis=(0, 1), order=(3, 1), f=f, coords=coords)
+    
+    numer = np.sqrt(3.0 * q4 * p4 + 9.0 * (q2p2**2) - 12.0 * qp3 * q3p)
+    denom = 2.0 * q2 * p2 - 2.0 * (qp**2)
+    return (numer / denom) - 2.0
+
+
 # Transforms
 # --------------------------------------------------------------------------------------
 
