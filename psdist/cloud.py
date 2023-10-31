@@ -3,6 +3,7 @@ import collections
 
 import numpy as np
 import scipy.interpolate
+import scipy.optimize
 import scipy.special
 import scipy.stats
 
@@ -118,6 +119,94 @@ def enclosing_ellipsoid(X, axis=None, fraction=1.0):
     radii = np.sort(get_ellipsoid_radii(project(X, axis)))
     index = int(np.round(X.shape[0] * fraction)) - 1
     return radii[index]
+
+
+def enclosing_ellipsoid_min_volume(X, **opt_kws):
+    """Find the bounding ellipsoid with minimum volume.
+    
+    This currently works for d = 2.
+    """
+    def normalize(X, alpha, beta):
+        V = ap.norm_matrix_2x2(alpha, beta)
+        return transform_linear(X, np.linalg.inv(V))    
+    
+    def compute_bounding_ellipsoid_volume(twiss_params, X):
+        (alpha, beta) = twiss_params
+        return np.max(np.linalg.norm(normalize(X, alpha, beta), axis=1))
+    
+    Sigma = np.cov(X.T)
+    alpha, beta = ap.twiss(Sigma)
+    guess = [alpha, beta]
+    
+    result = scipy.optimize.least_squares(
+        compute_bounding_ellipsoid_volume,
+        guess,
+        bounds=([-np.inf, 1.00e-08], [+np.inf, +np.inf]),
+        args=(X,),
+        **opt_kws
+    )
+    (alpha, beta) = result.x
+    V = ap.norm_matrix_2x2(alpha, beta)
+    eps = compute_bounding_ellipsoid_volume([alpha, beta], X)
+    return (V, eps)
+
+
+def limits(X, rms=None, pad=0.0, zero_center=False, share=None):
+    """Determine axis limits from coordinate array.
+
+    Parameters
+    ----------
+    X : ndarray, shape (n, d)
+        Coordinate array for n points in d-dimensional space.
+    rms : float
+        If a number is provided, it is used to set the limits relative to
+        the standard deviation of the distribution.
+    pad : float
+        Fractional padding to apply to the limits.
+    zero_center : bool
+        Whether to center the limits on zero.
+    share : tuple[int] or list[tuple[int]]
+        Limits are shared betweent the dimensions in each set. For example,
+        if `share=(0, 1)`, axis 0 and 1 will share limits. Or if
+        `share=[(0, 1), (4, 5)]` axis 0/1 will share limits, and axis 4/5
+        will share limits.
+
+    Returns
+    -------
+    limits : list[tuple]
+        The limits [(xmin, xmax), (ymin, ymax), ...].
+    """
+    if X.ndim == 1:
+        X = X[:, None]
+    if rms is None:
+        mins = np.min(X, axis=0)
+        maxs = np.max(X, axis=0)
+    else:
+        means = np.mean(X, axis=0)
+        stds = np.std(X, axis=0)
+        widths = 2.0 * sigma * stds
+        mins = means - 0.5 * widths
+        maxs = means + 0.5 * widths
+    deltas = 0.5 * np.abs(maxs - mins)
+    padding = deltas * pad
+    mins = mins - padding
+    maxs = maxs + padding
+    limits = [(_min, _max) for _min, _max in zip(mins, maxs)]
+    if share:
+        if np.ndim(share[0]) == 0:
+            share = [share]
+        for axis in share:
+            _min = min([limits[k][0] for k in axis])
+            _max = max([limits[k][1] for k in axis])
+            for k in axis:
+                limits[k] = (_min, _max)
+    if zero_center:
+        mins, maxs = list(zip(*limits))
+        maxs = np.max([np.abs(mins), np.abs(maxs)], axis=0)
+        limits = list(zip(-maxs, maxs))        
+    if len(limits) == 1:
+        limits = limits[0]
+    return limits
 
 
 # Distance metrics (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
