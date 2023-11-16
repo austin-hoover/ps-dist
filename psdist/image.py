@@ -13,8 +13,8 @@ from psdist.utils import centers_from_edges
 # --------------------------------------------------------------------------------------
 
 
-def get_grid_coords(*coords):
-    """Return list of grid coordinates from coordinate arrays along each axis.
+def get_grid_points(*coords):
+    """Return list of grid points from coordinate arrays along each axis.
 
     Parameters
     ----------
@@ -189,7 +189,7 @@ def expected_value(func=None, f=None, coords=None):
     pdf = np.copy(f) / np.sum(f)    
     pdf_flat = pdf.ravel()
     E = 0.0
-    for i, z in enumerate(get_grid_coords(*coords)):
+    for i, z in enumerate(get_grid_points(*coords)):
         E += func(z) * pdf_flat[i]
     return E
 
