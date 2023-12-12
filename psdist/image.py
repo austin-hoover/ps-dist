@@ -541,7 +541,7 @@ def process(
     fill_value=None,
     thresh=None,
     thresh_type="abs",
-    clip=None,
+    clip_range=None,
     clip_type="abs",
     norm=None,
     pixel_volume=1.0,
@@ -561,7 +561,7 @@ def process(
         Masks mask non-positive values of `f`.
     thresh : float
         Set elements below this value to zero.
-    clip: (lmin, lmax)
+    clip_range: (lmin, lmax)
         Clip (limit) elements to within the range [lmin, lmax].
     thresh_type, clip_type : {'abs', 'frac'}
         Whether `thresh` and `clip` refer to absolute values or fractions
@@ -577,8 +577,8 @@ def process(
         f = fill(f, fill_value=None)
     if thresh is not None:
         f = threshold(f, thresh, frac=(thresh_type == "frac"))
-    if clip is not None:
-        f = clip(f, clip[0], clip[1], frac=(clip_type == "frac"))
+    if clip_range is not None:
+        f = clip(f, clip_range[0], clip_range[1], frac=(clip_type == "frac"))
     if blur_sigma is not None:
         f = blur(f, blur_sigma)
     if norm:
