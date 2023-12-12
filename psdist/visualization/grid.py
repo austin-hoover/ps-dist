@@ -2,9 +2,9 @@ import numpy as np
 import proplot as pplt
 
 import psdist.image
-import psdist.cloud
+import psdist.points
 import psdist.utils
-import psdist.visualization.cloud as vis_cloud
+import psdist.visualization.points as vis_points
 import psdist.visualization.image as vis_image
 from psdist.visualization.visualization import plot_profile
 from psdist.visualization.visualization import scale_profile
@@ -72,8 +72,8 @@ class JointGrid:
         marg_kws.setdefault("scale", "density")
         return marg_kws
 
-    def plot_cloud(self, X, marg_hist_kws=None, marg_kws=None, **kws):
-        """Plot a 2D point cloud.
+    def plot_points(self, X, marg_hist_kws=None, marg_kws=None, **kws):
+        """Plot 2D points.
 
         Parameters
         ----------
@@ -106,7 +106,7 @@ class JointGrid:
                 orientation=("horizontal" if bool(axis) else "vertical"),
                 **marg_kws,
             )
-        vis_cloud.plot2d(X, ax=self.ax, **kws)
+        vis_points.plot2d(X, ax=self.ax, **kws)
 
     def plot_image(self, f, coords=None, marg_kws=None, **kws):
         """Plot a 2D image.
@@ -524,7 +524,7 @@ class CornerGrid:
                 vis_image.plot2d(_f, coords=_coords, ax=ax, **kws)
         self._cleanup()
 
-    def plot_cloud(
+    def plot_points(
         self,
         X,
         limits=None,
@@ -538,7 +538,7 @@ class CornerGrid:
         diag_kws=None,
         **kws,
     ):
-        """Plot a point cloud.
+        """Plot points.
 
         Parameters
         ----------
@@ -561,7 +561,7 @@ class CornerGrid:
         diag_kws : dict
             Key word argument passed to `visualization.plot_profile`.
         **kws
-            Key word arguments pass to `visualization.cloud.plot2d`
+            Key word arguments pass to `visualization.points.plot2d`
         """
         diag_kws = self.get_default_diag_kws(diag_kws)
         kws.setdefault("kind", "hist")
@@ -572,7 +572,7 @@ class CornerGrid:
             if autolim_kws is None:
                 autolim_kws = dict()
             autolim_kws.setdefault("pad", 0.1)
-            limits = vis_cloud.auto_limits(X, **autolim_kws)
+            limits = vis_points.auto_limits(X, **autolim_kws)
         if update_limits:
             self.set_limits(limits, expand=(not self.new))
         limits = self.get_limits()
@@ -608,12 +608,12 @@ class CornerGrid:
                         kws["profy"] = axis[0] == 0
                 if kws["kind"] in ["hist", "contour", "contourf"]:
                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-                vis_cloud.plot2d(X[:, axis], ax=ax, **kws)
+                vis_points.plot2d(X[:, axis], ax=ax, **kws)
         if upper and not self.corner:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
                 if kws["kind"] in ["hist", "contour", "contourf"]:
                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-                vis_cloud.plot2d(X[:, axis], ax=ax, **kws)
+                vis_points.plot2d(X[:, axis], ax=ax, **kws)
         self._cleanup()
 
     def _cleanup(self):
@@ -640,6 +640,10 @@ class SliceGrid:
 
         The lone subplot on the bottom right shows f(x1, x2)l, the full projection
         onto the x1-x2 plane.
+
+    To do
+    -----
+    * Option to flow from top left to bottom right.
 
     Attributes
     ----------
@@ -951,7 +955,7 @@ class SliceGrid:
                 **kws,
             )
 
-    def _plot_cloud(
+    def _plot_points(
         self,
         X,
         labels=None,
@@ -963,7 +967,7 @@ class SliceGrid:
         autolim_kws=None,
         **kws,
     ):
-        """Plot a point cloud.
+        """Plot points.
 
         NOTE: this is not currently working... for the time being, it is recommended
         to generate a 4D histogram and then call `plot_image`.
@@ -985,7 +989,7 @@ class SliceGrid:
         debug : bool
             Whether to print debugging messages.
         **kws
-            Key word arguments pass to `visualization.cloud.plot2d`
+            Key word arguments pass to `visualization.points.plot2d`
         """
 
         warnings.warn(
@@ -999,7 +1003,7 @@ class SliceGrid:
         self.axis_view = axis_view
         self.axis_slice = axis_slice
 
-        edges_slice = psdist.cloud.histogram_bin_edges(X[:, axis_slice], bins_slice)
+        edges_slice = psdist.points.histogram_bin_edges(X[:, axis_slice], bins_slice)
 
         # Select slice indices.
         if type(pad) in [float, int]:
@@ -1032,7 +1036,7 @@ class SliceGrid:
         for i in range(self.nrows):
             for j in range(self.ncols):
                 ax = self.axs[self.nrows - 1 - i, j]
-                _X = psdist.cloud.slice_planar(
+                _X = psdist.points.slice_planar(
                     X,
                     axis=axis_slice,
                     center=[
@@ -1044,4 +1048,4 @@ class SliceGrid:
                         np.abs(edges_slice[1][i] - edges_slice[1][i + 1]),
                     ],
                 )
-                vis_cloud.plot2d(_X[:, axis_slice], ax=ax, **kws)
+                vis_points.plot2d(_X[:, axis_slice], ax=ax, **kws)

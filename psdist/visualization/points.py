@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
 
-import psdist.cloud
 import psdist.image
+import psdist.points
 import psdist.visualization.image as vis_image
 import psdist.visualization.visualization as vis
 
@@ -115,7 +115,7 @@ def scatter(X, ax=None, samples=None, **kws):
     kws.setdefault("s", 2.0)
     _X = X
     if samples:
-        _X = psdist.cloud.downsample(X, samples)
+        _X = psdist.points.downsample(X, samples)
     return ax.scatter(_X[:, 0], _X[:, 1], **kws)
 
 
@@ -132,7 +132,7 @@ def hist(X, ax=None, bins="auto", limits=None, **kws):
     **kws
         Key word arguments passed to `plotting.image`.
     """
-    f, coords = psdist.cloud.histogram(X, bins=bins, limits=limits, centers=True)
+    f, coords = psdist.points.histogram(X, bins=bins, limits=limits, centers=True)
     return vis_image.plot2d(f, coords=coords, ax=ax, **kws)
 
 
@@ -161,8 +161,8 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
         lb = np.min(X, axis=0)
         ub = np.max(X, axis=0)
         coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
-    estimator = psdist.cloud.gaussian_kde(X, **kde_kws)
-    density = estimator.evaluate(psdist.image.get_grid_coords(*coords).T)
+    estimator = psdist.points.gaussian_kde(X, **kde_kws)
+    density = estimator.evaluate(psdist.image.get_grid_points(*coords).T)
     density = np.reshape(density, [len(c) for c in coords])
     return vis_image.plot2d(density, coords=coords, ax=ax, **kws)
 
@@ -179,11 +179,11 @@ def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **k
     rms_ellipse : bool
         Whether to plot the RMS ellipse.
     rms_ellipse_kws : dict
-        Key word arguments passed to `visualization.cloud.plot_rms_ellipse`.
+        Key word arguments passed to `visualization.points.plot_rms_ellipse`.
     ax : Axes
         The axis on which to plot.
     **kws
-        Key word arguments passed to `visualization.cloud.plot2d`.
+        Key word arguments passed to `visualization.points.plot2d`.
     """
     if kind == "hist":
         kws.setdefault("mask", True)
@@ -233,7 +233,7 @@ def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
     if grid_kws is None:
         grid_kws = dict()
     grid = JointGrid(**grid_kws)
-    grid.plot_cloud(X, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
+    grid.plot_points(X, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
     return grid
 
 
@@ -268,7 +268,7 @@ def corner(
     diag_kws : dict
         Key word argument passed to `visualization.plot_profile`.
     **kws
-        Key word arguments pass to `visualization.cloud.plot2d`
+        Key word arguments pass to `visualization.points.plot2d`
 
     Returns
     -------
@@ -282,7 +282,7 @@ def corner(
     grid = CornerGrid(d=X.shape[1], **grid_kws)
     if labels is not None:
         grid.set_labels(labels)
-    grid.plot_cloud(
+    grid.plot_points(
         X,
         limits=limits,
         autolim_kws=autolim_kws,
@@ -309,15 +309,15 @@ def proj2d_interactive_slice(
     fig_kws=None,
     **plot_kws,
 ):
-    """Two-dimensional partial projection of one or more clouds (or series of clouds)
+    """Two-dimensional partial projection of one or more pointss (or series of pointss)
     with interactive slicing.
 
     Parameters
     ----------
     data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
         - Coordinates of n points in d-dimensional space.
-        - List of L clouds: generates widget to select the frame to plot.
-        - K lists of L clouds: generates K-column figure with widget to select one
+        - List of L pointss: generates widget to select the frame to plot.
+        - K lists of L pointss: generates K-column figure with widget to select one
           of the L frames.
           Example: Compare the evolution of K=3 bunches at L=6 frames.
     limits : list[(min, max)]
@@ -567,7 +567,7 @@ def proj2d_interactive_slice(
         # Normalize coordinates.
         if kws["normalize"]:
             _data = [
-                psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
+                psdist.points.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
             ]
             _limits_list = [auto_limits(_X, **autolim_kws) for _X in _data]
             if share_limits > 0:
@@ -590,7 +590,7 @@ def proj2d_interactive_slice(
                         print(f"{dims[k]} out of range.")
                         return
                     slice_limits.append((edges[imin], edges[imax]))
-                _data[index] = psdist.cloud.slice_planar(
+                _data[index] = psdist.points.slice_planar(
                     _data[index], axis=axis_slice, limits=slice_limits
                 )
 
@@ -690,7 +690,7 @@ def proj1d_interactive_slice(
     fig_kws=None,
     **plot_kws,
 ):
-    """One-dimensional partial projection of one or more clouds (or series of clouds)
+    """One-dimensional partial projection of one or more pointss (or series of pointss)
     with interactive slicing.
 
     Profiles are scaled to unit area by default.
@@ -699,8 +699,8 @@ def proj1d_interactive_slice(
     ----------
     data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
         - Coordinates of n points in d-dimensional space.
-        - List of L clouds: generates widget to select the frame to plot.
-        - K lists of L clouds: generates K-column figure with widget to select one
+        - List of L pointss: generates widget to select the frame to plot.
+        - K lists of L pointss: generates K-column figure with widget to select one
           of the L frames.
           Example: Compare the evolution of K=3 bunches at L=6 frames.
     limits : list[(min, max)]
@@ -950,7 +950,7 @@ def proj1d_interactive_slice(
         # Normalize coordinates.
         if kws["normalize"]:
             _data = [
-                psdist.cloud.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
+                psdist.points.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
             ]
             limits = psdist.visualization.combine_limits(
                 [auto_limits(_X, **autolim_kws) for _X in _data]
@@ -970,7 +970,7 @@ def proj1d_interactive_slice(
                         print(f"{dims[k]} out of range.")
                         return
                     slice_limits.append((edges[imin], edges[imax]))
-                _data[index] = psdist.cloud.slice_planar(
+                _data[index] = psdist.points.slice_planar(
                     _data[index], axis=axis_slice, limits=slice_limits
                 )
 

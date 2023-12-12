@@ -1,4 +1,4 @@
-"""Functions for point clouds."""
+"""Functions for points."""
 import collections
 
 import numpy as np
@@ -7,8 +7,8 @@ import scipy.optimize
 import scipy.special
 import scipy.stats
 
-from psdist import ap
 import psdist.utils as utils
+from psdist import ap
 from psdist.utils import array_like
 from psdist.utils import centers_from_edges
 from psdist.utils import cov2corr

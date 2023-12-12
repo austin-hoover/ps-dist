@@ -10,9 +10,9 @@ import proplot as pplt
 import scipy.optimize
 
 import psdist.image
-import psdist.cloud
+import psdist.points
 import psdist.utils
-import psdist.visualization.cloud as vis_cloud
+import psdist.visualization.points as vis_points
 import psdist.visualization.image as vis_image
 
 

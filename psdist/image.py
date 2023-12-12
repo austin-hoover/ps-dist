@@ -1,7 +1,7 @@
 """Functions for multi-dimensional images."""
 import numpy as np
-from tqdm import tqdm
 from scipy import ndimage
+from tqdm import tqdm
 
 from psdist.utils import array_like
 from psdist.utils import cov2corr
@@ -629,7 +629,7 @@ def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1, noise=
     Parameters
     ----------
     indices : ndarray, shape (k, d)
-        d-dimensional histogram bin indices.
+        Indices of nonzero bins in d-dimensional histogram.
     counts : ndarray, shape (k,)
         Counts in each bin. Does not need to be normalized.
     coords : list[ndarray], length d

@@ -1,6 +1,14 @@
 # Change Log
 
 
+## [0.2.0] — 2023-12-12
+
+* Add module `psdist.distributions`.
+* Rename function `image.get_grid_coords` &rarr; `image.get_grid_points`.
+* Rename module `cloud` &rarr; `points`.
+* Rename module `visualization.cloud` &rarr; `visualization.points`.
+* 
+
 ## [0.1.10] — 2023-09-08
 
 * Add distribution generators (Gaussian and Waterbag). 
