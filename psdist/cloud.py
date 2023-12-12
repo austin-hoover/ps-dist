@@ -184,7 +184,7 @@ def limits(X, rms=None, pad=0.0, zero_center=False, share=None):
     else:
         means = np.mean(X, axis=0)
         stds = np.std(X, axis=0)
-        widths = 2.0 * sigma * stds
+        widths = 2.0 * rms * stds
         mins = means - 0.5 * widths
         maxs = means + 0.5 * widths
     deltas = 0.5 * np.abs(maxs - mins)
