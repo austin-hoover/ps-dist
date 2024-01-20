@@ -1,5 +1,11 @@
 # Change Log
 
+
+## [0.2.2] — 2024-01-20
+
+* Fix `utils.sphere_surface_area`.
+  
+
 ## [0.2.1] — 2023-12-12
 
 * Fix bug in `image.process` (clip --> clip_range to avoid naming conflict). 
