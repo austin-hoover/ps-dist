@@ -50,9 +50,9 @@ def array_like(a):
 
 
 def sphere_surface_area(r=1.0, d=3):
-    factor = 2.0 * np.pi ** (0.5 * (d + 1))
-    factor = factor / scipy.special.gamma(0.5 * (d + 1))
-    return factor * (r ** d)
+    factor = 2.0 * np.pi ** (0.5 * d)
+    factor = factor / scipy.special.gamma(0.5 * d)
+    return factor * (r ** (d - 1))
 
 
 def sphere_volume(r=1.0, d=3):
