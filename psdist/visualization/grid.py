@@ -341,8 +341,16 @@ class CornerGrid:
                 mins = np.minimum(limits[:, 0], limits_old[:, 0])
                 maxs = np.maximum(limits[:, 1], limits_old[:, 1])
                 limits = list(zip(mins, maxs))
-            for (i, j), ax in zip(self.offdiag_indices, self.offdiag_axs):
-                ax.format(ylim=limits[j])
+            if self.diag:
+                for i in range(self.d):
+                    for j in range(self.d):
+                        if i != j:
+                            if (j < i) or (not self.corner):
+                                self.axs[i, j].format(ylim=limits[i])
+            else:
+                for i in range(self.d - 1):
+                    for ax in self.axs[i, :]:
+                        ax.format(ylim=limits[i + 1])                            
             for i in range(self.ncols):
                 self.axs[:, i].format(xlim=limits[i])
         self.limits = self.get_limits()
