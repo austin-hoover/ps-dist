@@ -590,7 +590,7 @@ def process(
 # --------------------------------------------------------------------------------------
 
 
-def sample_hist(f, coords=None, samples=1):
+def sample_hist(f, coords=None, samples=1, noise=0.0):
     """Sample from histogram.
 
     Parameters
@@ -620,7 +620,12 @@ def sample_hist(f, coords=None, samples=1):
     idx = np.unravel_index(idx, shape=f.shape)
     lb = [edges[axis][idx[axis]] for axis in range(f.ndim)]
     ub = [edges[axis][idx[axis] + 1] for axis in range(f.ndim)]
-    return np.squeeze(np.random.uniform(lb, ub).T)
+    x = np.squeeze(np.random.uniform(lb, ub).T)
+    if noise:
+        for axis in range(x.shape[1]):
+            delta = ub[axis] - lb[axis]
+            x[:, axis] += 0.5 * noise * np.random.uniform(-0.5 * delta, 0.5 * delta, size=x.shape[0])
+    return x
 
 
 def sample_sparse_hist(indices=None, counts=None, coords=None, samples=1, noise=0.0):
