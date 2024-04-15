@@ -23,7 +23,7 @@ def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **kws):
     width = 2.0 * c1
     height = 2.0 * c2
     return ax.add_patch(
-        patches.Ellipse(center, width, height, -np.degrees(angle), **kws)
+        patches.Ellipse(center, width, height, angle=-np.degrees(angle), **kws)
     )
 
 
