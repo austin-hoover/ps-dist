@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psdist"
-version = "0.2.2"
+version = "0.3.0"
 authors = [
   { name="Austin Hoover", email="ahoover1218@gmail.com" },
 ]
 description = "Analysis/visualization of phase space distributions"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -21,10 +21,9 @@ dependencies = [
    "ipywidgets",
    "matplotlib",
    "numpy",
-   # "proplot",
+   "proplot @ git+https://github.com/austin-hoover/proplot@82e1d9c169c73832ee3c917585f4e30a4d378e22",
    "scipy",
    "tqdm",
 ]
 
 [project.urls]
-# homepage = "https://github.com/austin-hoover/psdist"

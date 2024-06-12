@@ -7,12 +7,60 @@ import proplot as pplt
 
 import psdist.image
 import psdist.utils
-import psdist.visualization as vis
 
 
 # TO DO
 # - Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
-#   `options` input; see the cloud version of these functions.
+#   `options` input; see the points version of these functions.
+
+
+def process(
+    values: np.ndarray,
+    fill_value: float = None,
+    thresh: float = None,
+    thresh_type: str = "abs",
+    clip: tuple[float] = None,
+    clip_type: str = "abs",
+    norm: str = None,
+    pixel_volume: float = 1.0,
+    blur: float = None,
+) -> np.ndarray:
+    """Return processed image.
+
+    Parameters
+    ----------
+    values : ndarray
+        A two-dimensional image.
+    fill_value : float
+        Fill masked elements of `f` with this value.
+    mask_nonpositive : bool
+        Masks mask non-positive values of `f`.
+    thresh : float
+        Set elements below this value to zero.
+    clip: (lmin, lmax)
+        Clip (limit) elements to within the range [lmin, lmax].
+    thresh_type, clip_type : {'abs', 'frac'}
+        Whether `thresh` and `clip` refer to absolute values or fractions
+        of the maximum element of `f`.
+    norm : {None, 'max', 'volume'}
+        Whether to normalize the image by its volume or maximum element.
+    pixel_volume : float
+        Needed if normalizing by volume.
+    blur : float
+        Sigma for Gaussian filter.
+    """
+    if fill_value is not None:
+        values = psdist.image.fill(values, fill_value=None)
+    if thresh is not None:
+        values = psdist.image.threshold(values, thresh, frac=(thresh_type == "frac"))
+    if clip is not None:
+        values = psdist.image.clip(values, clip[0], clip[1], frac=(clip_type == "frac"))
+    if blur is not None:
+        values = psdist.image.blur(values, blur)
+    if norm:
+        values = psdist.image.normalize(values, norm=norm, pixel_volume=pixel_volume)
+    return values
+
 
 def plot_profiles(
     f,
@@ -55,11 +103,11 @@ def plot_profiles(
         _limits = [ax.get_xlim(), ax.get_ylim()]
     if coords is None:
         if edges is not None:
-            coords = [psdist.utils.centers_from_edges(e) for e in edges]
+            coords = [psdist.utils.coords_from_edges(e) for e in edges]
         else:
             coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
     if edges is None:
-        edges = [psdist.utils.edges_from_centers(c) for c in coords]
+        edges = [psdist.utils.edges_from_coords(c) for c in coords]
     for axis, proceed in enumerate([profx, profy]):
         if proceed:
             profile = psdist.image.project(f, axis=axis)
@@ -118,6 +166,7 @@ def plot_rms_ellipse(
 def plot2d(
     f,
     coords=None,
+    edges=None,
     ax=None,
     kind="pcolor",
     profx=False,
@@ -166,7 +215,10 @@ def plot2d(
         Key word arguments passed to plotting function.
     """
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+        if edges is not None:
+            coords = [psdist.utils.coords_from_edges(e) for e in edges]
+        else:
+            coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
 
     # Process key word arguments.
     if process_kws is None:
@@ -193,7 +245,7 @@ def plot2d(
 
     # Process the image.
     f = f.copy()
-    f = psdist.image.process(f, **process_kws)
+    f = process(f, **process_kws)
     if offset is not None:
         if offset_type == "relative" and np.count_nonzero(f):
             offset = offset * np.min(f[f > 0])

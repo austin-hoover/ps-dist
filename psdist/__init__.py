@@ -1,6 +1,6 @@
-import psdist.ap
-import psdist.data
-import psdist.distributions
-import psdist.image
-import psdist.points
-import psdist.utils
+from . import ap
+from . import distributions
+from . import image
+from . import points
+from . import utils
+from . import visualization

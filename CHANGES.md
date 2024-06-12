@@ -1,60 +1,66 @@
 # Change Log
 
 
+## [1.0.0]
+
+* Added type hints.
+* Cleaned up api.
+
+
 ## [0.2.2] — 2024-01-20
 
-* Fix `utils.sphere_surface_area`.
+* Fixed `utils.sphere_surface_area`.
   
 
 ## [0.2.1] — 2023-12-12
 
-* Fix bug in `image.process` (clip --> clip_range to avoid naming conflict). 
+* Fixed bug in `image.process` (clip --> clip_range to avoid naming conflict). 
 
 
 ## [0.2.0] — 2023-12-12
 
-* Add module `psdist.distributions`.
-* Rename function `image.get_grid_coords` &rarr; `image.get_grid_points`.
-* Rename module `cloud` &rarr; `points`.
-* Rename module `visualization.cloud` &rarr; `visualization.points`.
+* Added module `psdist.distributions`.
+* Renamed function `image.get_grid_coords` &rarr; `image.get_grid_points`.
+* Renamed module `cloud` &rarr; `points`.
+* Renamed module `visualization.cloud` &rarr; `visualization.points`.
 * 
 
 ## [0.1.10] — 2023-09-08
 
-* Add distribution generators (Gaussian and Waterbag). 
+* Added distribution generators (Gaussian and Waterbag). 
 
 
 ## [0.1.9] — 2023-07-22
 
-* Improve diagonal axis sharing in `visualization.CornerGrid`.
-* Rename function `visualization.plot1d` &rarr; `visualization.plot_projection` and improve the function.
-* Add function `visualization.cloud.proj1d_interactive_slice`.
-* Rename function `visualization.stack_limits` &rarr; `visualization.combine_limits`.
-* Add function `visualization.center_limits`.
-* Add mask option to `visualization.cloud.proj2d_interactive_slice`.
-* Fix bug in `cloud.sparse_histogram`.
-* In `visualization.JointGrid`, change all "panel_" variables to "marg_".
+* Improved diagonal axis sharing in `visualization.CornerGrid`.
+* Renamed function `visualization.plot1d` &rarr; `visualization.plot_projection` and improve the function.
+* Added function `visualization.cloud.proj1d_interactive_slice`.
+* Renamed function `visualization.stack_limits` &rarr; `visualization.combine_limits`.
+* Added function `visualization.center_limits`.
+* Added mask option to `visualization.cloud.proj2d_interactive_slice`.
+* Fixed bug in `cloud.sparse_histogram`.
+* In `visualization.JointGrid`, changed all "panel_" variables to "marg_".
 
 
 ## [0.1.8] — 2023-07-19
 
-* Add options dict to `visualization.cloud.proj2d_interactive_slice` to decide which checkboxes appear.
-* Enable multiple sets of clouds to be compared in `visualization.cloud.proj2d_interactive_slice`.
-* Enable three levels of axis limit sharing in `visualization.cloud.proj2d_interactive_slice`.
+* Added options dict to `visualization.cloud.proj2d_interactive_slice` to decide which checkboxes appear.
+* Enabled multiple sets of clouds to be compared in `visualization.cloud.proj2d_interactive_slice`.
+* Enabled three levels of axis limit sharing in `visualization.cloud.proj2d_interactive_slice`.
 * Allow list of bin edge coordinates in `ps.cloud.histogram_bin_edges` and `ps.cloud.histogram`.
-* Add documentation to histogram functions.
-* Add `cloud.sparse_histogram`.
-* Add `image.sample_sparse_hist` &rarr; `ps.image.sample_hist`.
-* Rename `image.sample_grid` &rarr; `ps.image.sample_hist`.
+* Added documentation to histogram functions.
+* Added `cloud.sparse_histogram`.
+* Added `image.sample_sparse_hist` &rarr; `ps.image.sample_hist`.
+* Renamed `image.sample_grid` &rarr; `ps.image.sample_hist`.
 
 
 ## [0.1.7] — 2023-06-12
 
-* Add default plot_res and slice_res arguments to `visualization.cloud.proj2d_interactive_slice`.
-* Remove limits on plot_res and slice_res widgets.
-* Fix bug in colorbar tick locator in `visualization.cloud.proj2d_interactive_slice`.
-* Fix `cloud.histogram` to allow one-dimensional arrays.
-* Add radial histogram for point clouds. Counts are normalized by spherical hypershell volume.
+* Added default plot_res and slice_res arguments to `visualization.cloud.proj2d_interactive_slice`.
+* Removed limits on plot_res and slice_res widgets.
+* Fixed bug in colorbar tick locator in `visualization.cloud.proj2d_interactive_slice`.
+* Fixed `cloud.histogram` to allow one-dimensional arrays.
+* Added radial histogram for point clouds. Counts are normalized by spherical hypershell volume.
 
   
 ## [0.1.6] — 2023-06-07

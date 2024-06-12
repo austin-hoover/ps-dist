@@ -495,7 +495,7 @@ class CornerGrid:
 
         if coords is None:
             coords = [np.arange(f.shape[i]) for i in range(f.ndim)]
-        edges = [psdist.utils.edges_from_centers(c) for c in coords]
+        edges = [psdist.utils.edges_from_coords(c) for c in coords]
 
         if update_limits:
             limits = [(np.min(e), np.max(e)) for e in edges]

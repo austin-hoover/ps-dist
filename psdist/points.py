@@ -1,4 +1,3 @@
-"""Functions for points."""
 import collections
 
 import numpy as np
@@ -7,12 +6,13 @@ import scipy.optimize
 import scipy.special
 import scipy.stats
 
-import psdist.utils as utils
-from psdist import ap
-from psdist.utils import array_like
-from psdist.utils import centers_from_edges
-from psdist.utils import cov2corr
-from psdist.utils import random_selection
+from . import ap
+from . import utils
+from .utils import array_like
+from .utils import coords_from_edges
+from .utils import edges_from_coords
+from .utils import covariance_to_correlation
+from .utils import random_choice_no_replacement
 
 
 # Analysis
@@ -62,7 +62,7 @@ def corr(X):
     ndarray, shape (d, d)
         The correlation matrix.
     """
-    return cov2corr(np.cov(X.T))
+    return covariance_to_correlation(np.cov(X.T))
 
 
 def get_radii(X):
@@ -512,7 +512,7 @@ def downsample(X, samples):
         The downsampled coordinate array.
     """
     samples = min(samples, X.shape[0])
-    idx = random_selection(np.arange(X.shape[0]), samples)
+    idx = random_choice_no_replacement(np.arange(X.shape[0]), samples)
     return X[idx, :]
 
 
@@ -584,13 +584,13 @@ def histogram(X, bins=10, limits=None, centers=False):
         bins = np.histogram_bin_edges(X, bins, limits)
         hist, _ = np.histogram(X, bins=bins)
         if centers:
-            bins = utils.centers_from_edges(bins)
+            bins = utils.coords_from_edges(bins)
         return hist, bins
 
     bins = histogram_bin_edges(X, bins=bins, limits=limits)
     hist, _ = np.histogramdd(X, bins)
     if centers:
-        bins = [utils.centers_from_edges(b) for b in bins]
+        bins = [utils.coords_from_edges(b) for b in bins]
     return hist, bins
 
 
@@ -637,7 +637,7 @@ def sparse_histogram(X, bins=10, limits=None, centers=False, eps=1.0e-12):
     indices = np.unravel_index(indices, shape)
     indices = np.vstack(indices).T
     if centers:
-        bins = [centers_from_edges(bins[axis]) for axis in range(X.shape[1])]
+        bins = [coords_from_edges(bins[axis]) for axis in range(X.shape[1])]
     return indices, counts, bins
 
 
@@ -674,7 +674,7 @@ def radial_histogram(X, **kws):
     radii = get_radii(X)
     hist, bins = histogram(radii, **kws)
     if "centers" in kws and kws["centers"]:
-        _edges = utils.edges_from_centers(bins)
+        _edges = utils.edges_from_coords(bins)
     else:
         _edges = bins
     for i in range(len(_edges) - 1):

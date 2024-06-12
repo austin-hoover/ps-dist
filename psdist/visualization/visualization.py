@@ -106,7 +106,7 @@ def scale_profile(profile, scale=None, edges=None, coords=None):
     if scale == "density":
         if edges is None:
             if coords is not None:
-                edges = psdist.utils.edges_from_centers(coords)
+                edges = psdist.utils.edges_from_coords(coords)
             else:
                 edges = np.arange(len(profile) + 1)
         return profile / np.sum(profile * np.diff(edges))
@@ -163,9 +163,9 @@ def plot_profile(
     if coords is None and edges is None:
         raise ValueError("coords or edges must be provided")
     if coords is None and edges is not None:
-        coords = psdist.utils.centers_from_edges(edges)
+        coords = psdist.utils.coords_from_edges(edges)
     if edges is None and coords is not None:
-        edges = psdist.utils.edges_from_centers(coords)
+        edges = psdist.utils.edges_from_coords(coords)
 
     coords = np.array(coords)
     edges = np.array(edges)
