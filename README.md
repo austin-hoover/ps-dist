@@ -1,6 +1,6 @@
 # psdist
 
-This repository is a collection of methods to analyze high-dimensional distributions.
+Methods to analyze high-dimensional distributions.
 
 
 ## Installation
