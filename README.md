@@ -1,6 +1,6 @@
 # psdist
 
-Methods to analyze high-dimensional distributions.
+Analysis tools for high-dimensional phase space distributions.
 
 
 ## Installation

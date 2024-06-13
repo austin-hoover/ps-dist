@@ -1,6 +1,7 @@
 .ipynb_checkpoints
 *.pyc
 *.DS_Store
+*.egg-info
 __pycache__
 dist
-psdist/_version.py
+build

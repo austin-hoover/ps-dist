@@ -1,8 +1,7 @@
 [project]
-name = "ps-dist"
-authors = [
-    {name = "Austin Hoover"}
-]
+name = "psdist"
+authors = [{name = "Austin Hoover"}]
+description = "Analysis tools for high-dimensional phase space distributions"
 license = {file = "LICENSE"}
 readme = "README.md"
 version = "1.0.0"
@@ -18,7 +17,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/austin-hoover/ps-dist"
+repository = "https://github.com/austin-hoover/psdist"
 
 [build-system]
 requires = [
@@ -26,5 +25,3 @@ requires = [
     "setuptools_scm>=6.2",
 ]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools_scm]
