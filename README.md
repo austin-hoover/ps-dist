@@ -1,6 +1,6 @@
 # psdist
 
-This repository is a collection of analysis and visualization methods for six-dimensional position-momentum space (phase space) distributions.
+This repository is a collection of analysis and visualization methods for high-dimensional distributions.
 
 
 ## Installation
@@ -10,7 +10,7 @@ https://pypi.org/project/psdist/
 
 ## Examples
 
-See `/examples` folder and https://austin-hoover.github.io/psdist/.
+See `/examples` folder.
 
 
 ## Related packages
