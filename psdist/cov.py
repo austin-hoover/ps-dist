@@ -21,7 +21,7 @@ def normalization_matrix(cov: np.ndarray) -> np.ndarray:
 def cov_to_corr(cov: np.ndarray) -> np.ndarray:
     """Compute correlation matrix from covariance matrix."""
     S = cov
-    D = np.sqrt(np.diag(cov.diagonal(cov)))
+    D = np.sqrt(np.diag(S.diagonal()))
     Dinv = np.linalg.inv(D)
     return np.linalg.multi_dot([Dinv, S, Dinv])
 
