@@ -5,8 +5,8 @@ import numpy as np
 from scipy import ndimage
 from tqdm import tqdm
 
+from .cov import cov_to_corr
 from .utils import array_like
-from .utils import covariance_to_correlation
 from .utils import coords_from_edges
 from .utils import edges_from_coords
 
@@ -14,13 +14,14 @@ from .utils import edges_from_coords
 # Analysis
 # --------------------------------------------------------------------------------------
 
+
 def get_grid_points(coords: list[np.ndarray] = None, edges: list[np.ndarray] = None) -> np.ndarray:
     """Return list of grid points from coordinate arrays along each axis.
 
     Parameters
     ----------
     coords, edges : list[ndarray]
-        Bin center or edge coordinates along each axis of a regular grid. 
+        Bin center or edge coordinates along each axis of a regular grid.
         Example: [[1, 2, 3], [0, 1, 2]].
 
     Returns
@@ -60,13 +61,15 @@ def get_radii(coords: np.ndarray, cov: np.ndarray) -> np.ndarray:
     shape = tuple([len(c) for c in coords])
     R = np.zeros(shape)
     cov_inv = np.linalg.inv(cov)
-    for ii in tqdm(np.ndindex(shape)):
+    for ii in np.ndindex(shape):
         vec = np.array([C[ii] for C in COORDS])
         R[ii] = np.sqrt(np.linalg.multi_dot([vec.T, cov_inv, vec]))
     return R
 
 
-def radial_density(values: np.ndarray, R: np.ndarray, radii: np.ndarray, dr: float = None) -> np.ndarray:
+def radial_density(
+    values: np.ndarray, R: np.ndarray, radii: np.ndarray, dr: float = None
+) -> np.ndarray:
     """Return average density within ellipsoidal shells.
 
     Parameters
@@ -130,6 +133,7 @@ def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     ndarray, shape (n, n).
         The covariance matrix.
     """
+
     def get_cov_2x2(values: np.ndarray, coords: list[np.ndarray]) -> np.ndarray:
         COORDS = np.meshgrid(*coords, indexing="ij")
         cov = np.zeros((values.ndim, values.ndim))
@@ -182,23 +186,26 @@ def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     ndarray, shape (n, n).
         The correlation matrix.
     """
-    return covariance_to_correlation(cov(f, coords))
+    return cov_to_corr(cov(values, coords))
 
 
 # Higher order moments (experimental)
 # --------------------------------------------------------------------------------------
 
+
 def expected_value(function: Callable, values: np.ndarray, coords: list[np.ndarray]) -> float:
-    pdf = np.copy(values) / np.sum(values)    
+    pdf = np.copy(values) / np.sum(values)
     pdf_flat = pdf.ravel()
-    
+
     exp = 0.0
     for i, x in enumerate(get_grid_points(coords)):
         exp += func(x) * pdf_flat[i]
     return exp
 
 
-def moment(axis: tuple[int], order: tuple[int], values: np.ndarray, coords: list[np.ndarray]) -> float:
+def moment(
+    axis: tuple[int], order: tuple[int], values: np.ndarray, coords: list[np.ndarray]
+) -> float:
     function = lambda x: np.prod([x[k] ** order[i] for i, k in enumerate(axis)])
     return expected_value(function, values, coords)
 
@@ -213,7 +220,7 @@ def halo_parameter(values: np.ndarray, coords: list[np.ndarray]) -> float:
     q2p2 = moment(axis=(0, 1), order=(2, 2), values=values, coords=coords)
     qp3 = moment(axis=(0, 1), order=(1, 3), values=values, coords=coords)
     q3p = moment(axis=(0, 1), order=(3, 1), values=values, coords=coords)
-    
+
     numer = np.sqrt(3.0 * q4 * p4 + 9.0 * (q2p2**2) - 12.0 * qp3 * q3p)
     denom = 2.0 * q2 * p2 - 2.0 * (qp**2)
     return (numer / denom) - 2.0
@@ -222,7 +229,12 @@ def halo_parameter(values: np.ndarray, coords: list[np.ndarray]) -> float:
 # Transformations
 # --------------------------------------------------------------------------------------
 
-def slice_idx(ndim: int, axis: Union[int, tuple[int]], ind: Union[int, tuple[int], list[tuple[int]]]) -> tuple[list]:
+
+def slice_idx(
+    ndim: int,
+    axis: Union[int, tuple[int]],
+    ind: Union[int, tuple[int], list[tuple[int]]],
+) -> tuple[list]:
     """Return planar slice index array.
 
     Parameters
@@ -240,20 +252,20 @@ def slice_idx(ndim: int, axis: Union[int, tuple[int]], ind: Union[int, tuple[int
         The slice index array. A slice of the array `values` may then be accessed as `values[idx]`.
     """
     # Make list if only one axis provided.
-    if (type(axis) is int):
+    if type(axis) is int:
         axis = [axis]
         # Can also provide only one axis but provide a tuple for ind, which
         # selects a range along that axis.
         if type(ind) is tuple:
             ind = [ind]
-            
+
     # Make list if only one ind provided.
-    if (type(ind) is int):
+    if type(ind) is int:
         ind = [ind]
-        
+
     # Initialize the slice index to select all elements.
     idx = ndim * [slice(None)]
-    
+
     # If any indices were provided, add them to `idx`.
     for k, item in zip(axis, ind):
         if item is None:
@@ -263,11 +275,13 @@ def slice_idx(ndim: int, axis: Union[int, tuple[int]], ind: Union[int, tuple[int
         else:
             # Could be int or list of ints
             idx[k] = item
-            
+
     return tuple(idx)
 
 
-def slice_idx_ellipsoid(values: np.ndarray, axis: tuple[int], rmin: float, rmax: float) -> tuple[list]:
+def slice_idx_ellipsoid(
+    values: np.ndarray, axis: tuple[int], rmin: float, rmax: float
+) -> tuple[list]:
     """Compute an ellipsoid slice from covariance matrix.
 
     Parameters
@@ -294,7 +308,9 @@ def slice_idx_ellipsoid(values: np.ndarray, axis: tuple[int], rmin: float, rmax:
     raise NotImplementedError
 
 
-def slice_idx_contour(values: np.ndarray, axis: tuple[int], lmin: float = 0.0, lmax: float = 1.0) -> tuple[list]:
+def slice_idx_contour(
+    values: np.ndarray, axis: tuple[int], lmin: float = 0.0, lmax: float = 1.0
+) -> tuple[list]:
     """Compute a contour slice.
 
     Parameters
@@ -319,8 +335,12 @@ def slice_idx_contour(values: np.ndarray, axis: tuple[int], lmin: float = 0.0, l
     raise NotImplementedError
 
 
-def _slice(values: np.ndarray, axis: Union[int, tuple[int]], ind: Union[int, tuple[int], list[tuple[int]]]) -> np.ndarray:
-    """Return values[idx] for """
+def _slice(
+    values: np.ndarray,
+    axis: Union[int, tuple[int]],
+    ind: Union[int, tuple[int], list[tuple[int]]],
+) -> np.ndarray:
+    """Return values[idx] for"""
     idx = slice_idx(values.ndim, axis=axis, ind=ind)
     return values[idx]
 
@@ -329,7 +349,10 @@ def _slice_ellipsoid(values: np.ndarray, axis: tuple[int], rmin: float, rmax: fl
     idx = slice_idx_ellipsoid(values, axis=axis, rmin=rmin, rmax=rmax)
     return values[idx]
 
-def _slice_contour(values: np.ndarray, axis: tuple[int], lmin: float = 0.0, lmax: float = 1.0) -> np.ndarray:
+
+def _slice_contour(
+    values: np.ndarray, axis: tuple[int], lmin: float = 0.0, lmax: float = 1.0
+) -> np.ndarray:
     idx = slice_idx_contour(values, axis=axis, lmin=lmin, lmax=lmax)
     return values[idx]
 
@@ -342,7 +365,7 @@ def project(values: np.ndarray, axis: Union[int, tuple[int]]) -> np.ndarray:
     values : ndarray
         An n-dimensional image.
     axis : list[int]
-        The axes onto which the image is projected, i.e., the axes which are not summed over. 
+        The axes onto which the image is projected, i.e., the axes which are not summed over.
         Array axes are swapped as required.
 
     Returns
@@ -370,12 +393,12 @@ def project(values: np.ndarray, axis: Union[int, tuple[int]]) -> np.ndarray:
     return proj
 
 
-def project1d_contour(
-    values: np.ndarray, 
+def project_contour_slice_1d(
+    values: np.ndarray,
     axis: int = 0,
-    lmin: float = 0.0, 
-    lmax: float = 1.0, 
-    values_pr: np.ndarray = None,
+    lmin: float = 0.0,
+    lmax: float = 1.0,
+    values_proj: np.ndarray = None,
 ) -> np.ndarray:
     """Apply contour slice in n - 1 dimensions, then project onto the remaining dimension.
 
@@ -386,15 +409,15 @@ def project1d_contour(
     axis : int
         The projection axis.
     lmin, lmax : float
-        Min and max contour levels of the (d-1)-dimensional projection of `f`,
+        Min and max contour levels of the (d-1)-dimensional projection of `values`,
         normalized the the range [0, 1].
-    values_proj : ndarray, shape = [values.shape[i] for i in range(values.ndim) if i != axis]
+    values_proj : ndarray, shape [f.shape[i] for i in range(values.ndim) if i != axis]
         The (n-1)-dimensional projection of `values` onto all dimensions other than `axis`.
         (If not provided, it will be computed within the function.)
 
     Returns
     -------
-    ndarray, shape = values.shape[axis]
+    ndarray, shape (values.shape[axis],)
         The projection of the slice.
     """
     axis_proj = [i for i in range(values.ndim) if i != axis]
@@ -406,16 +429,16 @@ def project1d_contour(
         axis=axis_proj,
         ind=np.where(np.logical_and(values_proj >= lmin, values_proj <= lmax)),
     )
-    # `values_proj[idx]` will give a two-dimensional array. Normally we need to sum over
+    # `f[idx]` will give a two-dimensional array. Normally we need to sum over
     # the first axis. If `axis == 0`, we need to sum over the second axis.
-    return np.sum(values_proj[idx], axis=int(axis == 0))
+    return np.sum(values[idx], axis=int(axis == 0))
 
 
 def project2d_contour(
-    values: np.ndarray, 
+    values: np.ndarray,
     axis: tuple[int] = (0, 1),
     lmin: float = 0.0,
-    lmax: float = 1.0, 
+    lmax: float = 1.0,
     values_proj: np.ndarray = None,
 ) -> np.ndarray:
     """Apply contour slice in n - 2 dimensions, then project onto the remaining two dimensions.
@@ -427,7 +450,7 @@ def project2d_contour(
     axis : tuple
         The 2D projection axis.
     lmin, lmax : float
-        Min and max contour levels of the (n-2)-dimensional projection of `f`,
+        Min and max contour levels of the (n-2)-dimensional projection of `values`,
         normalized the the range [0, 1].
     values_proj : ndarray, shape = [values.shape[i] for i in range(values.ndim) if i != axis]
         The (n-2)-dimensional projection of `values` onto all dimensions other than `axis`.
@@ -439,17 +462,19 @@ def project2d_contour(
         The 2D projection of the slice.
     """
     axis_proj = [k for k in range(values.ndim) if k not in axis]
+    axis_proj = tuple(axis_proj)
 
     if values_proj is None:
-        values_proj = project(f, axis=axis_proj)
-        
+        values_proj = project(values, axis=axis_proj)
+
     values_proj = values_proj / np.max(values_proj)
-    
+
     idx = slice_idx(
-        values.ndim, 
-        axis=axis_proj, 
-        ind=np.where(np.logical_and(values_proj >= lmin, values_proj <= lmax))
+        values.ndim,
+        axis=axis_proj,
+        ind=np.where(np.logical_and(values_proj >= lmin, values_proj <= lmax)),
     )
+
     # `values[idx]` will give a three-dimensional array. Normally we need to sum over
     # the first axis. If `axis == (0, 1)`, we need to sum over the third axis.
     # If `axis == (0, n - 1), we need to sum over the second axis.
@@ -458,6 +483,7 @@ def project2d_contour(
         _axis_proj = (0, 1)
     elif axis == (0, values.ndim - 1):
         _axis_proj = (0, 2)
+
     # Two elements of `idx` will be `slice(None)`; these are the elements in `axis`.
     # These will always be in order. So, if `axis[0] > axis[1]`, we need to flip
     # `axis_proj`. Need a way to handle this automatically.
@@ -467,11 +493,11 @@ def project2d_contour(
 
 
 def copy_into_new_dim(
-    values: np.ndarray, 
-    shape: tuple[int], 
-    axis: int = -1, 
-    method: str = "broadcast", 
-    copy: bool = False
+    values: np.ndarray,
+    shape: tuple[int],
+    axis: int = -1,
+    method: str = "broadcast",
+    copy: bool = False,
 ) -> np.ndarray:
     """Copy image into one or more new dimensions.
 
@@ -494,7 +520,7 @@ def copy_into_new_dim(
     """
     if not array_like(shape):
         shape = (shape,)
-        
+
     if method == "repeat":
         for i in range(len(shape)):
             values = np.repeat(np.expand_dims(values, axis), shape[i], axis=axis)
@@ -506,26 +532,30 @@ def copy_into_new_dim(
             new_shape = values.shape + shape
         else:
             raise ValueError("Cannot yet handle axis != 0, -1.")
-            
+
         for _ in range(len(shape)):
             values = np.expand_dims(values, axis)
-            
+
         if copy:
             return np.broadcast_to(values, new_shape).copy()
         else:
             return np.broadcast_to(values, new_shape)
-    return None
+    else:
+        raise ValueError
 
 
 # Processing
 # --------------------------------------------------------------------------------------
+
 
 def blur(values: np.ndarray, sigma: float) -> np.ndarray:
     """Call scipy.ndimage.gaussian_filter."""
     return ndimage.gaussian_filter(values, sigma)
 
 
-def clip(values: np.ndarray, lmin: float = None, lmax: float = None, frac: bool = False) -> np.ndarray:
+def clip(
+    values: np.ndarray, lmin: float = None, lmax: float = None, frac: bool = False
+) -> np.ndarray:
     """Clip between lmin and lmax, can be fractions or absolute values."""
     if not (lmin or lmax):
         return values
@@ -568,12 +598,13 @@ def threshold(values: np.ndarray, lmin: float = None, frac: bool = False) -> np.
 # Sampling
 # --------------------------------------------------------------------------------------
 
+
 def sample(
-    values: np.ndarray, 
+    values: np.ndarray,
     edges: list[np.ndarray] = None,
-    coords: list[np.ndarray] = None, 
-    size: int = 100, 
-    noise: float = 0.0
+    coords: list[np.ndarray] = None,
+    size: int = 100,
+    noise: float = 0.0,
 ) -> np.ndarray:
     """Sample particles from image.
 
@@ -594,10 +625,13 @@ def sample(
         Samples drawn from the distribution.
     """
     if edges is None:
-        edges = [edges_from_coords(c) for c in coords]
+        if coords is None:
+            edges = [np.arange(s + 1) for s in values.shape]
+        else:
+            edges = [edges_from_coords(c) for c in coords]
     elif values.ndim == 1:
         edges = [edges]
-        
+
     idx = np.flatnonzero(values)
     pdf = values.ravel()[idx]
     pdf = pdf / np.sum(pdf)
@@ -605,7 +639,7 @@ def sample(
     idx = np.unravel_index(idx, shape=values.shape)
     lb = [edges[axis][idx[axis]] for axis in range(values.ndim)]
     ub = [edges[axis][idx[axis] + 1] for axis in range(values.ndim)]
-    
+
     points = np.squeeze(np.random.uniform(lb, ub).T)
     if noise:
         for axis in range(x.shape[1]):
@@ -635,8 +669,8 @@ def sample_sparse(
     size : int
         The number of samples to draw.
     noise : float
-        Add noise to each particle; a number is drawn uniformly from a box centered on the 
-        particle with dimensions equal to the histogram bin dimensions. `noise` scales the 
+        Add noise to each particle; a number is drawn uniformly from a box centered on the
+        particle with dimensions equal to the histogram bin dimensions. `noise` scales the
         box dimensions relative to the bin dimensions.
 
     Returns

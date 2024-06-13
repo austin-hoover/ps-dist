@@ -3,8 +3,8 @@
 
 ## [1.0.0]
 
+* Changed/cleaned up API.
 * Added type hints.
-* Cleaned up api.
 
 
 ## [0.2.2] — 2024-01-20

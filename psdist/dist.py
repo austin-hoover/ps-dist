@@ -4,21 +4,18 @@ from .utils import sphere_volume
 
 
 class Distribution:
-    def __init__(self, ndim: int):
+    def __init__(self, ndim: int) -> None:
         self.ndim = ndim
-        
+
     def prob(self, x: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
     def sample(self, size: int) -> np.ndarray:
         raise NotImplementedError
 
-    def entropy(self) -> float:
-        raise NotImplementedError
-
 
 class Gaussian(Distribution):
-    def __init__(self, ndim: int):
+    def __init__(self, ndim: int) -> None:
         super().__init__(ndim=ndim)
 
     def prob(self, x: np.ndarray) -> np.ndarray:
@@ -26,13 +23,13 @@ class Gaussian(Distribution):
 
     def entropy(self):
         return 0.5 * (np.log(2.0 * np.pi) + 1.0)
- 
+
     def sample(self, size: int) -> np.ndarray:
         return np.random.normal(size=(size, self.ndim))
 
 
 class Waterbag(Distribution):
-    def __init__(self, ndim: int):
+    def __init__(self, ndim: int) -> None:
         super().__init__(ndim=ndim)
         self.r_max = np.sqrt(self.ndim + 2)
 
@@ -41,7 +38,7 @@ class Waterbag(Distribution):
         prob = np.zeros(x.shape[0])
         prob[r <= self.r_max] = 1.0 / sphere_volume(self.r_max, self.ndim)
         return prob
-     
+
     def sample(self, size: int) -> np.ndarray:
         x = np.random.normal(size=(size, self.ndim))
         scale = 1.0 / np.sqrt(np.sum(x**2, axis=1))
@@ -59,8 +56,3 @@ def get_distribution(name: str, ndim: int, *args, **kwargs) -> Distribution:
     }
     constructor = constructors[name]
     return constructor(ndim=ndim, *args, **kwargs)
-
-
-
-
-

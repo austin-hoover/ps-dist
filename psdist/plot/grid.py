@@ -1,13 +1,17 @@
+import warnings
+from typing import Callable
+from typing import Union
+
 import numpy as np
 import proplot as pplt
 
 import psdist.image
 import psdist.points
 import psdist.utils
-import psdist.visualization.points as vis_points
-import psdist.visualization.image as vis_image
-from psdist.visualization.visualization import plot_profile
-from psdist.visualization.visualization import scale_profile
+import psdist.plot.points as vis_points
+import psdist.plot.image as vis_image
+from psdist.plot.core import plot_profile
+from psdist.plot.core import scale_profile
 
 
 class JointGrid:
@@ -25,12 +29,12 @@ class JointGrid:
 
     def __init__(
         self,
-        marg_kws=None,
-        marg_fmt_kws=None,
-        marg_fmt_kws_x=None,
-        marg_fmt_kws_y=None,
+        marg_kws: dict = None,
+        marg_fmt_kws: dict = None,
+        marg_fmt_kws_x: dict = None,
+        marg_fmt_kws_y: dict = None,
         **fig_kws,
-    ):
+    ) -> None:
         """Constructor.
 
         marg_kws : dict
@@ -63,7 +67,7 @@ class JointGrid:
         self.marg_axs[0].format(**marg_fmt_kws_x)
         self.marg_axs[1].format(**marg_fmt_kws_y)
 
-    def get_default_marg_kws(self, marg_kws=None):
+    def get_default_marg_kws(self, marg_kws: dict = None) -> None:
         if marg_kws is None:
             marg_kws = dict()
         marg_kws.setdefault("color", "black")
@@ -72,24 +76,31 @@ class JointGrid:
         marg_kws.setdefault("scale", "density")
         return marg_kws
 
-    def plot_points(self, X, marg_hist_kws=None, marg_kws=None, **kws):
+    def plot_points(
+        self,
+        points: np.ndarray,
+        marg_hist_kws: dict = None,
+        marg_kws: dict = None,
+        **kws,
+    ) -> None:
         """Plot 2D points.
 
         Parameters
         ----------
-        X : ndarray, shape (k, 2)
-            Coordinates of k points in 2-dimensional space.
+        points: np.ndarray, shape (..., n)
+            Particle coordinates
         marg_hist_kws : dict
             Key word arguments passed to `np.histogram` for 1D histograms.
         marg_kws : dict
-            Key word arguments passed to `visualization.plot_profile`.
+            Key word arguments passed to `plot.plot_profile`.
         **kws
-            Key word arguments passed to `visualization.image.plot2d.`
+            Key word arguments passed to `plot.image.plot.`
         """
         marg_kws = self.get_default_marg_kws(marg_kws)
         if marg_hist_kws is None:
             marg_hist_kws = dict()
         marg_hist_kws.setdefault("bins", "auto")
+
         kws.setdefault("kind", "hist")
         if kws["kind"] == "hist":
             kws.setdefault("mask", True)
@@ -97,8 +108,9 @@ class JointGrid:
         if kws["kind"] != "scatter":
             kws.setdefault("colorbar_kw", dict())
             kws["colorbar_kw"].setdefault("pad", 2.0)
+
         for axis in range(2):
-            profile, edges = np.histogram(X[:, axis], **marg_hist_kws)
+            profile, edges = np.histogram(points[:, axis], **marg_hist_kws)
             plot_profile(
                 profile=profile,
                 edges=edges,
@@ -106,36 +118,39 @@ class JointGrid:
                 orientation=("horizontal" if bool(axis) else "vertical"),
                 **marg_kws,
             )
-        vis_points.plot2d(X, ax=self.ax, **kws)
+        vis_points.plot(points, ax=self.ax, **kws)
 
-    def plot_image(self, f, coords=None, marg_kws=None, **kws):
-        """Plot a 2D image.
+    def plot_image(self, values: np.ndarray, coords: list[np.ndarray] = None, marg_kws=None, **kws):
+        """Plot a two-dimensional image.
 
         Parameters
         ----------
-        f : ndarray
-            A d-dimensional image.
+        values: np.ndarray
+            An n-dimensional image.
         coords : list[ndarray]
             Coordinates along each dimension of `f`.
         marg_kws : dict
-            Key word arguments passed to `visualization.plot_profile`.
+            Key word arguments passed to `plot.plot_profile`.
         **kws
-            Key word arguments passed to `visualization.image.plot2d.`
+            Key word arguments passed to `plot.image.plot.`
         """
         marg_kws = self.get_default_marg_kws(marg_kws)
+
         kws.setdefault("colorbar_kw", dict())
         kws["colorbar_kw"].setdefault("pad", 2.0)
+
         if coords is None:
-            coords = [np.arange(f.shape[axis]) for axis in range(f.ndim)]
+            coords = [np.arange(values.shape[axis]) for axis in range(values.ndim)]
+
         for axis in range(2):
             plot_profile(
-                profile=psdist.image.project(f, axis),
+                profile=psdist.image.project(values, axis),
                 coords=coords[axis],
                 ax=self.marg_axs[axis],
                 orientation=("horizontal" if bool(axis) else "vertical"),
                 **marg_kws,
             )
-        return vis_image.plot2d(f, coords=coords, ax=self.ax, **kws)
+        return vis_image.plot(values, coords=coords, ax=self.ax, **kws)
 
     def colorbar(self, mappable, **kws):
         """Add a colorbar."""
@@ -165,16 +180,16 @@ class CornerGrid:
 
     def __init__(
         self,
-        d=4,
-        diag=True,
-        diag_shrink=1.0,
-        diag_rspine=False,
-        diag_share=False,
-        limits=None,
-        labels=None,
-        corner=True,
+        ndim: int = 4,
+        diag: bool = True,
+        diag_shrink: float = 1.0,
+        diag_rspine: bool = False,
+        diag_share: bool = False,
+        limits: list[tuple[float, float]] = None,
+        labels: list[str] = None,
+        corner: bool = True,
         **fig_kws,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -201,14 +216,14 @@ class CornerGrid:
         """
         # Create figure.
         self.new = True
-        self.d = self.nrows = self.ncols = d
+        self.ndim = self.nrows = self.ncols = ndim
         self.corner = corner
         self.diag = diag
         self.diag_shrink = diag_shrink
         self.diag_rspine = diag_rspine
         self.diag_share = diag_share
         self.diag_ymin = None
-        self.diag_yscale = self.d * [None]
+        self.diag_yscale = self.ndim * [None]
         if not self.diag:
             self.nrows = self.nrows - 1
             self.ncols = self.ncols - 1
@@ -224,6 +239,7 @@ class CornerGrid:
             sharey=False,
             **self.fig_kws,
         )
+
         # Collect diagonal/off-diagonal subplots and indices.
         self.diag_axs = []
         self.offdiag_axs = []
@@ -232,17 +248,17 @@ class CornerGrid:
         self.offdiag_indices = []
         self.offdiag_indices_u = []
         if self.diag:
-            for i in range(self.d):
+            for i in range(self.ndim):
                 self.diag_axs.append(self.axs[i, i])
                 self.diag_indices.append(i)
-            for i in range(1, self.d):
+            for i in range(1, self.ndim):
                 for j in range(i):
                     self.offdiag_axs.append(self.axs[i, j])
                     self.offdiag_axs_u.append(self.axs[j, i])
                     self.offdiag_indices.append((j, i))
                     self.offdiag_indices_u.append((i, j))
         else:
-            for i in range(self.d - 1):
+            for i in range(self.ndim - 1):
                 for j in range(i + 1):
                     self.offdiag_axs.append(self.axs[i, j])
                     self.offdiag_indices.append((j, i + 1))
@@ -281,7 +297,7 @@ class CornerGrid:
         )
         self.set_diag_scale("linear")
 
-    def format_diag(self, **kws):
+    def format_diag(self, **kws) -> None:
         """Format diagonal subplots."""
         for ax in self.diag_axs:
             ax.format(**kws)
@@ -290,21 +306,21 @@ class CornerGrid:
                 ax.format(yticklabels=[])
         self._fake_diag_yticks()
 
-    def format_offdiag(self, **kws):
+    def format_offdiag(self, **kws) -> None:
         """Format off-diagonal subplots."""
         for ax in [self.offdiag_axs + self.offdiag_axs_u]:
             ax.format(**kws)
 
-    def get_labels(self):
+    def get_labels(self) -> list[str]:
         """Return the dimension labels."""
         if self.diag:
             labels = [ax.get_xlabel() for ax in self.diag_axs]
         else:
-            labels = [self.axs[-1, i].get_xlabel() for i in range(self.d - 1)]
+            labels = [self.axs[-1, i].get_xlabel() for i in range(self.ndim - 1)]
             labels = labels + [self.axs[-1, 0].get_ylabel()]
         return labels
 
-    def set_labels(self, labels):
+    def set_labels(self, labels: list[str]) -> None:
         """Set the dimension labels."""
         for ax, label in zip(self.axs[-1, :], labels):
             ax.format(xlabel=label)
@@ -314,16 +330,16 @@ class CornerGrid:
             self.axs[0, 0].format(ylabel=labels[0])
         self.labels = labels
 
-    def get_limits(self):
+    def get_limits(self) -> list[tuple[float, float]]:
         """Return the plot limits."""
         if self.diag:
             limits = [ax.get_xlim() for ax in self.diag_axs]
         else:
-            limits = [self.axs[-1, i].get_xlim() for i in range(self.d - 1)]
+            limits = [self.axs[-1, i].get_xlim() for i in range(self.ndim - 1)]
             limits = limits + [self.axs[-1, 0].get_ylim()]
         return limits
 
-    def set_limits(self, limits=None, expand=False):
+    def set_limits(self, limits: list[tuple[float, float]], expand: bool = False) -> None:
         """Set the plot limits.
 
         Parameters
@@ -342,20 +358,20 @@ class CornerGrid:
                 maxs = np.maximum(limits[:, 1], limits_old[:, 1])
                 limits = list(zip(mins, maxs))
             if self.diag:
-                for i in range(self.d):
-                    for j in range(self.d):
+                for i in range(self.ndim):
+                    for j in range(self.ndim):
                         if i != j:
                             if (j < i) or (not self.corner):
                                 self.axs[i, j].format(ylim=limits[i])
             else:
-                for i in range(self.d - 1):
+                for i in range(self.ndim - 1):
                     for ax in self.axs[i, :]:
-                        ax.format(ylim=limits[i + 1])                            
+                        ax.format(ylim=limits[i + 1])
             for i in range(self.ncols):
                 self.axs[:, i].format(xlim=limits[i])
         self.limits = self.get_limits()
 
-    def get_default_diag_kws(self, diag_kws=None):
+    def get_default_diag_kws(self, diag_kws: dict = None) -> dict:
         if diag_kws is None:
             diag_kws = dict()
         diag_kws.setdefault("color", "black")
@@ -364,7 +380,7 @@ class CornerGrid:
         diag_kws.setdefault("scale", "density")
         return diag_kws
 
-    def _fake_diag_yticks(self):
+    def _fake_diag_yticks(self) -> None:
         """The yticks on the (0, 0) subplot correspond to the other subplots in the row.
 
         Source: pandas.plotting.scatterplot_matrix.
@@ -388,12 +404,12 @@ class CornerGrid:
             locs = locs.astype(int)
         self.axs[0, 0].yaxis.set_ticklabels(locs)
 
-    def _force_non_negative_diag_ymin(self):
+    def _force_non_negative_diag_ymin(self) -> None:
         """Force diagonal ymins to be at least zero."""
         if any([ax.get_ylim()[0] < 0.0 for ax in self.diag_axs]):
             self.format_diag(ylim=0.0)
 
-    def set_diag_scale(self, scale="linear", pad=0.05):
+    def set_diag_scale(self, scale: str = "linear", pad: float = 0.05) -> None:
         """Set diagonal y axis scale.
 
         Parameters
@@ -418,60 +434,61 @@ class CornerGrid:
             ymax = 10.0 ** (log_ymin + log_delta * (1.0 + pad))
             self.format_diag(yscale="log", yformatter="log", ymin=ymin, ymax=ymax)
 
-    def _plot_diag(self, get_data, **kws):
+    def _plot_diag(self, get_data: Callable, **kws) -> None:
         # Compute one-dimensional probabiliy density functions.
         if "scale" in kws:
             kws.pop("scale")
+
         profiles, edges_list = [], []
-        for axis in range(self.d):
+        for axis in range(self.ndim):
             profile, edges = get_data(axis)
             profile = scale_profile(profile, edges=edges, scale="density")
             profiles.append(profile)
             edges_list.append(edges)
+
         # Update scaling factor for each profile, taking into account all existing plots.
-        for axis in range(self.d):
+        for axis in range(self.ndim):
             if self.diag_yscale[axis] is None:
                 self.diag_yscale[axis] = -np.inf
         if self.diag_share:
             max_value = max([np.max(profile) for profile in profiles])
-            for axis in range(self.d):
+            for axis in range(self.ndim):
                 self.diag_yscale[axis] = max(self.diag_yscale[axis], max_value)
         else:
-            for axis in range(self.d):
-                self.diag_yscale[axis] = max(
-                    self.diag_yscale[axis], np.max(profiles[axis])
-                )
+            for axis in range(self.ndim):
+                self.diag_yscale[axis] = max(self.diag_yscale[axis], np.max(profiles[axis]))
+
         # Plot the profiles.
-        for axis in range(self.d):
+        for axis in range(self.ndim):
             if self.diag_yscale[axis]:
                 profiles[axis] = profiles[axis] / self.diag_yscale[axis]
-            plot_profile(
-                profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws
-            )
+            plot_profile(profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws)
+
         # Compute min positive value for log scaling.
-        for axis in range(self.d):
+        for axis in range(self.ndim):
             if not self.diag_ymin:
                 self.diag_ymin = np.inf
             self.diag_ymin = min(self.diag_ymin, np.min(profile[profile > 0.0]))
 
     def plot_image(
         self,
-        f,
-        coords=None,
-        prof_edge_only=False,
-        lower=True,
-        upper=True,
-        diag=True,
-        update_limits=True,
-        diag_kws=None,
+        values: np.ndarray,
+        coords: list[np.ndarray] = None,
+        edges: list[np.ndarray] = None,
+        prof_edge_only: bool = False,
+        lower: bool = True,
+        upper: bool = True,
+        diag: bool = True,
+        update_limits: bool = True,
+        diag_kws: dict = None,
         **kws,
-    ):
+    ) -> None:
         """Plot an image.
 
         Parameters
         ----------
-        f : ndarray
-            A d-dimensional image.
+        values: np.ndarray
+            An n-dimensional image.
         coords : list[ndarray]
             Coordinates along each axis of the grid (if `data` is an image).
         prof_edge_only : bool
@@ -482,9 +499,9 @@ class CornerGrid:
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
-            Key word argument passed to `visualization.plot_profile`.
+            Key word argument passed to `plot.plot_profile`.
         **kws
-            Key word arguments pass to `visualization.image.plot2d`
+            Key word arguments pass to `plot.image.plot`
         """
         diag_kws = self.get_default_diag_kws(diag_kws)
         kws.setdefault("kind", "pcolor")
@@ -494,7 +511,10 @@ class CornerGrid:
         kws["process_kws"].setdefault("norm", "max")
 
         if coords is None:
-            coords = [np.arange(f.shape[i]) for i in range(f.ndim)]
+            if edges is None:
+                coords = [np.arange(s) for s in values.shape]
+            else:
+                coords = [psdist.utils.coords_from_edges(e) for e in edges]
         edges = [psdist.utils.edges_from_coords(c) for c in coords]
 
         if update_limits:
@@ -505,53 +525,54 @@ class CornerGrid:
         # Univariate plots.
         if self.diag and diag:
             self._plot_diag(
-                lambda axis: (psdist.image.project(f, axis=axis), edges[axis]),
+                lambda axis: (psdist.image.project(values, axis=axis), edges[axis]),
                 **diag_kws,
             )
 
         # Bivariate plots.
-        profx, profy = [kws.pop(key) for key in ("profx", "profy")]
+        profx = kws.pop("profx")
+        profy = kws.pop("profy")
         if lower:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
                 if prof_edge_only:
                     if profx:
-                        kws["profx"] = axis[1] == self.d - 1
+                        kws["profx"] = axis[1] == self.ndim - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
-                vis_image.plot2d(
-                    psdist.image.project(f, axis=axis),
+                vis_image.plot(
+                    psdist.image.project(values, axis=axis),
                     coords=[coords[k] for k in axis],
                     ax=ax,
                     **kws,
                 )
         if not self.corner and upper:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
-                _f = psdist.image.project(f, axis=axis)
-                _f = _f / np.max(_f)
-                _coords = [coords[k] for k in axis]
-                vis_image.plot2d(_f, coords=_coords, ax=ax, **kws)
+                values_proj = psdist.image.project(values, axis=axis)
+                values_proj = values_proj / np.max(values_proj)
+                coords_proj = [coords[k] for k in axis]
+                vis_image.plot(values_proj, coords=coords_proj, ax=ax, **kws)
         self._cleanup()
 
     def plot_points(
         self,
-        X,
-        limits=None,
-        bins="auto",
-        autolim_kws=None,
-        prof_edge_only=False,
-        lower=True,
-        upper=True,
-        diag=True,
-        update_limits=True,
-        diag_kws=None,
+        points: np.ndarray,
+        limits: list[tuple[float, float]] = None,
+        bins: str = "auto",
+        autolim_kws: dict = None,
+        prof_edge_only: bool = False,
+        lower: bool = True,
+        upper: bool = True,
+        diag: bool = True,
+        update_limits: bool = True,
+        diag_kws: dict = None,
         **kws,
-    ):
+    ) -> None:
         """Plot points.
 
         Parameters
         ----------
-        X : ndarray, shape (n, d)
-            Coordinates of n points in d-dimensional space.
+        points : np.ndarray, shape (..., n)
+            Particle coordinates.
         limits : list[tuple], length d
             The (min, max) axis limits.
         bins : 'auto', int, list[int]
@@ -567,46 +588,45 @@ class CornerGrid:
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
-            Key word argument passed to `visualization.plot_profile`.
+            Key word argument passed to `plot.plot_profile`.
         **kws
-            Key word arguments pass to `visualization.points.plot2d`
+            Key word arguments pass to `plot.points.plot`
         """
-        diag_kws = self.get_default_diag_kws(diag_kws)
         kws.setdefault("kind", "hist")
         kws.setdefault("profx", False)
         kws.setdefault("profy", False)
+
+        diag_kws = self.get_default_diag_kws(diag_kws)
 
         if limits is None:
             if autolim_kws is None:
                 autolim_kws = dict()
             autolim_kws.setdefault("pad", 0.1)
-            limits = vis_points.auto_limits(X, **autolim_kws)
+            limits = vis_points.auto_limits(points, **autolim_kws)
         if update_limits:
             self.set_limits(limits, expand=(not self.new))
         limits = self.get_limits()
+
         self.new = False
 
         if not psdist.utils.array_like(bins):
-            bins = X.shape[1] * [bins]
+            bins = points.shape[1] * [bins]
 
         # Compute histogram bin edges.
         edges = []
-        for axis in range(self.d):
+        for axis in range(self.ndim):
             if psdist.utils.array_like(bins[axis]):
                 edges.append(bins[axis])
             else:
-                edges.append(
-                    np.histogram_bin_edges(X[:, axis], bins[axis], limits[axis])
-                )
+                edges.append(np.histogram_bin_edges(points[:, axis], bins[axis], limits[axis]))
 
         # Univariate plots.
         if self.diag and diag:
-            self._plot_diag(
-                lambda axis: np.histogram(X[:, axis], edges[axis]), **diag_kws
-            )
+            self._plot_diag(lambda axis: np.histogram(points[:, axis], edges[axis]), **diag_kws)
 
         # Bivariate plots:
-        profx, profy = [kws.pop(key) for key in ["profx", "profy"]]
+        profx = kws.pop("profx")
+        profy = kws.pop("profy")
         if lower:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
                 if prof_edge_only:
@@ -616,12 +636,12 @@ class CornerGrid:
                         kws["profy"] = axis[0] == 0
                 if kws["kind"] in ["hist", "contour", "contourf"]:
                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-                vis_points.plot2d(X[:, axis], ax=ax, **kws)
+                vis_points.plot(points[:, axis], ax=ax, **kws)
         if upper and not self.corner:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
                 if kws["kind"] in ["hist", "contour", "contourf"]:
                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-                vis_points.plot2d(X[:, axis], ax=ax, **kws)
+                vis_points.plot(points[:, axis], ax=ax, **kws)
         self._cleanup()
 
     def _cleanup(self):
@@ -667,17 +687,17 @@ class SliceGrid:
 
     def __init__(
         self,
-        nrows=9,
-        ncols=9,
-        space=0.0,
-        gap=2.0,
-        marginals=True,
-        annotate=True,
-        annotate_kws_view=None,
-        annotate_kws_slice=None,
-        slice_label_height=0.22,
+        nrows: int = 9,
+        ncols: int = 9,
+        space: float = 0.0,
+        gap: float = 2.0,
+        marginals: bool = True,
+        annotate: bool = True,
+        annotate_kws_view: dict = None,
+        annotate_kws_slice: dict = None,
+        slice_label_height: float = 0.22,
         **fig_kws,
-    ):
+    ) -> None:
         """Constructor.
 
         nrows, ncols : int
@@ -728,9 +748,7 @@ class SliceGrid:
         self.annotate_kws_slice.setdefault("xycoords", "axes fraction")
         self.annotate_kws_slice.setdefault("horizontalalignment", "center")
         self.annotate_kws_slice.setdefault("verticalalignment", "center")
-        self.annotate_kws_slice.setdefault(
-            "arrowprops", dict(arrowstyle="->", color="black")
-        )
+        self.annotate_kws_slice.setdefault("arrowprops", dict(arrowstyle="->", color="black"))
 
         fig_kws.setdefault("figwidth", 8.5 * (ncols / 13.0))
         fig_kws.setdefault("share", True)
@@ -773,13 +791,12 @@ class SliceGrid:
         arrow_length = 2.5  # arrow length
         text_length = 0.15  # controls space between dimension label and start of arrow
         i = -1 - int(self.marginals)
-        anchors = (self.axs[i, self.ncols // 2], self.axs[self.nrows // 2, i])
-        anchors[0].annotate(
-            labels[2], xy=(0.5, -slice_label_height), **annotate_kws_slice
+        anchors = (
+            self.axs[i, self.ncols // 2],
+            self.axs[self.nrows // 2, i],
         )
-        anchors[1].annotate(
-            labels[3], xy=(1.0 + slice_label_height, 0.5), **annotate_kws_slice
-        )
+        anchors[0].annotate(labels[2], xy=(0.5, -slice_label_height), **annotate_kws_slice)
+        anchors[1].annotate(labels[3], xy=(1.0 + slice_label_height, 0.5), **annotate_kws_slice)
         for arrow_direction in (1.0, -1.0):
             anchors[0].annotate(
                 "",
@@ -794,40 +811,41 @@ class SliceGrid:
                 **annotate_kws_slice,
             )
 
-    def get_ind_slice(self):
+    def get_ind_slice(self) -> int:
         """Return slice indices from latest plot call."""
         return self.ind_slice
 
-    def get_axis_slice(self):
+    def get_axis_slice(self) -> int:
         """Return slice axis from latest plot call."""
         return self.axis_slice
 
-    def get_axis_view(self):
+    def get_axis_view(self) -> tuple[int, ...]:
         """Return view axis from latest plot call."""
         return self.axis_view
 
-    def set_limits(self, limits):
+    def set_limits(self, limits) -> None:
         """Set the plot limits."""
         for ax in self.axs:
             ax.format(xlim=limits[0], ylim=limits[1])
 
     def plot_image(
         self,
-        f,
-        coords=None,
-        labels=None,
-        axis_view=(0, 1),
-        axis_slice=(2, 3),
-        pad=0.0,
-        debug=False,
+        values: np.ndarray,
+        coords: list[np.ndarray] = None,
+        edges: list[np.ndarray] = None,
+        labels: list[str] = None,
+        axis_view: tuple[int, ...] = (0, 1),
+        axis_slice: tuple[int, ...] = (2, 3),
+        pad: float = 0.0,
+        debug: bool = False,
         **kws,
-    ):
-        """Plot a d-dimensional image.
+    ) -> None:
+        """Plot an n-dimensional image.
 
         Parameters
         ----------
-        f : ndarray
-            An d-dimensional image.
+        values: np.ndarray
+            An n-dimensional image.
         coords : list[ndarray]
             Coordinates along each axis of the grid (if `data` is an image).
         labels : list[str], length n
@@ -836,28 +854,28 @@ class SliceGrid:
             The axis to view (plot) and to slice.
         pad : int, float, list
             This determines the start/stop indices along the sliced dimensions. If
-            0, space the indices along axis `i` uniformly between 0 and `f.shape[i]`.
-            Otherwise, add a padding equal to `int(pad[i] * f.shape[i])`. So, if
+            0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
+            Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
             the shape=10 and pad=0.1, we would start from 1 and end at 9.
         debug : bool
             Whether to print debugging messages.
         **kws
-            Key word arguments pass to `visualization.image.plot2d`
+            Key word arguments pass to `plot.image.plot`
         """
         # Setup
         # -----------------------------------------------------------------------
-        if f.ndim < 4:
-            raise ValueError(f"f.ndim = {f.ndim} < 4")
+        if values.ndim < 4:
+            raise ValueError(f"values.ndim = {values.ndim} < 4")
         if coords is None:
-            coords = [np.arange(s) for s in f.shape]
+            coords = [np.arange(s) for s in values.shape]
         self.axis_view = axis_view
         self.axis_slice = axis_slice
 
         # Compute 4D/3D/2D projections.
-        _f = psdist.image.project(f, axis_view + axis_slice)
-        _fx = psdist.image.project(f, axis_view + axis_slice[:1])
-        _fy = psdist.image.project(f, axis_view + axis_slice[1:])
-        _fxy = psdist.image.project(f, axis_view)
+        _values = psdist.image.project(values, axis_view + axis_slice)
+        _values_x = psdist.image.project(values, axis_view + axis_slice[:1])
+        _values_y = psdist.image.project(values, axis_view + axis_slice[1:])
+        _values_xy = psdist.image.project(values, axis_view)
 
         # Compute new coords and labels.
         _coords = [coords[i] for i in axis_view + axis_slice]
@@ -870,12 +888,12 @@ class SliceGrid:
             pad = len(axis_slice) * [pad]
         ind_slice = []
         for i, nsteps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
-            start = int(_pad * f.shape[i])
-            stop = f.shape[i] - 1 - start
+            start = int(_pad * values.shape[i])
+            stop = values.shape[i] - 1 - start
             if stop - start == nsteps - 1:
                 ind_slice.append(np.arange(nsteps))
             elif (stop - start) < nsteps:
-                raise ValueError(f"f.shape[{i}] < number of slice indices requested.")
+                raise ValueError(f"values.shape[{i}] < number of slice indices requested.")
             ind_slice.append(np.linspace(start, stop, nsteps).astype(int))
         ind_slice = tuple(ind_slice)
         self.ind_slice = ind_slice
@@ -893,30 +911,30 @@ class SliceGrid:
         idx = 4 * [slice(None)]
         for axis, ind in zip(axis_slice, ind_slice):
             idx[axis] = ind
-            _f = _f[tuple(idx)]
+            _values = _values[tuple(idx)]
             idx[axis] = slice(None)
 
         # Slice the 3D projections.
-        _fx = _fx[:, :, ind_slice[0]]
-        _fy = _fy[:, :, ind_slice[1]]
+        _values_x = _values_x[:, :, ind_slice[0]]
+        _values_y = _values_y[:, :, ind_slice[1]]
 
         # Slice coords.
         for i, ind in zip(axis_slice, ind_slice):
             _coords[i] = _coords[i][ind]
 
         # Normalize each distribution.
-        _f = psdist.image.process(_f, norm="max")
-        _fx = psdist.image.process(_fx, norm="max")
-        _fy = psdist.image.process(_fy, norm="max")
-        _fxy = psdist.image.process(_fxy, norm="max")
+        _values = psdist.plot.image.process(_values, norm="max")
+        _values_x = psdist.plot.image.process(_values_x, norm="max")
+        _values_y = psdist.plot.image.process(_values_y, norm="max")
+        _values_xy = psdist.plot.image.process(_values_xy, norm="max")
 
         if debug:
-            print("_f.shape =", _f.shape)
-            print("_fx.shape =", _fx.shape)
-            print("_fy.shape =", _fy.shape)
-            print("_fxy.shape =", _fxy.shape)
-            for i in range(_f.ndim):
-                assert _f.shape[i] == len(_coords[i])
+            print("_values.shape =", _values.shape)
+            print("_values_x.shape =", _values_x.shape)
+            print("_values_y.shape =", _values_y.shape)
+            print("_values_xy.shape =", _values_xy.shape)
+            for i in range(_values.ndim):
+                assert _values.shape[i] == len(_coords[i])
 
         # Add dimension labels to the figure.
         if self.annotate and _labels is not None:
@@ -933,31 +951,31 @@ class SliceGrid:
             for j in range(self.ncols):
                 ax = self.axs[self.nrows - 1 - i, j]
                 idx = psdist.image.slice_idx(
-                    _f.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)]
+                    _values.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)]
                 )
-                vis_image.plot2d(
-                    psdist.image.project(_f[idx], axis_view),
+                vis_image.plot(
+                    psdist.image.project(_values[idx], axis_view),
                     coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
                     ax=ax,
                     **kws,
                 )
         if self.marginals:
             for i, ax in enumerate(reversed(self.axs[:-1, -1])):
-                vis_image.plot2d(
-                    _fy[:, :, i],
+                vis_image.plot(
+                    _values_y[:, :, i],
                     coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
                     ax=ax,
                     **kws,
                 )
             for i, ax in enumerate(self.axs[-1, :-1]):
-                vis_image.plot2d(
-                    _fx[:, :, i],
+                vis_image.plot(
+                    _values_x[:, :, i],
                     [_coords[axis_view[0]], _coords[axis_view[1]]],
                     ax=ax,
                     **kws,
                 )
-            vis_image.plot2d(
-                _fxy,
+            vis_image.plot(
+                _values_xy,
                 coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
                 ax=self.axs[-1, -1],
                 **kws,
@@ -982,8 +1000,8 @@ class SliceGrid:
 
         Parameters
         ----------
-        X : ndarray, shape (n, d)
-            Coordinates of n points in d-dimensional space.
+        X : np.ndarray, shape (..., n)
+            Particle coordinates.
         labels : list[str], length d
             Label for each dimension.
         bins_slice : int, list[int], list[ndarray]
@@ -997,7 +1015,7 @@ class SliceGrid:
         debug : bool
             Whether to print debugging messages.
         **kws
-            Key word arguments pass to `visualization.points.plot2d`
+            Key word arguments pass to `plot.points.plot`
         """
 
         warnings.warn(
@@ -1056,4 +1074,4 @@ class SliceGrid:
                         np.abs(edges_slice[1][i] - edges_slice[1][i + 1]),
                     ],
                 )
-                vis_points.plot2d(_X[:, axis_slice], ax=ax, **kws)
+                vis_points.plot(_X[:, axis_slice], ax=ax, **kws)

@@ -1,10 +1,4 @@
-import warnings
-
-from ipywidgets import interact
-from ipywidgets import interactive
-from ipywidgets import widgets
 from matplotlib import patches
-from matplotlib import pyplot as plt
 import numpy as np
 import proplot as pplt
 import scipy.optimize
@@ -12,62 +6,46 @@ import scipy.optimize
 import psdist.image
 import psdist.points
 import psdist.utils
-import psdist.visualization.points as vis_points
-import psdist.visualization.image as vis_image
+from psdist.cov import rms_ellipse_dims
 
 
-def ellipse(c1=1.0, c2=1.0, angle=0.0, center=(0, 0), ax=None, **kws):
+def ellipse(
+    r1: float = 1.0,
+    r2: float = 1.0,
+    angle: float = 0.0,
+    center: tuple[float, float] = None,
+    ax=None,
+    **kws,
+) -> pplt.Axes:
     """Plot ellipse with semi-axes `c1`,`c2` tilted `angle`radians below the x axis."""
     kws.setdefault("fill", False)
     kws.setdefault("color", "black")
-    width = 2.0 * c1
-    height = 2.0 * c2
-    return ax.add_patch(
-        patches.Ellipse(center, width, height, angle=-np.degrees(angle), **kws)
-    )
+    kws.setdefault("lw", 1.25)
+
+    if center is None:
+        center = (0.0, 0.0)
+
+    d1 = r1 * 2.0
+    d2 = r2 * 2.0
+    angle = -np.degrees(angle)
+    ax.add_patch(patches.Ellipse(center, d1, d2, angle=angle, **kws))
+    return ax
 
 
-def circle(r=1.0, center=(0.0, 0.0), ax=None, **kws):
-    """Plot a circle."""
+def circle(r: float, center: tuple[float, float] = None, ax=None, **kws) -> pplt.Axes:
+    """Plot circle of radius r."""
+    if center is None:
+        center = (0.0, 0.0)
     return ellipse(r, r, center=center, ax=ax, **kws)
 
 
-def rms_ellipse_dims(Sigma, axis=(0, 1)):
-    """Return dimensions of projected rms ellipse.
-
-    Parameters
-    ----------
-    Sigma : ndarray, shape (2n, 2n)
-        The phase space covariance matrix.
-    axis : 2-tuple
-        The axis on which to project the covariance ellipsoid. Example: if the
-        axes are {x, xp, y, yp}, and axis=(0, 2), then the four-dimensional
-        ellipsoid is projected onto the x-y plane.
-    ax : plt.Axes
-        The ax on which to plot.
-
-    Returns
-    -------
-    c1, c2 : float
-        The ellipse semi-axis widths.
-    angle : float
-        The tilt angle below the x axis [radians].
-    """
-    i, j = axis
-    sii, sjj, sij = Sigma[i, i], Sigma[j, j], Sigma[i, j]
-    angle = -0.5 * np.arctan2(2 * sij, sii - sjj)
-    sin, cos = np.sin(angle), np.cos(angle)
-    sin2, cos2 = sin**2, cos**2
-    c1 = np.sqrt(abs(sii * cos2 + sjj * sin2 - 2 * sij * sin * cos))
-    c2 = np.sqrt(abs(sii * sin2 + sjj * cos2 + 2 * sij * sin * cos))
-    return c1, c2, angle
-
-
-def rms_ellipse(Sigma=None, center=None, level=1.0, ax=None, **ellipse_kws):
+def rms_ellipse(
+    cov: np.ndarray, center: np.ndarray, level: float = 1.0, ax=None, **ellipse_kws
+) -> pplt.Axes:
     """Plot RMS ellipse from 2 x 2 covariance matrix."""
     if type(level) not in [list, tuple, np.ndarray]:
         level = [level]
-    c1, c2, angle = rms_ellipse_dims(Sigma)
+    c1, c2, angle = rms_ellipse_dims(cov)
     for level in level:
         _c1 = c1 * level
         _c2 = c2 * level
@@ -199,9 +177,7 @@ def plot_profile(
         if orientation == "horizontal":
             return ax.barh(coords, profile, left=(offset * np.ones(len(coords))), **kws)
         else:
-            return ax.bar(
-                coords, profile, bottom=(offset * np.ones(len(coords))), **kws
-            )
+            return ax.bar(coords, profile, bottom=(offset * np.ones(len(coords))), **kws)
     else:
         raise ValueError("Invalid plot kind")
 

@@ -1,4 +1,5 @@
 """Plotting routines for multi-dimensional images."""
+
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
@@ -63,29 +64,27 @@ def process(
 
 
 def plot_profiles(
-    f,
-    coords=None,
-    edges=None,
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    profx: bool = True,
+    profy: bool = True,
+    scale: float = 0.12,
+    start: str = "edge",
+    keep_limits: bool = False,
     ax=None,
-    profx=True,
-    profy=True,
-    scale=0.12,
-    start="edge",
-    keep_limits=False,
     **kws,
-):
+) -> pplt.Axes:
     """Overlay one-dimensional profiles on a two-dimensional image.
 
     Parameters
     ----------
-    f : ndarray
+    values : ndarray
         A two-dimensional image.
-    coords: (xcoords, ycoords)
+    coords: list[np.ndarray]
         Lists specifying pixel center coordinates along each axis.
-    coords: (xcoords, ycoords)
-        Lists specifying pixel edge coordinates along each axis. Can be None.
-    ax : matplotlib.pyplt.Axes
-        The axis on which to plot.
+    edges: list[np.ndarray]
+        Lists specifying pixel edge coordinates along each axis.
     profx, profy : bool
         Whether to plot the x/y profile.
     scale : float
@@ -93,35 +92,41 @@ def plot_profiles(
     start : {'edge', 'center'}
         Whether to start the plot at the center or edge of the first row/column.
     **kws
-        Key word arguments passed to `psdist.visualization.plot_profile`.
+        Key word arguments passed to `psdist.plot.plot_profile`.
     """
     kws.setdefault("kind", "step")
     kws.setdefault("lw", 1.0)
     kws.setdefault("color", "white")
     kws.setdefault("alpha", 0.6)
-    if keep_limits:
-        _limits = [ax.get_xlim(), ax.get_ylim()]
+
+    old_limits = [ax.get_xlim(), ax.get_ylim()]
+
     if coords is None:
         if edges is not None:
             coords = [psdist.utils.coords_from_edges(e) for e in edges]
         else:
-            coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+            coords = [np.arange(s) for s in values.shape]
+
     if edges is None:
         edges = [psdist.utils.edges_from_coords(c) for c in coords]
+
     for axis, proceed in enumerate([profx, profy]):
         if proceed:
-            profile = psdist.image.project(f, axis=axis)
+            profile = psdist.image.project(values, axis=axis)
             profile_max = np.max(profile)
             if profile_max > 0.0:
                 profile = profile / profile_max
+
             index = int(axis == 0)
             profile = profile * scale * np.abs(coords[index][-1] - coords[index][0])
+
             offset = 0.0
             if start == "edge":
                 offset = edges[index][0]
             elif start == "center":
                 offset = coords[index][0]
-            psdist.visualization.plot_profile(
+
+            psdist.plot.plot_profile(
                 profile=profile,
                 coords=coords[axis],
                 edges=edges[axis],
@@ -131,23 +136,29 @@ def plot_profiles(
                 **kws,
             )
         if keep_limits:
-            ax.format(xlim=_limits[0], ylim=_limits[1])
+            ax.format(xlim=old_limits[0], ylim=old_limits[1])
     return ax
 
 
 def plot_rms_ellipse(
-    f, coords=None, ax=None, level=1.0, center_at_mean=True, **ellipse_kws
-):
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    level: float = 1.0,
+    center_at_mean: bool = True,
+    ax=None,
+    **ellipse_kws,
+) -> pplt.Axes:
     """Compute and plot the RMS ellipse from a two-dimensional image.
 
     Parameters
     ----------
-    f : ndarray
+    values : ndarray
         A two-dimensional image.
-    coords: (xcoords, ycoords)
+    coords: list[np.ndarray]
         Lists specifying pixel center coordinates along each axis.
-    ax : matplotlib.pyplt.Axes
-        The axis on which to plot.
+    edges: list[np.ndarray]
+        Lists specifying pixel edge coordinates along each axis.
     level : number of list of numbers
         If a number, plot the rms ellipse inflated by the number. If a list
         of numbers, repeat for each number.
@@ -155,40 +166,46 @@ def plot_rms_ellipse(
         Whether to center the ellipse at the image centroid.
     """
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
-    center = psdist.image.mean(f, coords) if center_at_mean else (0.0, 0.0)
-    Sigma = psdist.image.cov(f, coords)
-    return psdist.visualization.rms_ellipse(
-        Sigma, center, level=level, ax=ax, **ellipse_kws
-    )
+        if edges is not None:
+            coords = [psdist.utils.coords_from_edges(e) for e in edges]
+        else:
+            coords = [np.arange(s) for s in values.shape]
+
+    cov = psdist.image.covariance_matrix(values, coords)
+    mean = (0.0, 0.0)
+    if center_at_mean:
+        mean = psdist.image.centroid(values, coords)
+    return psdist.plot.rms_ellipse(cov, mean, level=level, ax=ax, **ellipse_kws)
 
 
-def plot2d(
-    f,
-    coords=None,
-    edges=None,
+def plot(
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    kind: str = "pcolor",
+    profx: bool = False,
+    profy: bool = False,
+    prof_kws: dict = None,
+    process_kws: dict = None,
+    offset: float = None,
+    offset_type: str = "relative",
+    mask: bool = False,
+    rms_ellipse: bool = False,
+    rms_ellipse_kws: dict = None,
+    return_mesh: bool = False,
     ax=None,
-    kind="pcolor",
-    profx=False,
-    profy=False,
-    prof_kws=None,
-    process_kws=None,
-    offset=None,
-    offset_type="relative",
-    mask=False,
-    rms_ellipse=False,
-    rms_ellipse_kws=None,
-    return_mesh=False,
     **kws,
-):
+) -> pplt.Axes:
     """Plot a two-dimensional image.
 
     Parameters
     ----------
-    f : ndarray
+    values : ndarray
         A two-dimensional image.
-    coords: (xcoords, ycoords)
+    coords: list[np.ndarray]
         Lists specifying pixel center coordinates along each axis.
+    edges: list[np.ndarray]
+        Lists specifying pixel edge coordinates along each axis.
     ax : matplotlib.pyplt.Axes
         The axis on which to plot.
     kind : ['pcolor', 'contour', 'contourf']
@@ -218,7 +235,7 @@ def plot2d(
         if edges is not None:
             coords = [psdist.utils.coords_from_edges(e) for e in edges]
         else:
-            coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+            coords = [np.arange(s) for s in values.shape]
 
     # Process key word arguments.
     if process_kws is None:
@@ -227,114 +244,123 @@ def plot2d(
     if rms_ellipse_kws is None:
         rms_ellipse_kws = dict()
 
-    func = None
+    function = None
     if kind == "pcolor":
-        func = ax.pcolormesh
+        function = ax.pcolormesh
         kws.setdefault("ec", "None")
         kws.setdefault("linewidth", 0.0)
         kws.setdefault("rasterized", True)
         kws.setdefault("shading", "auto")
     elif kind == "contour":
-        func = ax.contour
+        function = ax.contour
     elif kind == "contourf":
-        func = ax.contourf
+        function = ax.contourf
     else:
         raise ValueError("Invalid plot kind.")
+
     kws.setdefault("colorbar", False)
     kws.setdefault("colorbar_kw", dict())
 
     # Process the image.
-    f = f.copy()
-    f = process(f, **process_kws)
+    values = values.copy()
+    values = process(values, **process_kws)
     if offset is not None:
-        if offset_type == "relative" and np.count_nonzero(f):
-            offset = offset * np.min(f[f > 0])
-        f = f + offset
+        if offset_type == "relative" and np.count_nonzero(values):
+            offset = offset * np.min(values[values > 0])
+        values += offset
     else:
         offset = 0.0
 
     # Make sure there are no more zero elements if norm='log'.
-    log = "norm" in kws and kws["norm"] == "log"
+    log = "norm" in kws and (kws["norm"] == "log")
     if log:
         kws["colorbar_kw"]["formatter"] = "log"
     if mask or log:
-        f = np.ma.masked_less_equal(f, 0)
+        values = np.ma.masked_less_equal(values, 0)
 
-    # If there are only zero elements, increase vmax so that the
-    # lowest color is plotted.
-    if not np.count_nonzero(f):
+    # If there are only zero elements, increase vmax so that the lowest color shows.
+    if not np.count_nonzero(values):
         kws["vmin"] = 1.0
         kws["vmax"] = 1.0
 
     # Plot the image.
-    mesh = func(coords[0].T, coords[1].T, f.T, **kws)
+    mesh = function(coords[0].T, coords[1].T, values.T, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
-        plot_rms_ellipse(f, coords=coords, ax=ax, **rms_ellipse_kws)
+        plot_rms_ellipse(values, coords=coords, ax=ax, **rms_ellipse_kws)
     if profx or profy:
         if prof_kws is None:
             prof_kws = dict()
         if kind == "contourf":
             prof_kws.setdefault("keep_limits", True)
-        plot_profiles(
-            f - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws
-        )
+        plot_profiles(values - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws)
     if return_mesh:
         return ax, mesh
     else:
         return ax
 
 
-def joint(f, coords=None, grid_kws=None, marg_kws=None, **kws):
+def joint(
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    grid_kws: dict = None,
+    marg_kws: dict = None,
+    **kws,
+):
     """Joint plot.
 
-    This is a convenience function; see `psdist.visualization.grid.JointGrid`.
+    This is a convenience function; see `JointGrid`.
 
     Parameters
     ----------
-    f : ndarray
+    values : ndarray
         A 2-dimensional image.
-    coords : list[ndarray]
-        Coordinates along each dimension of `f`.
+    coords: list[np.ndarray]
+        Lists specifying pixel center coordinates along each axis.
+    edges: list[np.ndarray]
+        Lists specifying pixel edge coordinates along each axis.
     grid_kws : dict
         Key word arguments passed to `JointGrid`.
     marg_kws : dict
-        Key word arguments passed to `visualization.plot_profile`.
+        Key word arguments passed to `plot.plot_profile`.
     **kws
-        Key word arguments passed to `visualization.image.plot2d.`
+        Key word arguments passed to `plot.image.plot.`
 
     Returns
     -------
-    psdist.visualization.grid.JointGrid
+    JointGrid
     """
-    from psdist.visualization.grid import JointGrid
+    from psdist.plot.grid import JointGrid
 
     if grid_kws is None:
         grid_kws = dict()
+
     grid = JointGrid(**grid_kws)
-    grid.plot_image(f, coords, marg_kws=marg_kws, **kws)
+    grid.plot_image(values, coords=coords, edges=edges, marg_kws=marg_kws, **kws)
     return grid
 
 
 def corner(
-    f,
-    coords=None,
-    labels=None,
-    prof_edge_only=False,
-    update_limits=True,
-    diag_kws=None,
-    grid_kws=None,
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    labels: list[str] = None,
+    prof_edge_only: bool = False,
+    update_limits: bool = True,
+    diag_kws: dict = None,
+    grid_kws: dict = None,
     **kws,
 ):
     """Corner plot (scatter plot matrix).
 
-    This is a convenience function; see `psdist.visualization.grid.CornerGrid`.
+    This is a convenience function; see `CornerGrid`.
 
     Parameters
     ----------
-    f : ndarray
-        A d-dimensional image.
+    values : ndarray
+        An n-dimensional image.
     coords : list[ndarray]
         Coordinates along each dimension of `f`.
     labels : list[str], length n
@@ -343,29 +369,33 @@ def corner(
         The axis to view (plot) and to slice.
     pad : int, float, list
         This determines the start/stop indices along the sliced dimensions. If
-        0, space the indices along axis `i` uniformly between 0 and `f.shape[i]`.
-        Otherwise, add a padding equal to `int(pad[i] * f.shape[i])`. So, if
+        0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
+        Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
         the shape=10 and pad=0.1, we would start from 1 and end at 9.
     debug : bool
         Whether to print debugging messages.
     **kws
-        Key word arguments pass to `visualization.image.plot2d`
+        Key word arguments pass to `plot.image.plot`
 
     Returns
     -------
-    psdist.visualization.grid.CornerGrid
+    CornerGrid
         The `CornerGrid` on which the plot was drawn.
     """
-    from psdist.visualization.grid import CornerGrid
+    from psdist.plot.grid import CornerGrid
 
     if grid_kws is None:
         grid_kws = dict()
-    grid = CornerGrid(d=f.ndim, **grid_kws)
+
+    grid = CornerGrid(values.ndim, **grid_kws)
+
     if labels is not None:
         grid.set_labels(labels)
+
     grid.plot_image(
-        f,
+        values,
         coords=coords,
+        edges=edges,
         prof_edge_only=prof_edge_only,
         update_limits=True,
         diag_kws=diag_kws,
@@ -375,24 +405,25 @@ def corner(
 
 
 def slice_matrix(
-    f,
-    coords=None,
-    labels=None,
-    axis_view=(0, 1),
-    axis_slice=(2, 3),
-    pad=0.0,
-    debug=False,
-    grid_kws=None,
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    labels: list[str] = None,
+    axis_view: tuple[int, int] = (0, 1),
+    axis_slice: tuple[int, int] = (2, 3),
+    pad: float = 0.0,
+    debug: bool = False,
+    grid_kws: dict = None,
     **kws,
 ):
     """Slice matrix plot.
 
-    This is a convenience function; see `psdist.visualization.grid.SliceGrid`.
+    This is a convenience function; see `psdist.plot.grid.SliceGrid`.
 
     Parameters
     ----------
-    f : ndarray
-        A d-dimensional image.
+    values : ndarray
+        An n-dimensional image.
     coords : list[ndarray]
         Coordinates along each axis of the grid (if `data` is an image).
     labels : list[str], length n
@@ -401,22 +432,22 @@ def slice_matrix(
         The axis to view (plot) and to slice.
     pad : int, float, list
         This determines the start/stop indices along the sliced dimensions. If
-        0, space the indices along axis `i` uniformly between 0 and `f.shape[i]`.
-        Otherwise, add a padding equal to `int(pad[i] * f.shape[i])`. So, if
+        0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
+        Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
         the shape=10 and pad=0.1, we would start from 1 and end at 9.
     debug : bool
         Whether to print debugging messages.
     grid_kws : dict
-        Key word arguments passed to `visualization.grid.SliceGrid`.
+        Key word arguments passed to `plot.grid.SliceGrid`.
     **kws
-        Key word arguments passed to `visualization.image.plot2d`
+        Key word arguments passed to `plot.image.plot`
 
     Returns
     -------
-    psdist.visualization.grid.SliceGrid
+    SliceGrid
         The `SliceGrid` on which the plot was drawn.
     """
-    from psdist.visualization.grid import SliceGrid
+    from psdist.plot.grid import SliceGrid
 
     if grid_kws is None:
         grid_kws = dict()
@@ -427,29 +458,33 @@ def slice_matrix(
     grid_kws.setdefault("yticks", [])
     grid_kws.setdefault("xspineloc", "neither")
     grid_kws.setdefault("yspineloc", "neither")
+
     grid = SliceGrid(**grid_kws)
     grid.plot_image(
-        f,
-        coords=None,
-        labels=None,
-        axis_view=(0, 1),
-        axis_slice=(2, 3),
-        pad=0.0,
-        debug=False,
+        values,
+        coords=coords,
+        edges=edges,
+        labels=labels,
+        axis_view=axis_view,
+        axis_slice=axis_slice,
+        pad=pad,
+        debug=debug,
     )
     return grid
 
 
-def proj2d_interactive_slice(
-    f,
-    coords=None,
-    default_ind=(0, 1),
-    slice_type="int",
-    dims=None,
-    units=None,
-    cmaps=None,
-    thresh_slider=False,
-    profiles_checkbox=False,
+def interactive_slice_2d(
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    default_ind: tuple[int, int] = (0, 1),
+    slice_type: str = "int",
+    dims: list[str] = None,
+    units: list[str] = None,
+    cmaps: list[str] = None,
+    thresh_slider: bool = False,
+    profiles_checkbox: bool = False,
+    fig_kws: dict = None,
     **plot_kws,
 ):
     """2D partial projection with interactive slicing.
@@ -459,8 +494,8 @@ def proj2d_interactive_slice(
 
     Parameters
     ----------
-    f : ndarray
-        A d-dimensional image.
+    values : ndarray
+        An n-dimensional image.
     coords : list[ndarray]
         Coordinate arrays along each dimension. A square grid is assumed.
     default_ind : (i, j)
@@ -469,6 +504,8 @@ def proj2d_interactive_slice(
         Whether to slice one index along the axis or a range of indices.
     dims, units : list[str], shape (n,)
         Dimension names and units.
+    fig_kws : dict
+        Key words for `pplt.subplots`.
     cmaps : list
         Color map options for dropdown menu.
     thresh_slider : bool
@@ -476,7 +513,7 @@ def proj2d_interactive_slice(
     profiles_checkbox : bool
         Whether to include a profiles checkbox.
     **plot_kws
-        Key word arguments for `visualization.image.plot2d`.
+        Key word arguments for `plot.image.plot`.
 
     Returns
     -------
@@ -484,14 +521,27 @@ def proj2d_interactive_slice(
         This widget can be displayed by calling `IPython.display.display(gui)`.
     """
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+        if edges is not None:
+            coords = [psdist.utils.coords_from_edges(e) for e in edges]
+        else:
+            coords = [np.arange(s) for s in values.shape]
+
+    if fig_kws is None:
+        fig_kws = dict()
+
     if dims is None:
-        dims = [f"x{i + 1}" for i in range(f.ndim)]
+        dims = [f"x{i + 1}" for i in range(values.ndim)]
+
     if units is None:
-        units = f.ndim * [""]
+        units = values.ndim * [""]
+
     dims_units = []
     for dim, unit in zip(dims, units):
-        dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
+        if unit:
+            dims_units.append(f"{dim} [{unit}]")
+        else:
+            dims_units.append(dim)
+
     plot_kws.setdefault("colorbar", True)
     plot_kws["process_kws"] = dict(thresh_type="frac")
 
@@ -510,10 +560,9 @@ def proj2d_interactive_slice(
         )
     discrete = widgets.Checkbox(value=False, description="discrete")
     log = widgets.Checkbox(value=False, description="log")
+    _profiles_checkbox = None
     if profiles_checkbox:
         _profiles_checkbox = widgets.Checkbox(value=False, description="profiles")
-    else:
-        _profiles_checkbox = None
     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
 
@@ -521,20 +570,20 @@ def proj2d_interactive_slice(
     # checkbox which determine if that dimension is sliced. The slice
     # indices are determined by the slider.
     sliders, checks = [], []
-    for k in range(f.ndim):
+    for k in range(values.ndim):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
-                max=f.shape[k],
-                value=(f.shape[k] // 2),
+                max=values.shape[k],
+                value=(values.shape[k] // 2),
                 description=dims[k],
                 continuous_update=True,
             )
         elif slice_type == "range":
             slider = widgets.IntRangeSlider(
-                value=(0, f.shape[k]),
+                value=(0, values.shape[k]),
                 min=0,
-                max=f.shape[k],
+                max=values.shape[k],
                 description=dims[k],
                 continuous_update=True,
             )
@@ -546,15 +595,17 @@ def proj2d_interactive_slice(
 
     def hide(button):
         """Hide/show sliders."""
-        for k in range(f.ndim):
+        for k in range(values.ndim):
             # Hide elements for dimensions being plotted.
             valid = dims[k] not in (dim1.value, dim2.value)
             disp = None if valid else "none"
             for element in [sliders[k], checks[k]]:
                 element.layout.display = disp
+
             # Uncheck boxes for dimensions being plotted.
             if not valid and checks[k].value:
                 checks[k].value = False
+
             # Make sliders respond to check boxes.
             if not checks[k].value:
                 sliders[k].layout.display = "none"
@@ -562,15 +613,18 @@ def proj2d_interactive_slice(
     # Update the slider list automatically.
     for element in (dim1, dim2, *checks):
         element.observe(hide, names="value")
+
     # Initial hide
-    for k in range(f.ndim):
+    for k in range(values.ndim):
         if k in default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
 
     def update(**kws):
         """Update the figure."""
-        dim1, dim2 = kws["dim1"], kws["dim2"]
+        dim1 = kws["dim1"]
+        dim2 = kws["dim2"]
+
         ind, checks = [], []
         for i in range(100):
             if f"check{i}" in kws:
@@ -588,12 +642,12 @@ def proj2d_interactive_slice(
         # Slice and project the distribution.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        for k in range(f.ndim):
+        for k in range(values.ndim):
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
-        _f = psdist.image.project(f[idx], axis_view)
+        idx = psdist.image.slice_idx(values.ndim, axis_slice, ind)
+        values_proj = psdist.image.project(values[idx], axis_view)
 
         # Update plotting key word arguments.
         if "cmap" in kws:
@@ -608,15 +662,18 @@ def proj2d_interactive_slice(
             plot_kws["process_kws"]["thresh"] = None
 
         # Plot the projection onto the specified axes.
-        fig, ax = pplt.subplots()
-        ax = plot2d(
-            _f, coords=[coords[axis_view[0]], coords[axis_view[1]]], ax=ax, **plot_kws
+        fig, ax = pplt.subplots(**fig_kws)
+        ax = plot(
+            values_proj,
+            coords=[coords[axis_view[0]], coords[axis_view[1]]],
+            ax=ax,
+            **plot_kws,
         )
         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
-        plt.show()
+        pplt.show()
 
     # Pass key word arguments for `update`.
-    kws = dict()
+    kws = {}
     if cmap is not None:
         kws["cmap"] = cmap
     if profiles_checkbox:
@@ -633,22 +690,23 @@ def proj2d_interactive_slice(
     return interactive(update, **kws)
 
 
-def proj1d_interactive_slice(
-    f,
-    coords=None,
-    default_ind=0,
-    slice_type="int",
-    dims=None,
-    units=None,
-    fig_kws=None,
+def interactive_slice_1d(
+    values: np.ndarray,
+    coords: list[np.ndarray] = None,
+    edges: list[np.ndarray] = None,
+    default_ind: int = 0,
+    slice_type: str = "int",
+    dims: list[str] = None,
+    units: list[str] = None,
+    fig_kws: dict = None,
     **plot_kws,
 ):
     """1D partial projection with interactive slicing.
 
     Parameters
     ----------
-    f : ndarray
-        A d-dimensional image.
+    values : ndarray
+        An n-dimensional image.
     coords : list[ndarray]
         Grid coordinates for each dimension.
     default_ind : int
@@ -670,17 +728,28 @@ def proj1d_interactive_slice(
         This widget can be displayed by calling `IPython.display.display(gui)`.
     """
     if coords is None:
-        coords = [np.arange(f.shape[k]) for k in range(f.ndim)]
+        if edges is not None:
+            coords = [psdist.utils.coords_from_edges(e) for e in edges]
+        else:
+            coords = [np.arange(s) for s in values.shape]
+
     if dims is None:
-        dims = [f"x{i + 1}" for i in range(f.ndim)]
+        dims = [f"x{i + 1}" for i in range(values.ndim)]
+
     if units is None:
-        units = f.ndim * [""]
+        units = values.ndim * [""]
+
     dims_units = []
     for dim, unit in zip(dims, units):
-        dims_units.append(f"{dim}" + f" [{unit}]" if unit != "" else dim)
+        if unit:
+            dims_units.append(f"{dim} [{unit}]")
+        else:
+            dims_units.append(dim)
+
     if fig_kws is None:
         fig_kws = dict()
     fig_kws.setdefault("figsize", (4.5, 1.5))
+
     plot_kws.setdefault("color", "black")
     plot_kws.setdefault("kind", "stepfilled")
 
@@ -689,20 +758,20 @@ def proj1d_interactive_slice(
 
     # Sliders
     sliders, checks = [], []
-    for k in range(f.ndim):
+    for k in range(values.ndim):
         if slice_type == "int":
             slider = widgets.IntSlider(
                 min=0,
-                max=f.shape[k],
-                value=f.shape[k] // 2,
+                max=values.shape[k],
+                value=values.shape[k] // 2,
                 description=dims[k],
                 continuous_update=True,
             )
         elif slice_type == "range":
             slider = widgets.IntRangeSlider(
-                value=(0, f.shape[k]),
+                value=(0, values.shape[k]),
                 min=0,
-                max=f.shape[k],
+                max=values.shape[k],
                 description=dims[k],
                 continuous_update=True,
             )
@@ -714,7 +783,7 @@ def proj1d_interactive_slice(
 
     def hide(button):
         """Hide/show sliders based on checkboxes."""
-        for k in range(f.ndim):
+        for k in range(values.ndim):
             # Hide elements for dimensions being plotted.
             valid = dims[k] != dim1.value
             disp = None if valid else "none"
@@ -731,7 +800,7 @@ def proj1d_interactive_slice(
     for element in (dim1, *checks):
         element.observe(hide, names="value")
     # Initial hide
-    for k in range(f.ndim):
+    for k in range(values.ndim):
         if k == default_ind:
             checks[k].layout.display = "none"
             sliders[k].layout.display = "none"
@@ -754,24 +823,20 @@ def proj1d_interactive_slice(
         # Slice, then project onto the specified axis.
         axis_view = dims.index(dim1)
         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-        for k in range(f.ndim):
+        for k in range(values.ndim):
             if type(ind[k]) is int:
                 ind[k] = (ind[k], ind[k] + 1)
         ind = [ind[k] for k in axis_slice]
-        idx = psdist.image.slice_idx(f.ndim, axis_slice, ind)
-        profile = psdist.image.project(f[idx], axis_view)
+        idx = psdist.image.slice_idx(values.ndim, axis_slice, ind)
+        profile = psdist.image.project(values[idx], axis_view)
 
         # Make it a probability density function.
-        profile = psdist.visualization.scale_profile(
-            profile, coords=coords[axis_view], scale="density"
-        )
+        profile = psdist.plot.scale_profile(profile, coords=coords[axis_view], scale="density")
 
         # Plot the projection.
         fig, ax = pplt.subplots(**fig_kws)
         ax.format(xlabel=dims_units[axis_view])
-        psdist.visualization.plot_profile(
-            profile=profile, coords=coords[axis_view], ax=ax, **plot_kws
-        )
+        psdist.plot.plot_profile(profile=profile, coords=coords[axis_view], ax=ax, **plot_kws)
         plt.show()
 
     kws = {"dim1": dim1}

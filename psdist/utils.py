@@ -25,25 +25,18 @@ def random_choice_no_replacement(array: np.ndarray, size: int) -> np.ndarray:
     """
     if type(array) in (list, tuple):
         array = np.array(array)
-        
+
     if size is None:
         return array
-        
+
     if size < 0 or size > array.shape[0]:
         raise ValueError("Number of samples must be < number of points.")
     if 0 < size < 1:
         size = size * array.shape[0]
     size = int(size)
-        
+
     idx = np.random.choice(array.shape[0], size, replace=False)
     return array[idx]
-    
-
-def covariance_to_correlation(cov: np.ndarray) -> np.ndarray:
-    """Compute correlation matrix from covariance matrix."""
-    D = np.sqrt(np.diag(cov.diagonal()))
-    Dinv = np.linalg.inv(D)
-    return np.linalg.multi_dot([Dinv, cov, Dinv])
 
 
 def sphere_surface_area(r: float = 1.0, ndim: int = 3) -> float:
@@ -54,7 +47,7 @@ def sphere_surface_area(r: float = 1.0, ndim: int = 3) -> float:
 
 def sphere_volume(r: float = 1.0, ndim: int = 3) -> float:
     factor = (np.pi ** (0.5 * ndim)) / scipy.special.gamma(1.0 + 0.5 * ndim)
-    return factor * (r ** ndim)
+    return factor * (r**ndim)
 
 
 def sphere_shell_volume(rmin: float = 0.0, rmax: float = 1.0, ndim: int = 3):
@@ -86,7 +79,7 @@ def edges_list_from_coords_list(coords_list: list[np.ndarray]) -> list[np.ndarra
 
 
 # The following three functions allow saving/loading ragged arrays in .npz format.
-# This is useful if we have multiple coordinate arrays with a different number of 
+# This is useful if we have multiple coordinate arrays with a different number of
 # points in each array.
 # (Source: https://tonysyu.github.io/ragged-arrays.html#.YKVwQy9h3OR)
 def stack_ragged(arrays: list[np.ndarray], axis: int = 0) -> tuple[np.ndarray]:

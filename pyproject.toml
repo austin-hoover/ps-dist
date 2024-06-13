@@ -1,25 +1,16 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "psdist"
-version = "0.3.0"
-authors = [
-  { name="Austin Hoover", email="ahoover1218@gmail.com" },
-]
-description = "Analysis/visualization of phase space distributions"
+name = "ps-dist"
+license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+authors = [
+    {name = "Austin Hoover", email = "austin.michael.hoover@gmail.com"}
 ]
+dynamic = ["version"]
+requires-python = ">=3.10"
 dependencies = [
    "h5py",
    "ipywidgets",
-   "matplotlib",
+   "matplotlib==3.8.4",
    "numpy",
    "proplot @ git+https://github.com/austin-hoover/proplot@82e1d9c169c73832ee3c917585f4e30a4d378e22",
    "scipy",
@@ -27,3 +18,23 @@ dependencies = [
 ]
 
 [project.urls]
+"Source Code" = "https://github.com/austin-hoover/ps-dist"
+
+[build-system]
+requires = [
+    "setuptools>=62",
+    "setuptools_scm>=6.2",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+write_to = "psdist/_version.py"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+
+[tool.black]
+line-length = 110
+target-version = ["py39"]

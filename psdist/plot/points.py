@@ -1,105 +1,51 @@
 """Plotting routines for point data."""
+
+from typing import Callable
+from typing import Union
+import numpy as np
+import proplot as pplt
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
-import numpy as np
-import proplot as pplt
 
 import psdist.image
 import psdist.points
-import psdist.visualization.image as vis_image
-import psdist.visualization.visualization as vis
+from .image import plot as plot_image
+from psdist.points import get_limits as auto_limits
 
 
-def auto_limits(X, sigma=None, pad=0.0, zero_center=False, share=None):
-    """Determine axis limits from coordinate array.
-
-    Parameters
-    ----------
-    X : ndarray, shape (n, d)
-        Coordinate array for n points in d-dimensional space.
-    sigma : float
-        If a number is provided, it is used to set the limits relative to
-        the standard deviation of the distribution.
-    pad : float
-        Fractional padding to apply to the limits.
-    zero_center : bool
-        Whether to center the limits on zero.
-    share : tuple[int] or list[tuple[int]]
-        Limits are shared betweent the dimensions in each set. For example,
-        if `share=(0, 1)`, axis 0 and 1 will share limits. Or if
-        `share=[(0, 1), (4, 5)]` axis 0/1 will share limits, and axis 4/5
-        will share limits.
-
-    Returns
-    -------
-    limits : list[tuple]
-        The limits [(xmin, xmax), (ymin, ymax), ...].
-    """
-    if X.ndim == 1:
-        X = X[:, None]
-    if sigma is None:
-        mins = np.min(X, axis=0)
-        maxs = np.max(X, axis=0)
-    else:
-        means = np.mean(X, axis=0)
-        stds = np.std(X, axis=0)
-        widths = 2.0 * sigma * stds
-        mins = means - 0.5 * widths
-        maxs = means + 0.5 * widths
-    deltas = 0.5 * np.abs(maxs - mins)
-    padding = deltas * pad
-    mins = mins - padding
-    maxs = maxs + padding
-    limits = [(_min, _max) for _min, _max in zip(mins, maxs)]
-    if share:
-        if np.ndim(share[0]) == 0:
-            share = [share]
-        for axis in share:
-            _min = min([limits[k][0] for k in axis])
-            _max = max([limits[k][1] for k in axis])
-            for k in axis:
-                limits[k] = (_min, _max)
-    if zero_center:
-        limits = psdist.visualization.center_limits(limits)
-    if len(limits) == 1:
-        limits = limits[0]
-    return limits
-
-
-def plot_rms_ellipse(X, ax=None, level=1.0, center_at_mean=True, **ellipse_kws):
+def plot_rms_ellipse(
+    points: np.ndarray,
+    level: Union[float, list[float]] = 1.0,
+    center_at_mean: bool = True,
+    ax=None,
+    **ellipse_kws,
+):
     """Compute and plot RMS ellipse from bunch coordinates.
 
     Parameters
     ----------
-    X : ndarray, shape (n, 2)
-        Coordinate array for n points in 2-dimensional space.
-    ax : Axes
-        The axis on which to plot.
+    points : ndarray, shape (..., 2)
+        Particle coordinates.
     level : number of list of numbers
-        If a number, plot the rms ellipse inflated by the number. If a list
-        of numbers, repeat for each number.
+        If a number, plot the rms ellipse inflated by the number. If a list of
+        numbers, repeat for each number.
     center_at_mean : bool
         Whether to center the ellipse at the image centroid.
     """
-    center = np.mean(X, axis=0)
-    if center_at_mean:
+    center = np.mean(points, axis=0)
+    if not center_at_mean:
         center = (0.0, 0.0)
-    Sigma = np.cov(X.T)
-    return psdist.visualization.rms_ellipse(
-        Sigma, center, level=level, ax=ax, **ellipse_kws
-    )
+    return psdist.plot.rms_ellipse(np.cov(points.T), center, level=level, ax=ax, **ellipse_kws)
 
 
-def scatter(X, ax=None, samples=None, **kws):
+def scatter(points: np.ndarray, samples: int = None, ax=None, **kws):
     """Convenience function for 2D scatter plot.
 
     Parameters
     ----------
-    X : ndarray, shape (n, d)
+    points: np.ndarray, shape (..., n)
         Coordinate array for n points in d-dimensional space.
-    ax : Axes
-        The axis on which to plot.
     samples : int
         Plot this many random samples.
     **kws
@@ -113,39 +59,50 @@ def scatter(X, ax=None, samples=None, **kws):
     kws.setdefault("c", "black")
     kws.setdefault("ec", "None")
     kws.setdefault("s", 2.0)
-    _X = X
+
+    _points = points
     if samples:
-        _X = psdist.points.downsample(X, samples)
-    return ax.scatter(_X[:, 0], _X[:, 1], **kws)
+        _points = psdist.points.downsample(_points, samples)
+    return ax.scatter(_points[:, 0], _points[:, 1], **kws)
 
 
-def hist(X, ax=None, bins="auto", limits=None, **kws):
+def hist(
+    points: np.ndarray,
+    bins: str = "auto",
+    limits: list[tuple[float, float]] = None,
+    ax=None,
+    **kws,
+):
     """Convenience function for 2D histogram with auto-binning.
 
     Parameters
     ----------
-    X : ndarray, shape (n, 2)
-        Coordinate array for n points in 2-dimensional space.
-    ax : Axes
-        The axis on which to plot.
-    limits, bins : see `psdist.bunch.histogram`.
+    points: np.ndarray, shape (..., n)
+        Particle coordinates.
+    limits, bins :
+        See `psdist.bunch.histogram`.
     **kws
         Key word arguments passed to `plotting.image`.
     """
-    f, coords = psdist.points.histogram(X, bins=bins, limits=limits, centers=True)
-    return vis_image.plot2d(f, coords=coords, ax=ax, **kws)
+    values, edges = psdist.points.histogram(points, bins=bins, limits=limits)
+    return plot_image(values, edges=edges, ax=ax, **kws)
 
 
-def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
+def kde(
+    points: np.ndarray,
+    coords: list[np.ndarray] = None,
+    res: float = 100,
+    kde_kws: dict = None,
+    ax=None,
+    **kws,
+):
     """Plot kernel density estimation (KDE).
 
     Parameters
     ----------
-    X : ndarray, shape (n, 2)
-        Coordinate array for n points in 2-dimensional space.
-    ax : Axes
-        The axis on which to plot.
-    coords : [xcoords, ycoords]
+    points: np.ndarray, shape (..., n)
+        Particle coordinates.
+    coords: list[np.ndarray]
         Coordinates along each axis of a two-dimensional regular grid on which to
         evaluate the density.
     res : int
@@ -153,109 +110,124 @@ def kde(X, ax=None, coords=None, res=100, kde_kws=None, **kws):
     kde_kws : dict
         Key word arguments passed to `psdist.bunch.kde`.
     **kws
-        Key word arguments passed to `psdist.visualization.image.plot2`.
+        Key word arguments passed to `psdist.plot.image.plot2`.
     """
     if kde_kws is None:
         kde_kws = dict()
     if coords is None:
-        lb = np.min(X, axis=0)
-        ub = np.max(X, axis=0)
+        lb = np.min(points, axis=0)
+        ub = np.max(points, axis=0)
         coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
-    estimator = psdist.points.gaussian_kde(X, **kde_kws)
-    density = estimator.evaluate(psdist.image.get_grid_points(*coords).T)
+    estimator = psdist.points.gaussian_kde(points, **kde_kws)
+    density = estimator.evaluate(psdist.image.get_grid_points(coords).T)
     density = np.reshape(density, [len(c) for c in coords])
-    return vis_image.plot2d(density, coords=coords, ax=ax, **kws)
+    return plot_image(density, coords=coords, ax=ax, **kws)
 
 
-def plot2d(X, kind="hist", rms_ellipse=False, rms_ellipse_kws=None, ax=None, **kws):
+def plot(
+    points: np.ndarray,
+    kind="hist",
+    rms_ellipse=False,
+    rms_ellipse_kws=None,
+    ax=None,
+    **kws,
+):
     """Two-dimensional density plot.
 
     Parameters
     ----------
-    X : ndarray, shape (n, d)
+    points: np.ndarray, shape (..., n)
         Coordinate array for n points in d-dimensional space.
     kind : {'hist', 'contour', 'contourf', 'scatter', 'kde'}
         The kind of plot.
     rms_ellipse : bool
         Whether to plot the RMS ellipse.
     rms_ellipse_kws : dict
-        Key word arguments passed to `visualization.points.plot_rms_ellipse`.
+        Key word arguments passed to `plot.points.plot_rms_ellipse`.
     ax : Axes
         The axis on which to plot.
     **kws
-        Key word arguments passed to `visualization.points.plot2d`.
+        Key word arguments passed to `plot.points.plot`.
     """
     if kind == "hist":
         kws.setdefault("mask", True)
-    func = None
+
+    function = None
     if kind in ["hist", "contour", "contourf"]:
-        func = hist
+        function = hist
         if kind in ["contour", "contourf"]:
             kws["kind"] = kind
     elif kind == "scatter":
-        func = scatter
+        function = scatter
     elif kind == "kde":
-        func = kde
+        function = kde
     else:
         raise ValueError("Invalid plot kind.")
-    _out = func(X, ax=ax, **kws)
+
+    output = function(points, ax=ax, **kws)
     if rms_ellipse:
         if rms_ellipse_kws is None:
             rms_ellipse_kws = dict()
-        plot_rms_ellipse(X, ax=ax, **rms_ellipse_kws)
-    return _out
+        plot_rms_ellipse(points, ax=ax, **rms_ellipse_kws)
+    return output
 
 
-def joint(X, grid_kws=None, marg_hist_kws=None, marg_kws=None, **kws):
+def joint(
+    points: np.ndarray,
+    grid_kws: dict = None,
+    marg_hist_kws: dict = None,
+    marg_kws: dict = None,
+    **kws,
+):
     """Joint plot.
 
-    This is a convenience function; see `psdist.visualization.grid.JointGrid`.
+    This is a convenience function; see `JointGrid`.
 
     Parameters
     ----------
-    X : ndarray, shape (n, 2)
-        Coordinates of n points in 2-dimensional space.
+    points: np.ndarray, shape (..., n)
+        Particle coordinates.
     grid_kws : dict
         Key word arguments passed to `JointGrid`.
     marg_hist_kws : dict
         Key word arguments passed to `np.histogram` for 1D histograms.
     marg_kws : dict
-        Key word arguments passed to `visualization.plot_profile`.
+        Key word arguments passed to `plot.plot_profile`.
     **kws
-        Key word arguments passed to `visualization.image.plot2d.`
+        Key word arguments passed to `plot.image.plot.`
 
     Returns
     -------
-    psdist.visualization.grid.JointGrid
+    psdist.plot.grid.JointGrid
     """
-    from psdist.visualization.grid import JointGrid
+    from psdist.plot.grid import JointGrid
 
     if grid_kws is None:
         grid_kws = dict()
     grid = JointGrid(**grid_kws)
-    grid.plot_points(X, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
+    grid.plot_points(points, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
     return grid
 
 
 def corner(
-    X,
-    grid_kws=None,
-    limits=None,
-    labels=None,
-    autolim_kws=None,
-    prof_edge_only=False,
-    update_limits=True,
-    diag_kws=None,
+    poitns: np.ndarray,
+    grid_kws: dict = None,
+    limits: list[tuple[float, float]] = None,
+    labels: list[str] = None,
+    autolim_kws: dict = None,
+    prof_edge_only: bool = False,
+    update_limits: bool = True,
+    diag_kws: dict = None,
     **kws,
 ):
-    """Corner plot (scatter plot matrix).
+    """Corner plot.
 
-    This is a convenience function; see `psdist.visualization.grid.CornerGrid`.
+    This is a convenience function; see `CornerGrid`.
 
     Parameters
     ----------
-    X : ndarray, shape (n, d)
-        Coordinates of n points in d-dimensional space.
+    points: np.ndarray, shape (..., n)
+        Particle coordinates.
     limits : list[tuple], length n
         The (min, max) plot limits for each axis.
     labels : list[str], length n
@@ -266,24 +238,27 @@ def corner(
     update_limits : bool
         Whether to extend the existing plot limits.
     diag_kws : dict
-        Key word argument passed to `visualization.plot_profile`.
+        Key word argument passed to `plot.plot_profile`.
     **kws
-        Key word arguments pass to `visualization.points.plot2d`
+        Key word arguments pass to `plot.points.plot`
 
     Returns
     -------
-    psdist.visualization.grid.CornerGrid
+    CornerGrid
         The `CornerGrid` on which the plot was drawn.
     """
-    from psdist.visualization.grid import CornerGrid
+    from psdist.plot.grid import CornerGrid
 
     if grid_kws is None:
         grid_kws = dict()
+
     grid = CornerGrid(d=X.shape[1], **grid_kws)
+
     if labels is not None:
         grid.set_labels(labels)
+
     grid.plot_points(
-        X,
+        points,
         limits=limits,
         autolim_kws=autolim_kws,
         prof_edge_only=prof_edge_only,
@@ -294,30 +269,29 @@ def corner(
     return grid
 
 
-def proj2d_interactive_slice(
-    data=None,
-    limits=None,
-    share_limits=1,
-    default_axis=(0, 1),
-    slice_type="int",
-    plot_res=64,
-    slice_res=16,
-    dims=None,
-    units=None,
-    options=None,
-    autolim_kws=None,
-    fig_kws=None,
+def interactive_slice_2d(
+    data: Union[np.ndarray, list[np.ndarray], list[list[np.ndarray]]],
+    limits: list[tuple[float]] = None,
+    share_limits: int = 1,
+    default_axis: tuple[int] = (0, 1),
+    slice_type: str = "int",
+    plot_res: int = 64,
+    slice_res: int = 16,
+    dims: list[str] = None,
+    units: list[str] = None,
+    options: dict = None,
+    autolim_kws: dict = None,
+    fig_kws: dict = None,
     **plot_kws,
 ):
-    """Two-dimensional partial projection of one or more pointss (or series of pointss)
-    with interactive slicing.
+    """Two-dimensional partial projection bunch (or bunches) with interactive slicing.
 
     Parameters
     ----------
     data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
-        - Coordinates of n points in d-dimensional space.
-        - List of L pointss: generates widget to select the frame to plot.
-        - K lists of L pointss: generates K-column figure with widget to select one
+        - Particle coordinates.
+        - List of L bunches: generates widget to select the frame to plot.
+        - K lists of L bunches: generates K-column figure with widget to select one
           of the L frames.
           Example: Compare the evolution of K=3 bunches at L=6 frames.
     limits : list[(min, max)]
@@ -349,7 +323,7 @@ def proj2d_interactive_slice(
     fig_kws : dict
         Key word arguments passed to `proplot.subplots`.
     **plot_kws
-        Key word arguments passed to `plot2d`.
+        Key word arguments passed to `plot`.
     """
     if type(data) is not list:
         data = [data]
@@ -393,13 +367,11 @@ def proj2d_interactive_slice(
                 limits_list[i, j, :, :] = auto_limits(data[i][j], **autolim_kws)
         if share_limits == 1:
             for j in range(n_cols):
-                limits = psdist.visualization.combine_limits(limits_list[:, j, :, :])
+                limits = psdist.plot.combine_limits(limits_list[:, j, :, :])
                 for i in range(n_rows):
                     limits_list[i, j] = limits
         elif share_limits == 2:
-            limits = psdist.visualization.combine_limits(
-                limits_list.reshape((n_rows * n_cols, n_dims, 2))
-            )
+            limits = psdist.plot.combine_limits(limits_list.reshape((n_rows * n_cols, n_dims, 2)))
             for i in range(n_rows):
                 for j in range(n_cols):
                     limits_list[i, j] = limits
@@ -417,15 +389,9 @@ def proj2d_interactive_slice(
 
     # Widgets
     _widgets = dict()
-    _widgets["dim1"] = widgets.Dropdown(
-        options=dims, index=default_axis[0], description="dim 1"
-    )
-    _widgets["dim2"] = widgets.Dropdown(
-        options=dims, index=default_axis[1], description="dim 2"
-    )
-    _widgets["frame"] = widgets.BoundedIntText(
-        min=0, max=(n_cols - 1), description="frame"
-    )
+    _widgets["dim1"] = widgets.Dropdown(options=dims, index=default_axis[0], description="dim 1")
+    _widgets["dim2"] = widgets.Dropdown(options=dims, index=default_axis[1], description="dim 2")
+    _widgets["frame"] = widgets.BoundedIntText(min=0, max=(n_cols - 1), description="frame")
     _widgets["slice_res"] = widgets.BoundedIntText(
         value=slice_res,
         min=2,
@@ -440,9 +406,7 @@ def proj2d_interactive_slice(
         step=1,
         description="plot_res",
     )
-    _widgets["auto_plot_res"] = widgets.Checkbox(
-        description="auto_plot_res", value=False
-    )
+    _widgets["auto_plot_res"] = widgets.Checkbox(description="auto_plot_res", value=False)
     _widgets["discrete"] = widgets.Checkbox(description="discrete", value=False)
     _widgets["ellipse"] = widgets.Checkbox(description="ellipse", value=False)
     _widgets["log"] = widgets.Checkbox(description="log", value=False)
@@ -567,14 +531,12 @@ def proj2d_interactive_slice(
         # Normalize coordinates.
         if kws["normalize"]:
             _data = [
-                psdist.points.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
+                psdist.points.normalize_2d_projections(_points, scale_emittance=True)
+                for _points in _data
             ]
-            _limits_list = [auto_limits(_X, **autolim_kws) for _X in _data]
+            _limits_list = [auto_limits(_points, **autolim_kws) for _points in _data]
             if share_limits > 0:
-                _limits_list = [
-                    psdist.visualization.combine_limits(_limits_list)
-                    for _ in range(len(_data))
-                ]
+                _limits_list = [psdist.plot.combine_limits(_limits_list) for _ in range(len(_data))]
 
         # Slice.
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
@@ -595,8 +557,8 @@ def proj2d_interactive_slice(
                 )
 
         # Handle empty slice (do nothing).
-        for _X in _data:
-            if _X.shape[0] == 0:
+        for _points in _data:
+            if _points.shape[0] == 0:
                 return
 
         # Update plotting key word arguments.
@@ -636,7 +598,7 @@ def proj2d_interactive_slice(
             limits = [_limits_list[index][k] for k in axis_view]
             if plot_kws["kind"] != "scatter":
                 plot_kws["limits"] = limits
-            plot2d(_data[index][:, axis_view], ax=ax, **plot_kws)
+            plot(_data[index][:, axis_view], ax=ax, **plot_kws)
             ax.format(xlim=limits[0], ylim=limits[1])
         labels = dims if _widgets["normalize"].value else dims_units
         axs.format(
@@ -669,28 +631,28 @@ def proj2d_interactive_slice(
     return interactive(update, **kws)
 
 
-def proj1d_interactive_slice(
-    data=None,
-    limits=None,
-    share_limits=False,
-    default_axis=0,
-    slice_type="int",
-    plot_res=64,
-    slice_res=16,
-    dims=None,
-    units=None,
-    colors=None,
-    cycle=None,
-    options=None,
-    labels=None,
-    legend=False,
-    update_limits_on_slice=False,
-    legend_kws=None,
-    autolim_kws=None,
-    fig_kws=None,
+def interactive_slice_1d(
+    data: Union[np.ndarray, list[np.ndarray], list[list[np.ndarray]]],
+    limits: list[tuple[float]] = None,
+    share_limits: int = 1,
+    default_axis: int = 0,
+    slice_type: str = "int",
+    plot_res: int = 64,
+    slice_res: int = 16,
+    dims: list[str] = None,
+    units: list[str] = None,
+    options: dict = None,
+    colors: list[str] = None,
+    cycle: str = None,
+    labels: list[str] = None,
+    legend: bool = False,
+    update_limits_on_slice: bool = False,
+    legend_kws: dict = None,
+    autolim_kws: dict = None,
+    fig_kws: dict = None,
     **plot_kws,
 ):
-    """One-dimensional partial projection of one or more pointss (or series of pointss)
+    """One-dimensional partial projection of one or more bunches (or series of bunches)
     with interactive slicing.
 
     Profiles are scaled to unit area by default.
@@ -698,9 +660,9 @@ def proj1d_interactive_slice(
     Parameters
     ----------
     data : ndarray, shape (n, d) or list[ndarray] or list[list[ndarray]]
-        - Coordinates of n points in d-dimensional space.
-        - List of L pointss: generates widget to select the frame to plot.
-        - K lists of L pointss: generates K-column figure with widget to select one
+        - Particle coordinates.
+        - List of L bunches: generates widget to select the frame to plot.
+        - K lists of L bunches: generates K-column figure with widget to select one
           of the L frames.
           Example: Compare the evolution of K=3 bunches at L=6 frames.
     limits : list[(min, max)]
@@ -790,11 +752,11 @@ def proj1d_interactive_slice(
     if limits is None:
         limits_list = np.zeros((n_cols, n_dims, 2))
         for j in range(n_cols):
-            limits_list[j] = psdist.visualization.combine_limits(
+            limits_list[j] = psdist.plot.combine_limits(
                 [auto_limits(data[i][j], **autolim_kws) for i in range(n_rows)]
             )
         if share_limits:
-            limits = psdist.visualization.combine_limits(limits_list)
+            limits = psdist.plot.combine_limits(limits_list)
             for j in range(n_cols):
                 limits_list[j] = limits
     else:
@@ -811,12 +773,8 @@ def proj1d_interactive_slice(
 
     # Widgets
     _widgets = dict()
-    _widgets["dim"] = widgets.Dropdown(
-        options=dims, index=default_axis, description="dim"
-    )
-    _widgets["frame"] = widgets.BoundedIntText(
-        min=0, max=(n_cols - 1), description="frame"
-    )
+    _widgets["dim"] = widgets.Dropdown(options=dims, index=default_axis, description="dim")
+    _widgets["frame"] = widgets.BoundedIntText(min=0, max=(n_cols - 1), description="frame")
     _widgets["slice_res"] = widgets.BoundedIntText(
         value=slice_res,
         min=2,
@@ -831,12 +789,8 @@ def proj1d_interactive_slice(
         step=1,
         description="plot_res",
     )
-    _widgets["alpha"] = widgets.FloatSlider(
-        min=0.0, max=1.0, value=1.0, description="alpha"
-    )
-    _widgets["auto_plot_res"] = widgets.Checkbox(
-        description="auto_plot_res", value=False
-    )
+    _widgets["alpha"] = widgets.FloatSlider(min=0.0, max=1.0, value=1.0, description="alpha")
+    _widgets["auto_plot_res"] = widgets.Checkbox(description="auto_plot_res", value=False)
     _widgets["kind"] = widgets.Dropdown(
         description="kind",
         options=["step", "stepfilled", "line", "linefilled"],
@@ -949,12 +903,8 @@ def proj1d_interactive_slice(
 
         # Normalize coordinates.
         if kws["normalize"]:
-            _data = [
-                psdist.points.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data
-            ]
-            limits = psdist.visualization.combine_limits(
-                [auto_limits(_X, **autolim_kws) for _X in _data]
-            )
+            _data = [psdist.points.norm_xxp_yyp_zzp(_X, scale_emittance=True) for _X in _data]
+            limits = psdist.plot.combine_limits([auto_limits(_X, **autolim_kws) for _X in _data])
 
         # Slice.
         axis_view = dims.index(dim_view)
@@ -981,9 +931,7 @@ def proj1d_interactive_slice(
 
         # Recompute limits from sliced data.
         if update_limits_on_slice:
-            limits = psdist.visualization.combine_limits(
-                [auto_limits(_X, **autolim_kws) for _X in _data]
-            )
+            limits = psdist.plot.combine_limits([auto_limits(_X, **autolim_kws) for _X in _data])
 
         # Create figure.
         bins = "auto" if kws["auto_plot_res"] else kws["plot_res"]
@@ -1001,17 +949,13 @@ def proj1d_interactive_slice(
             plot_kws["alpha"] = kws["alpha"]
             plot_kws["kind"] = kws["kind"]
             plot_kws["scale"] = kws["scale"]
-            psdist.visualization.plot_profile(
-                profile=hist, edges=bin_edges, ax=ax, **plot_kws
-            )
+            psdist.plot.plot_profile(profile=hist, edges=bin_edges, ax=ax, **plot_kws)
 
         if kws["log"]:
             ax.format(yscale="log", yformatter="log")
         ax.format(
             xlim=limits[axis_view],
-            xlabel=dims[axis_view]
-            if _widgets["normalize"].value
-            else dims_units[axis_view],
+            xlabel=(dims[axis_view] if _widgets["normalize"].value else dims_units[axis_view]),
         )
         if legend and (labels is not None):
             ax.legend(**legend_kws)
