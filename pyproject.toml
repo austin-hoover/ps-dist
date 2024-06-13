@@ -1,11 +1,11 @@
 [project]
 name = "ps-dist"
+authors = [
+    {name = "Austin Hoover"}
+]
 license = {file = "LICENSE"}
 readme = "README.md"
-authors = [
-    {name = "Austin Hoover", email = "austin.michael.hoover@gmail.com"}
-]
-dynamic = ["version"]
+version = "1.0.0"
 requires-python = ">=3.10"
 dependencies = [
    "h5py",
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.urls]
-"Source Code" = "https://github.com/austin-hoover/ps-dist"
+Repository = "https://github.com/austin-hoover/ps-dist"
 
 [build-system]
 requires = [
@@ -28,13 +28,3 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "psdist/_version.py"
-
-[tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
-
-[tool.black]
-line-length = 110
-target-version = ["py39"]
