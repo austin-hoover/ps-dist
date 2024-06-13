@@ -1,11 +1,22 @@
 # psdist
 
-This repository is a collection of analysis and visualization methods for high-dimensional distributions.
+This repository is a collection of methods to analyze high-dimensional distributions.
 
 
 ## Installation
 
-https://pypi.org/project/psdist/
+Install from pip:
+```shell
+pip install psdist
+```
+
+Install from cloned repository:
+
+```shell
+git clone https://github.com/austin-hoover/psdist.git
+cd psdist
+pip install -e .
+```
 
 
 ## Examples
