@@ -18,6 +18,15 @@ def normalization_matrix(cov: np.ndarray) -> np.ndarray:
     return normalization_matrix_from_eigvecs(eigvecs)
 
 
+def normalization_matrix_block_diag(cov: np.ndarray) -> np.ndarray:
+    """Compute block-diagonal symplectic matrix that diagonalizes 2x2 block-diagonal
+    elements of covariance matrix (i.e., cov[:2, :2])."""
+    Vinv = np.identity(cov.shape[0])
+    for i in range(0, cov.shape[0], 2):
+        Vinv[i: i + 2, i: i + 2] = normalization_matrix(cov[i: i + 2, i: i + 2])
+    return Vinv
+
+
 def cov_to_corr(cov: np.ndarray) -> np.ndarray:
     """Compute correlation matrix from covariance matrix."""
     S = cov
