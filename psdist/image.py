@@ -642,7 +642,7 @@ def sample(
 
     points = np.squeeze(np.random.uniform(lb, ub).T)
     if noise:
-        for axis in range(x.shape[1]):
+        for axis in range(points.shape[1]):
             delta = ub[axis] - lb[axis]
             points[:, axis] += noise * 0.5 * np.random.uniform(-delta, delta, size=points.shape[0])
     return points
