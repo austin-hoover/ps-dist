@@ -7,6 +7,8 @@ import psdist.image
 import psdist.points
 import psdist.utils
 from psdist.cov import rms_ellipse_dims
+from psdist.plot.image import plot as plot_image
+from psdist.plot.points import plot as plot_points
 
 
 def ellipse(
