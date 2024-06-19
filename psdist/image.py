@@ -97,7 +97,7 @@ def radial_density(
     return np.array(values_r)
 
 
-def mean(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
+def centroid(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     """Compute the n-dimensional mean.
 
     Parameters
@@ -119,7 +119,7 @@ def mean(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     return mean
 
 
-def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
+def covariance_matrix(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     """Compute the n x n covariance matrix.
 
     Parameters
@@ -134,7 +134,7 @@ def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
         The covariance matrix.
     """
 
-    def get_cov_2x2(values: np.ndarray, coords: list[np.ndarray]) -> np.ndarray:
+    def covariance_matrix_2x2(values: np.ndarray, coords: list[np.ndarray]) -> np.ndarray:
         COORDS = np.meshgrid(*coords, indexing="ij")
         cov = np.zeros((values.ndim, values.ndim))
         values_sum = np.sum(values)
@@ -154,7 +154,7 @@ def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
         coords = [np.arange(s) for s in values.shape]
 
     if values.ndim < 3:
-        return cov_2x2(values, coords)
+        return covariance_matrix_2x2(values, coords)
 
     cov = np.zeros((values.ndim, values.ndim))
     for i in range(values.ndim):
@@ -163,16 +163,16 @@ def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
             _values = project(values, axis=axis)
             _coords = [coords[i] for i in axis]
             # Compute 2 x 2 covariance matrix from this projection.
-            _cov = get_cov_2x2(_values, _coords)
+            cov_2x2 = covariance_matrix_2x2(_values, _coords)
             # Update elements of n x n covariance matrix. This will update
             # some elements multiple times, but it should not matter.
-            cov[i, i] = _cov[0, 0]
-            cov[j, j] = _cov[1, 1]
-            cov[i, j] = Sigma[j, i] = _cov[0, 1]
+            cov[i, i] = cov_2x2[0, 0]
+            cov[j, j] = cov_2x2[1, 1]
+            cov[i, j] = cov[j, i] = cov_2x2[0, 1]
     return cov
 
 
-def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
+def correlation_matrix(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     """Compute the n x n correlation matrix.
 
     Parameters
@@ -186,7 +186,7 @@ def cov(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
     ndarray, shape (n, n).
         The correlation matrix.
     """
-    return cov_to_corr(cov(values, coords))
+    return cov_to_corr(covariance_matrix(values, coords))
 
 
 # Higher order moments (experimental)
