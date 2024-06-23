@@ -78,6 +78,10 @@ def edges_list_from_coords_list(coords_list: list[np.ndarray]) -> list[np.ndarra
     return [edges_from_coords(coords) for coords in coords_list]
 
 
+edges_to_coords = coords_from_edges
+coords_to_edges = edges_from_coords
+
+
 # The following three functions allow saving/loading ragged arrays in .npz format.
 # This is useful if we have multiple coordinate arrays with a different number of
 # points in each array.
