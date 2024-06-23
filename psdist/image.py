@@ -1,5 +1,4 @@
 from typing import Callable
-from typing import Self
 from typing import Union
 
 import numpy as np
@@ -724,7 +723,7 @@ class Image:
     def sample(self, size: int, noise: int = 0.0) -> None:
         return sample(self.values, edges=self.edges, size=size, noise=noise)
 
-    def project(self, axis: Union[int, tuple[int, ...]]) -> Self:
+    def project(self, axis: Union[int, tuple[int, ...]]):
         values_proj = project(self.values, axis=axis)
 
         if values_proj.ndim == 1:
