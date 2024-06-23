@@ -735,7 +735,7 @@ class Image:
 
     def slice(
         self, 
-        axis: Union[int, tuple[int, :]],
-        ind: Union[int, tuple[int, :], list[tuple[int, ...]]],
+        axis: Union[int, tuple[int, ...]],
+        ind: Union[int, tuple[int, ...], list[tuple[int, ...]]],
     ) -> np.ndarray:
         return _slice(self.values, axis=axis, ind=ind)
