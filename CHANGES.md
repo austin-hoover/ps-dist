@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.2]
+
+* Added cubehelix colormap function.
+* Added `utils.coords_to_edges` and `utils.edges_to_coords`.
+* Added `image.Image` and `image.Profile`.
 
 ## [1.0.1]
 
