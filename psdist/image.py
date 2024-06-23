@@ -1,4 +1,5 @@
 from typing import Callable
+from typing import Self
 from typing import Union
 
 import numpy as np
@@ -204,7 +205,7 @@ def expected_value(function: Callable, values: np.ndarray, coords: list[np.ndarr
 
 
 def moment(
-    axis: tuple[int], order: tuple[int], values: np.ndarray, coords: list[np.ndarray]
+    axis: tuple[int, ...], order: tuple[int, ...], values: np.ndarray, coords: list[np.ndarray]
 ) -> float:
     function = lambda x: np.prod([x[k] ** order[i] for i, k in enumerate(axis)])
     return expected_value(function, values, coords)
@@ -232,8 +233,8 @@ def halo_parameter(values: np.ndarray, coords: list[np.ndarray]) -> float:
 
 def slice_idx(
     ndim: int,
-    axis: Union[int, tuple[int]],
-    ind: Union[int, tuple[int], list[tuple[int]]],
+    axis: Union[int, tuple[int, ...]],
+    ind: Union[int, tuple[int, ...], list[tuple[int, ...]]],
 ) -> tuple[list]:
     """Return planar slice index array.
 
@@ -241,9 +242,9 @@ def slice_idx(
     ----------
     ndim : int
         The number of elements in the slice index array. (The number of dimensions in the array to be sliced.)
-    axis : int or tuple[int]
+    axis : int or tuple[int, ...]
         The sliced axes.
-    ind : int, tuple[int] or list[tuple[int]]
+    ind : int, tuple[int, ...] or list[tuple[int, ...]]
         The indices along the sliced axes. If a tuple is provided, this defines the (min, max) index.
 
     Returns
@@ -280,7 +281,7 @@ def slice_idx(
 
 
 def slice_idx_ellipsoid(
-    values: np.ndarray, axis: tuple[int], rmin: float, rmax: float
+    values: np.ndarray, axis: tuple[int, ...], rmin: float, rmax: float
 ) -> tuple[list]:
     """Compute an ellipsoid slice from covariance matrix.
 
@@ -288,7 +289,7 @@ def slice_idx_ellipsoid(
     ----------
     values : ndarray
         An n-dimensional image.
-    axis : tuple[int]
+    axis : tuple[int, ...]
         Specificies the subspace in which the ellipsoid slices are computed.
         Example: in x-y-z space, we may define a circle in x-y. This could
         select points within a cylinder in x-y-z.
@@ -309,7 +310,7 @@ def slice_idx_ellipsoid(
 
 
 def slice_idx_contour(
-    values: np.ndarray, axis: tuple[int], lmin: float = 0.0, lmax: float = 1.0
+    values: np.ndarray, axis: tuple[int, ...], lmin: float = 0.0, lmax: float = 1.0
 ) -> tuple[list]:
     """Compute a contour slice.
 
@@ -317,7 +318,7 @@ def slice_idx_contour(
     ----------
     values : ndarray
         An n-dimensional image.
-    axis : tuple[int]
+    axis : tuple[int, ...]
         Specificies the subspace in which the contours are computed. (See
         `slice_idx_ellipsoid`.)
     lmin, lmax : float
@@ -337,27 +338,27 @@ def slice_idx_contour(
 
 def _slice(
     values: np.ndarray,
-    axis: Union[int, tuple[int]],
-    ind: Union[int, tuple[int], list[tuple[int]]],
+    axis: Union[int, tuple[int, ...]],
+    ind: Union[int, tuple[int, ...], list[tuple[int, ...]]],
 ) -> np.ndarray:
     """Return values[idx] for"""
     idx = slice_idx(values.ndim, axis=axis, ind=ind)
     return values[idx]
 
 
-def _slice_ellipsoid(values: np.ndarray, axis: tuple[int], rmin: float, rmax: float) -> np.ndarray:
+def _slice_ellipsoid(values: np.ndarray, axis: tuple[int, ...], rmin: float, rmax: float) -> np.ndarray:
     idx = slice_idx_ellipsoid(values, axis=axis, rmin=rmin, rmax=rmax)
     return values[idx]
 
 
 def _slice_contour(
-    values: np.ndarray, axis: tuple[int], lmin: float = 0.0, lmax: float = 1.0
+    values: np.ndarray, axis: tuple[int, ...], lmin: float = 0.0, lmax: float = 1.0
 ) -> np.ndarray:
     idx = slice_idx_contour(values, axis=axis, lmin=lmin, lmax=lmax)
     return values[idx]
 
 
-def project(values: np.ndarray, axis: Union[int, tuple[int]]) -> np.ndarray:
+def project(values: np.ndarray, axis: Union[int, tuple[int, ...]]) -> np.ndarray:
     """Project image onto axis.
 
     Parameters
@@ -436,7 +437,7 @@ def project_contour_slice_1d(
 
 def project2d_contour(
     values: np.ndarray,
-    axis: tuple[int] = (0, 1),
+    axis: tuple[int, ...] = (0, 1),
     lmin: float = 0.0,
     lmax: float = 1.0,
     values_proj: np.ndarray = None,
@@ -494,7 +495,7 @@ def project2d_contour(
 
 def copy_into_new_dim(
     values: np.ndarray,
-    shape: tuple[int],
+    shape: tuple[int, ...],
     axis: int = -1,
     method: str = "broadcast",
     copy: bool = False,
@@ -692,3 +693,35 @@ def sample_sparse(
         delta = 0.5 * noise * np.array([np.mean(np.diff(e)) for e in edges])
         points += np.random.uniform(low=-delta, high=delta, size=points.shape)
     return points
+
+
+class Image:
+    def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+        self.ndim = values.shape
+        self.values = values
+        self.coords = coords
+        self.edges = edges
+        if (self.coords is None) and (self.edges is not None):
+            self.coords = [coords_from_edges(e) for e in self.edges]
+        if (self.edges is None) and (self.coords is not None):
+            self.edges = [edges_from_coords(c) for c in self.coords]
+
+    def sample(self, size: int, noise: int = 0.0) -> None:
+        return sample(self.values, edges=self.edges, size=size, noise=noise)
+
+    def project(self, axis: Union[int, tuple[int, ...]]) -> Self:
+        values_proj = project(self.values, axis=axis)
+
+        if values_proj.ndim == 1:
+            edges_proj = self.edges[axis]
+        else:
+            edges_proj = [self.edges[i] for i in axis]
+        
+        return Image(values_proj, edges=edges_proj)
+
+    def slice(
+        self, 
+        axis: Union[int, tuple[int, :]],
+        ind: Union[int, tuple[int, :], list[tuple[int, ...]]],
+    ) -> np.ndarray:
+        return _slice(self.values, axis=axis, ind=ind)
