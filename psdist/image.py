@@ -695,6 +695,21 @@ def sample_sparse(
     return points
 
 
+class Profile:
+    def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+        self.ndim = values.shape
+        self.values = values
+        self.coords = coords
+        self.edges = edges
+        if (self.coords is None) and (self.edges is not None):
+            self.coords = coords_from_edges(self.edges)
+        if (self.edges is None) and (self.coords is not None):
+            self.edges = edges_from_coords(self.coords)
+
+    def sample(self, size: int, noise: int = 0.0) -> None:
+        return sample(self.values, edges=self.edges, size=size, noise=noise)
+
+
 class Image:
     def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
         self.ndim = values.shape
