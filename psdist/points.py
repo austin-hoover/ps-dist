@@ -156,6 +156,9 @@ def get_limits(
     return limits
 
 
+limits = get_limits
+
+
 # Distances (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
 # --------------------------------------------------------------------------------------
 ## - Wasserstein
