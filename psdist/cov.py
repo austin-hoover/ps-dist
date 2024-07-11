@@ -92,6 +92,10 @@ def apparent_emittances(cov: np.ndarray) -> list[float]:
     return emittances
 
 
+projected_emittances = apparent_emittances
+eigen_emittances = intrinsic_emittances
+
+
 def intrinsic_emittances(cov: np.ndarray) -> tuple[float, ...]:
     """Compute rms intrinsic emittances from covariance matrix."""
     # To do: compute eigvals to extend to 6 x 6, rather than
