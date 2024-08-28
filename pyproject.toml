@@ -9,9 +9,9 @@ requires-python = ">=3.10"
 dependencies = [
    "h5py",
    "ipywidgets",
-   "matplotlib==3.8.4",
+   "matplotlib",
    "numpy",
-   "proplot @ git+https://github.com/austin-hoover/proplot@82e1d9c169c73832ee3c917585f4e30a4d378e22",
+   "proplot @ git+https://github.com/cvanelteren/proplot.git@v0.9.91",
    "scipy",
    "tqdm",
 ]
