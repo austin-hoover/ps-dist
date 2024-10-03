@@ -210,7 +210,7 @@ def joint(
 
 
 def corner(
-    poitns: np.ndarray,
+    points: np.ndarray,
     grid_kws: dict = None,
     limits: list[tuple[float, float]] = None,
     labels: list[str] = None,
@@ -252,7 +252,7 @@ def corner(
     if grid_kws is None:
         grid_kws = dict()
 
-    grid = CornerGrid(d=X.shape[1], **grid_kws)
+    grid = CornerGrid(ndim=points.shape[1], **grid_kws)
 
     if labels is not None:
         grid.set_labels(labels)
