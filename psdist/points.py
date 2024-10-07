@@ -312,6 +312,7 @@ def slice_contour(
     interp: bool = True,
     interp_kws: dict = None,
     hist_kws: dict = None,
+    return_indices: bool = False,
 ):
     """Return points within a contour shell slice.
 
@@ -367,6 +368,10 @@ def slice_contour(
         for i in range(len(indices)):
             if indices[i].tolist() in valid_indices.tolist():
                 idx.append(i)
+
+    if return_indices:
+        return points[idx, :], idx
+
     return points[idx, :]
 
 
