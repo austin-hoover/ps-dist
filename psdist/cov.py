@@ -7,57 +7,65 @@ from .ap import normalize_eigvecs
 from .ap import normalization_matrix_from_eigvecs
 
 
-def normalization_matrix(cov: np.ndarray) -> np.ndarray:
+def normalization_matrix(S: np.ndarray, scale: bool = False) -> np.ndarray:
     """Compute symplectic matrix that diagonalizes covariance matrix"""
-    ndim = cov.shape[0]
-    S = cov
+    ndim = S.shape[0]
+    
     U = unit_symplectic_matrix(ndim)
     SU = np.matmul(S, U)
+    
     eigvals, eigvecs = np.linalg.eig(SU)
     eigvecs = normalize_eigvecs(eigvecs)
-    return normalization_matrix_from_eigvecs(eigvecs)
+    
+    V_inv = normalization_matrix_from_eigvecs(eigvecs)
 
+    if scale:
+        V = np.linalg.inv(V_inv)
+        A = np.sqrt(np.diag(np.repeat(intrinsic_emittances(S), 2)))
+        V = np.matmul(V, A)
+        V_inv = np.linalg.inv(V)
+    
+    return V_inv
 
-def normalization_matrix_block_diag(cov: np.ndarray) -> np.ndarray:
+def normalization_matrix_block_diag(S: np.ndarray, scale: bool = False) -> np.ndarray:
     """Compute block-diagonal symplectic matrix that diagonalizes 2x2 block-diagonal
-    elements of covariance matrix (i.e., cov[:2, :2])."""
-    Vinv = np.identity(cov.shape[0])
-    for i in range(0, cov.shape[0], 2):
-        Vinv[i: i + 2, i: i + 2] = normalization_matrix(cov[i: i + 2, i: i + 2])
-    return Vinv
+    elements of covariance matrix (i.e., S[:2, :2])."""
+    V_inv = np.identity(S.shape[0])
+    for i in range(0, S.shape[0], 2):
+        V_inv[i: i + 2, i: i + 2] = normalization_matrix(S[i: i + 2, i: i + 2], scale=scale)
+    return V_inv
 
 
-def cov_to_corr(cov: np.ndarray) -> np.ndarray:
+def cov_to_corr(S: np.ndarray) -> np.ndarray:
     """Compute correlation matrix from covariance matrix."""
-    S = cov
     D = np.sqrt(np.diag(S.diagonal()))
     Dinv = np.linalg.inv(D)
     return np.linalg.multi_dot([Dinv, S, Dinv])
 
 
-def emittance(cov: np.ndarray) -> float:
+def emittance(S: np.ndarray) -> float:
     """Compute emittance from covariance matrix."""
-    return np.sqrt(np.linalg.det(cov))
+    return np.sqrt(np.linalg.det(S))
 
 
-def twiss_2x2(cov: np.ndarray) -> tuple[float, float]:
+def twiss_2x2(S: np.ndarray) -> tuple[float, float]:
     """Compute twiss parameters from 2 x 2 covariance matrix.
 
     alpha = -<xx'> / sqrt(<xx><x'x'> - <xx'><xx'>)
     beta  =  <xx>  / sqrt(<xx><x'x'> - <xx'><xx'>)
     """
-    eps = emittance(cov)
-    beta = cov[0, 0] / eps
-    alpha = -cov[0, 1] / eps
+    eps = emittance(S)
+    beta = S[0, 0] / eps
+    alpha = -S[0, 1] / eps
     return (alpha, beta)
 
 
-def twiss(cov: np.ndarray) -> list[float]:
+def twiss(S: np.ndarray) -> list[float]:
     """Compute two-dimensional twiss parameters from 2n x 2n covariance matrix.
 
     Parameters
     ----------
-    cov : ndarray, shape (2n, 2n)
+    S : ndarray, shape (2n, 2n)
         Covariance matrix. (Dimensions ordered {x, x', y, y', ...}.)
 
     Returns
@@ -66,17 +74,17 @@ def twiss(cov: np.ndarray) -> list[float]:
         The Twiss parameters in each plane.
     """
     params = []
-    for i in range(0, cov.shape[0], 2):
-        params.extend(twiss_2x2(cov[i : i + 2, i : i + 2]))
+    for i in range(0, S.shape[0], 2):
+        params.extend(twiss_2x2(S[i : i + 2, i : i + 2]))
     return params
 
 
-def apparent_emittances(cov: np.ndarray) -> list[float]:
+def apparent_emittances(S: np.ndarray) -> list[float]:
     """Compute rms apparent emittances from 2n x 2n covariance matrix.
 
     Parameters
     ----------
-    cov : ndarray, shape (2n, 2n)
+    S : ndarray, shape (2n, 2n)
         A covariance matrix. (Dimensions ordered {x, x', y, y', ...}.)
 
     Returns
@@ -85,18 +93,20 @@ def apparent_emittances(cov: np.ndarray) -> list[float]:
         The emittance in each phase-plane (eps_x, eps_y, eps_z, ...)
     """
     emittances = []
-    for i in range(0, cov.shape[0], 2):
-        emittances.append(emittance(cov[i : i + 2, i : i + 2]))
+    for i in range(0, S.shape[0], 2):
+        emittances.append(
+            np.sqrt(np.linalg.det(S[i : i + 2, i : i + 2]))
+        )
     if len(emittances) == 1:
         emittances = emittances[0]
     return emittances
 
 
-def intrinsic_emittances(cov: np.ndarray) -> tuple[float, ...]:
+def intrinsic_emittances(S: np.ndarray) -> tuple[float, ...]:
     """Compute rms intrinsic emittances from covariance matrix."""
     # To do: compute eigvals to extend to 6 x 6, rather than
     # using analytic eigenvalue solution specific to 4 x 4.
-    S = np.copy(cov[:4, :4])
+    S = np.copy(S[:4, :4])
     U = unit_symplectic_matrix(4)
     tr_SU2 = np.trace(np.linalg.matrix_power(np.matmul(S, U), 2))
     det_S = np.linalg.det(S)
@@ -109,12 +119,12 @@ projected_emittances = apparent_emittances
 eigen_emittances = intrinsic_emittances
 
 
-def rms_ellipse_dims(cov: np.ndarray, axis: tuple[int, ...] = None) -> tuple[float, ...]:
+def rms_ellipse_dims(S: np.ndarray, axis: tuple[int, ...] = None) -> tuple[float, ...]:
     """Return projected rms ellipse dimensions and orientation.
 
     Parameters
     ----------
-    cov : ndarray, shape (2n, 2n)
+    S : ndarray, shape (2n, 2n)
         The phase space covariance matrix.
     axis : tuple[int]
         Projection axis. Example: if the axes are {x, xp, y, yp}, and axis=(0, 2),
@@ -127,12 +137,12 @@ def rms_ellipse_dims(cov: np.ndarray, axis: tuple[int, ...] = None) -> tuple[flo
     angle : float
         The tilt angle below the x axis [radians].
     """
-    if cov.shape[0] == 2:
+    if S.shape[0] == 2:
         axis = (0, 1)
     (i, j) = axis
-    sii = cov[i, i]
-    sjj = cov[j, j]
-    sij = cov[i, j]
+    sii = S[i, i]
+    sjj = S[j, j]
+    sij = S[i, j]
     angle = -0.5 * np.arctan2(2 * sij, sii - sjj)
     _sin = np.sin(angle)
     _cos = np.cos(angle)
