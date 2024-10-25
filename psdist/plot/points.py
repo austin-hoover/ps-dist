@@ -410,7 +410,7 @@ def interactive_slice_2d(
     _widgets["discrete"] = widgets.Checkbox(description="discrete", value=False)
     _widgets["ellipse"] = widgets.Checkbox(description="ellipse", value=False)
     _widgets["log"] = widgets.Checkbox(description="log", value=False)
-    _widgets["mask"] = widgets.Checkbox(description="mask", value=True)
+    _widgets["mask"] = widgets.Checkbox(description="mask", value=False)
     _widgets["normalize"] = widgets.Checkbox(description="normalize", value=False)
     _widgets["profiles"] = widgets.Checkbox(description="profiles", value=False)
 
