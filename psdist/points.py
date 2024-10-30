@@ -195,6 +195,7 @@ def slice_planar(
     center: np.ndarray = None,
     width: np.ndarray = None,
     limits: list[tuple[float, float]] = None,
+    return_indices: bool = False,
 ):
     """Return points within a planar slice.
 
@@ -240,6 +241,10 @@ def slice_planar(
         conditions.append(points[:, j] > umin)
         conditions.append(points[:, j] < umax)
     idx = np.logical_and.reduce(conditions)
+    
+    if return_indices:
+        return (points[idx, :], idx)
+
     return points[idx, :]
 
 
@@ -248,6 +253,7 @@ def slice_sphere(
     axis: Union[int, tuple[int]] = None,
     rmin: float = 0.0,
     rmax: float = None,
+    return_indices: bool = False,
 ) -> np.ndarray:
     """Return points within a spherical shell slice.
 
@@ -269,6 +275,10 @@ def slice_sphere(
         rmax = np.inf
     radii = get_radii(project(points, axis))
     idx = np.logical_and(radii > rmin, radii < rmax)
+    
+    if return_indices:
+        return (points[idx, :], idx)
+
     return points[idx, :]
 
 
@@ -277,6 +287,7 @@ def slice_ellipsoid(
     axis: Union[int, tuple[int]] = None,
     rmin: float = 0.0,
     rmax: float = None,
+    return_indices: bool = False,
 ) -> np.ndarray:
     """Return points within an ellipsoidal shell slice.
 
@@ -301,6 +312,10 @@ def slice_ellipsoid(
         rmax = np.inf
     radii = get_ellipsoid_radii(project(points, axis))
     idx = np.logical_and(rmin < radii, radii < rmax)
+
+    if return_indices:
+        return (points[idx, :])
+
     return points[idx, :]
 
 
