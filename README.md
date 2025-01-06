@@ -5,13 +5,6 @@ Analysis tools for high-dimensional phase space distributions.
 
 ## Installation
 
-Install from pip:
-```shell
-pip install psdist
-```
-
-Install from cloned repository:
-
 ```shell
 git clone https://github.com/austin-hoover/psdist.git
 cd psdist
