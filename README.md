@@ -1,14 +1,9 @@
 # psdist
 
-Analysis tools for high-dimensional phase space distributions.
+Analysis tools for phase space distributions.
 
 
 ## Installation
-
-Install from pip:
-```shell
-pip install psdist
-```
 
 Install from cloned repository:
 
