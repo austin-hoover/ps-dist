@@ -8,11 +8,10 @@ import scipy.optimize
 import scipy.special
 import scipy.stats
 
-from . import ap
-from . import cov as cov_utils
+from . import cov
 from . import utils
 from .cov import cov_to_corr
-from .cov import norm_matrix_from_twiss_2x2
+from .cov import normalization_matrix_from_twiss
 from .utils import array_like
 from .utils import coords_from_edges
 from .utils import random_choice_no_replacement
@@ -63,15 +62,15 @@ def enclosing_ellipsoid_radius(points: np.ndarray, fraction: float = 1.0) -> flo
 def find_min_volume_bounding_ellipse(points: np.ndarray, **opt_kws) -> tuple[np.ndarray, float]:
     """Find the minimum-volume bounding ellipse."""
 
-    def normalize(_points: np.ndarray, _alpha: float, _beta: float) -> np.ndarray:
-        return transform_linear(_points, norm_matrix_from_twiss_2x2(_alpha, _beta))
+    def _normalize(_points: np.ndarray, _alpha: float, _beta: float) -> np.ndarray:
+        return transform_linear(_points, normalization_matrix_from_twiss_2d(_alpha, _beta))
 
-    def bounding_ellipse_area(twiss_params: list[float], _points: np.ndarray) -> float:
+    def _bounding_ellipse_area(twiss_params: list[float], _points: np.ndarray) -> float:
         (_alpha, _beta) = twiss_params
-        return np.max(np.linalg.norm(normalize(_points, _alpha, _beta), axis=1))
+        return np.max(np.linalg.norm(_normalize(_points, _alpha, _beta), axis=1))
 
-    cov = covariance_matrix(points)
-    alpha, beta = cov_utils.twiss(cov)
+    S = covariance_matrix(points)
+    alpha, beta = cov.twiss(S)
     guess = [alpha, beta]
 
     result = scipy.optimize.least_squares(
@@ -82,8 +81,8 @@ def find_min_volume_bounding_ellipse(points: np.ndarray, **opt_kws) -> tuple[np.
         **opt_kws,
     )
     (alpha, beta) = result.x
-    Vinv = norm_matrix_from_twiss_2x2(alpha, beta)
-    V = np.linalg.inv(Vinv)
+    V_inv = normalization_matrix_from_twiss_2d(alpha, beta)
+    V = np.linalg.inv(V_inv)
     emittance = bounding_ellipse_area([alpha, beta], points)
     return (V, emittance)
 
@@ -415,17 +414,17 @@ def normalize_2d_projections(points: np.ndarray, scale_emittance: bool = False) 
     if (ndim % 2) != 0:
         raise ValueError("Must have even number of dimensions")
 
-    cov = covariance_matrix(points)
+    S = covariance_matrix(points)
     points_n = np.zeros(points.shape)
     for i in range(0, ndim, 2):
-        cov_sub = cov[i : i + 2, i : i + 2]
-        (alpha, beta) = cov_utils.twiss(cov_sub)
+        S_sub = S[i : i + 2, i : i + 2]
+        (alpha, beta) = cov.twiss(S_sub)
         points_n[:, i] = points[:, i] / np.sqrt(beta)
         points_n[:, i + 1] = (np.sqrt(beta) * points[:, i + 1]) + (
             alpha * points[:, i] / np.sqrt(beta)
         )
         if scale_emittance:
-            emittance = cov_utils.emittance(cov_sub)
+            emittance = cov.rms_ellipsoid_volume(S_sub)
             points_n[:, i : i + 2] = points_n[:, i : i + 2] / np.sqrt(emittance)
     return points_n
 
