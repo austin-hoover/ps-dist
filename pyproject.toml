@@ -1,19 +1,20 @@
 [project]
 name = "psdist"
 authors = [{name = "Austin Hoover"}]
-description = "Analysis tools for high-dimensional phase space distributions"
+description = "Analysis tools for phase space distributions"
 license = {file = "LICENSE"}
 readme = "README.md"
-version = "1.0.3"
-requires-python = ">=3.10"
+version = "2.0.0"
+requires-python = ">=3.11"
+
 dependencies = [
-   "h5py",
-   "ipywidgets",
-   "matplotlib",
    "numpy",
-   "proplot @ git+https://github.com/cvanelteren/proplot.git@v0.9.91",
    "scipy",
    "tqdm",
+
+   "ipywidgets",
+   "matplotlib",
+   "ultraplot",
 ]
 
 [project.urls]
