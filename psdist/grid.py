@@ -1,74 +1,132 @@
 from typing import Callable
-from typing import Union
+from typing import Self
 
 import numpy as np
 from scipy import ndimage
-from tqdm import tqdm
 
 from .cov import cov_to_corr
+from .points import covariance_matrix
 from .utils import array_like
-from .utils import coords_from_edges
-from .utils import edges_from_coords
+from .utils import coords_to_edges
+from .utils import edges_to_coords
 
 
-# Analysis
-# --------------------------------------------------------------------------------------
+class Grid1D:
+    def __init__(self, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+        self.coords = coords
+        self.edges = edges
+        
+        if (self.coords is None) and (self.edges is not None):
+            self.coords = edges_to_coords(self.edges)
+        
+        if (self.edges is None) and (self.coords is not None):
+            self.edges = coords_to_edges(self.coords)
+
+        self.shape = (len(self.coords),)
+        self.size = len(self.coords)
+        self.ndim = 1
 
 
-def get_grid_points(coords: list[np.ndarray] = None, edges: list[np.ndarray] = None) -> np.ndarray:
-    """Return list of grid points from coordinate arrays along each axis.
+class Grid:
+    def __init__(self, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+        self.coords = coords
+        self.edges = edges
+        
+        if (self.coords is None) and (self.edges is not None):
+            self.coords = edges_to_coords(self.edges)
+        
+        if (self.edges is None) and (self.coords is not None):
+            self.edges = coords_to_edges(self.coords)
+            
+        if type(self.coords) not in [tuple, list]:
+            self.coords = [self.coords]
 
-    Parameters
-    ----------
-    coords, edges : list[ndarray]
-        Bin center or edge coordinates along each axis of a regular grid.
-        Example: [[1, 2, 3], [0, 1, 2]].
+        if type(self.edges) not in [tuple, list]:
+            self.edges = [self.edges]
 
-    Returns
-    -------
-    ndarray, shape (size, len(coords))
-        Coordinate array for all points in the grid. The total number of grid
-        points is `size = np.prod([len(c) for c in coords])`.
-    """
-    if coords is None:
-        coords = [coords_from_edges(e) for e in edges]
+        self.shape = ([len(c) for c in self.coords])
+        self.size = np.prod(self.shape)
+        self.ndim = len(self.shape)
+
+
+class GridDist(Grid):
+    def __init__(self, values: np.ndarray = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        self.values = values
+        if self.values is None:
+            self.values = np.zeros(shape)
+
+
+class GridDist1D(Grid):
+    def __init__(self, values: np.ndarray = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        self.values = values
+        if self.values is None:
+            self.values = np.zeros(shape)
+
+
+class SparseGrid:
+    def __init__(self):
+        raise NotImplementedError
+
+
+class SparseGridDist(SparseGrid):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+
+def meshpoints(grid: GridDist) -> np.ndarray:
+    coords = grid.coords
     return np.vstack([C.ravel() for C in np.meshgrid(*coords, indexing="ij")]).T
 
 
-def max_indices(values: np.ndarray) -> tuple[np.ndarray]:
+def max_indices(grid: GridDist) -> tuple[np.ndarray]:
     """Return the indices of the maximum element."""
+    values = grid.values
     return np.unravel_index(np.argmax(values), values.shape)
 
 
-def get_radii(coords: np.ndarray, cov: np.ndarray) -> np.ndarray:
+def ellipsoid_radii(grid: GridDist, covariance_matrix: np.ndarray) -> np.ndarray:
     """Return covariance ellipsoid radii from grid coordinates and covariance matrix.
 
-    This is quite slow when n > 4 due to creating a mesh grid.
+    Radius is defined as x^T Sigma^-1^T. This function computes the radius
+    at every point on the grid.
+
+    This is quite slow when n > 4.
 
     Parameters
     ----------
-    coords : list[ndarray], length n
-        Coordinate array for each dimension of the regular grid.
-    cov : ndarray, shape (n, n)
-        Covariance matrix of some distribution on the grid.
+    grid: GridDist
+        Distribution on N-dimensional grid.
+    covariance_matrix: np.ndarray
+        N x N covariance matrix.
 
     Returns
     -------
-    R : ndarray
-        "Radius" x^T Sigma^-1^T x at each point in grid.
+    ndarray: np.ndarray
+        Radius x^T Sigma^-1^T x at each point in grid.
     """
+    shape = grid.shape
+    coords = grid.coords
     COORDS = np.meshgrid(*coords, indexing="ij")
-    shape = tuple([len(c) for c in coords])
+
+    S = covariance_matrix
+    S_inv = np.linalg.inv(S)
+
     R = np.zeros(shape)
-    cov_inv = np.linalg.inv(cov)
     for ii in np.ndindex(shape):
-        vec = np.array([C[ii] for C in COORDS])
-        R[ii] = np.sqrt(np.linalg.multi_dot([vec.T, cov_inv, vec]))
+        v = np.array([C[ii] for C in COORDS])
+        R[ii] = np.sqrt(np.linalg.multi_dot([v.T, S_inv, v]))
     return R
 
 
 def radial_density(
-    values: np.ndarray, R: np.ndarray, radii: np.ndarray, dr: float = None
+    grid: GridDist,
+    covariance_matrix: np.ndarray,
+    radii: np.ndarray,
+    dr: float = None,
 ) -> np.ndarray:
     """Return average density within ellipsoidal shells.
 
@@ -88,8 +146,12 @@ def radial_density(
     ndarray, shape (k,)
         The average density within each ellipsoidal shell.
     """
+    values = grid.values
+
+    R = ellipsoid_radii(grid, covariance_matrix)
     if dr is None:
         dr = 0.5 * np.max(R) / (len(R) - 1)
+
     values_r = []
     for r in radii:
         values_masked = np.ma.masked_where(np.logical_or(R < r, R > r + dr), values)
@@ -97,46 +159,18 @@ def radial_density(
     return np.array(values_r)
 
 
-def centroid(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
-    """Compute the n-dimensional mean.
-
-    Parameters
-    ----------
-    values : ndarray
-        An n-dimensional image.
-    coords : list[ndarray]
-        Coordinates along each axis of the image.
-
-    Returns
-    -------
-    ndarray, shape (n,)
-        The mean vector.
-    """
-    if coords is None:
-        coords = [np.arange(s) for s in values.shape]
-    mean = [np.average(C, weights=values) for C in np.meshgrid(*coords, indexing="ij")]
-    mean = np.array(mean)
-    return mean
+def mean(grid: GridDist) -> np.ndarray:
+    coords = grid.coords
+    values = grid.values
+    x = [np.average(C, weights=values) for C in np.meshgrid(*coords, indexing="ij")]
+    x = np.array(x)
+    return x
 
 
-def covariance_matrix(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
-    """Compute the n x n covariance matrix.
-
-    Parameters
-    ----------
-    values : ndarray
-        An n-dimensional image.
-    coords : list[ndarray]
-
-    Returns
-    -------
-    ndarray, shape (n, n).
-        The covariance matrix.
-    """
-
-    def covariance_matrix_2x2(values: np.ndarray, coords: list[np.ndarray]) -> np.ndarray:
+def covariance_matrix(grid: GridDist) -> np.ndarray:
+    def covariance_matrix_2d(values: np.ndarray, coords: list[np.ndarray]) -> np.ndarray:
         COORDS = np.meshgrid(*coords, indexing="ij")
-        cov = np.zeros((values.ndim, values.ndim))
+        S = np.zeros((values.ndim, values.ndim))
         values_sum = np.sum(values)
         if values_sum > 0:
             mean = np.array([np.average(C, weights=values) for C in COORDS])
@@ -147,94 +181,72 @@ def covariance_matrix(values: np.ndarray, coords: list[np.ndarray] = None) -> np
                     EX = np.sum(values * X) / values_sum
                     EY = np.sum(values * Y) / values_sum
                     EXY = np.sum(values * X * Y) / values_sum
-                    cov[i, j] = cov[j, i] = EXY - EX * EY
-        return cov
+                    S[i, j] = S[j, i] = EXY - EX * EY
+        return S
 
-    if coords is None:
-        coords = [np.arange(s) for s in values.shape]
+    ndim = grid.ndim
 
-    if values.ndim < 3:
-        return covariance_matrix_2x2(values, coords)
+    if ndim < 3:
+        return covariance_matrix_2d(grid.values, grid.coords)
 
-    cov = np.zeros((values.ndim, values.ndim))
-    for i in range(values.ndim):
+    S = np.zeros((ndim, ndim))
+    for i in range(ndim):
         for j in range(i):
-            axis = (i, j)
-            _values = project(values, axis=axis)
-            _coords = [coords[i] for i in axis]
             # Compute 2 x 2 covariance matrix from this projection.
-            cov_2x2 = covariance_matrix_2x2(_values, _coords)
+            axis = (i, j)
+            grid_proj = project(grid, axis)
+            S_proj = covariance_matrix_2d(grid_proj.values, grid_proj.coords)
+
             # Update elements of n x n covariance matrix. This will update
             # some elements multiple times, but it should not matter.
-            cov[i, i] = cov_2x2[0, 0]
-            cov[j, j] = cov_2x2[1, 1]
-            cov[i, j] = cov[j, i] = cov_2x2[0, 1]
-    return cov
+            S[i, i] = S_proj[0, 0]
+            S[j, j] = S_proj[1, 1]
+            S[i, j] = S[j, i] = S_proj[0, 1]
+    return S
 
 
-def correlation_matrix(values: np.ndarray, coords: list[np.ndarray] = None) -> np.ndarray:
-    """Compute the n x n correlation matrix.
-
-    Parameters
-    ----------
-    values : ndarray
-        An n-dimensional image.
-    coords : list[ndarray]
-
-    Returns
-    -------
-    ndarray, shape (n, n).
-        The correlation matrix.
-    """
-    return cov_to_corr(covariance_matrix(values, coords))
+def correlation_matrix(grid: GridDist) -> np.ndarray:
+    return cov_to_corr(covariance_matrix(grid))
 
 
-# Higher order moments (experimental)
-# --------------------------------------------------------------------------------------
+def expected_value(grid: GridDist, function: Callable) -> float:
+    coords = grid.coords
+    values = grid.values
 
-
-def expected_value(function: Callable, values: np.ndarray, coords: list[np.ndarray]) -> float:
     pdf = np.copy(values) / np.sum(values)
     pdf_flat = pdf.ravel()
 
-    exp = 0.0
-    for i, x in enumerate(get_grid_points(coords)):
-        exp += func(x) * pdf_flat[i]
-    return exp
+    value = 0.0
+    for i, x in enumerate(meshpoints(grid)):
+        value += function(x) * pdf_flat[i]
+    return value
 
 
-def moment(
-    axis: tuple[int, ...], order: tuple[int, ...], values: np.ndarray, coords: list[np.ndarray]
-) -> float:
+def moment(grid: GridDist, axis: tuple[int, ...], order: tuple[int, ...]) -> float:
     function = lambda x: np.prod([x[k] ** order[i] for i, k in enumerate(axis)])
-    return expected_value(function, values, coords)
+    return expected_value(grid, function)
 
 
-def halo_parameter(values: np.ndarray, coords: list[np.ndarray]) -> float:
-    pdf = values.copy() / np.sum(values)
-    q2 = moment(axis=(0,), order=(2,), values=values, coords=coords)
-    p2 = moment(axis=(1,), order=(2,), values=values, coords=coords)
-    q4 = moment(axis=(0,), order=(4,), values=values, coords=coords)
-    p4 = moment(axis=(1,), order=(4,), values=values, coords=coords)
-    qp = moment(axis=(0, 1), order=(1, 1), values=values, coords=coords)
-    q2p2 = moment(axis=(0, 1), order=(2, 2), values=values, coords=coords)
-    qp3 = moment(axis=(0, 1), order=(1, 3), values=values, coords=coords)
-    q3p = moment(axis=(0, 1), order=(3, 1), values=values, coords=coords)
+def halo_parameter(grid: GridDist) -> float:
+    q2 = moment(grid, axis=(0,), order=(2,))
+    p2 = moment(grid, axis=(1,), order=(2,))
+    q4 = moment(grid, axis=(0,), order=(4,))
+    p4 = moment(grid, axis=(1,), order=(4,))
+    qp = moment(grid, axis=(0, 1), order=(1, 1),)
+    q2p2 = moment(grid, axis=(0, 1), order=(2, 2))
+    qp3 = moment(grid, axis=(0, 1), order=(1, 3))
+    q3p = moment(grid, axis=(0, 1), order=(3, 1))
 
     numer = np.sqrt(3.0 * q4 * p4 + 9.0 * (q2p2**2) - 12.0 * qp3 * q3p)
     denom = 2.0 * q2 * p2 - 2.0 * (qp**2)
     return (numer / denom) - 2.0
 
 
-# Transformations
-# --------------------------------------------------------------------------------------
-
-
-def slice_idx(
+def get_slice_idx(
     ndim: int,
-    axis: Union[int, tuple[int, ...]],
-    ind: Union[int, tuple[int, ...], list[tuple[int, ...]]],
-) -> tuple[list]:
+    axis: int | tuple[int, ...],
+    ind: int | tuple[int, ...] | list[tuple[int, ...]]
+) -> tuple[slice, ...]:
     """Return planar slice index array.
 
     Parameters
@@ -248,7 +260,7 @@ def slice_idx(
 
     Returns
     -------
-    idx : n-tuple
+    idx : tuple
         The slice index array. A slice of the array `values` may then be accessed as `values[idx]`.
     """
     # Make list if only one axis provided.
@@ -279,9 +291,12 @@ def slice_idx(
     return tuple(idx)
 
 
-def slice_idx_ellipsoid(
-    values: np.ndarray, axis: tuple[int, ...], rmin: float, rmax: float
-) -> tuple[list]:
+def get_slice_idx_ellipsoid(
+    axis: tuple[int, ...],
+    covariance_matrix: np.ndarray,
+    rmin: float,
+    rmax: float
+) -> tuple[slice, ...]:
     """Compute an ellipsoid slice from covariance matrix.
 
     Parameters
@@ -303,20 +318,23 @@ def slice_idx_ellipsoid(
     np.ma.masked_array
         A version of `values` in which elements outside the slice are masked.
     """
-    # Will need to compute an (n-m)-dimensional mask (m = len(axis)), then
+    # Will need to compute an (N - M)-dimensional mask (M = len(axis)), then
     # copy the mask into the remaining dimensions with `copy_into_new_dim`.
     raise NotImplementedError
 
 
-def slice_idx_contour(
-    values: np.ndarray, axis: tuple[int, ...], lmin: float = 0.0, lmax: float = 1.0
-) -> tuple[list]:
+def get_slice_idx_contour(
+    grid: GridDist,
+    axis: tuple[int, ...],
+    lmin: float = 0.0,
+    lmax: float = 1.0,
+) -> tuple[slice, ...]:
     """Compute a contour slice.
 
     Parameters
     ----------
-    values : ndarray
-        An n-dimensional image.
+    grid : GridDist
+        Distribution on N-dimensional grid.
     axis : tuple[int, ...]
         Specificies the subspace in which the contours are computed. (See
         `slice_idx_ellipsoid`.)
@@ -330,12 +348,12 @@ def slice_idx_contour(
     np.ma.masked_array
         A version of `values` in which elements outside the slice are masked.
     """
-    # Will need to compute an (n-m)-dimensional mask (m = len(axis)), then
+    # Will need to compute an (N - M)-dimensional mask (M = len(axis)), then
     # copy the mask into the remaining dimensions with `copy_into_new_dim`.
     raise NotImplementedError
 
 
-def _slice(
+def slice_grid(
     values: np.ndarray,
     axis: Union[int, tuple[int, ...]],
     ind: Union[int, tuple[int, ...], list[tuple[int, ...]]],
@@ -357,28 +375,34 @@ def _slice_contour(
     return values[idx]
 
 
-def project(values: np.ndarray, axis: Union[int, tuple[int, ...]]) -> np.ndarray:
-    """Project image onto axis.
+def project(grid: GridDist, axis: int | tuple[int, ...]) -> GridDist:
+    """Project grid distribution onto axis.
 
     Parameters
     ----------
-    values : ndarray
-        An n-dimensional image.
-    axis : list[int]
+    grid : GridDist
+        Distribution on N-dimensional grid.
+    axis : int | tuple[int, ...]
         The axes onto which the image is projected, i.e., the axes which are not summed over.
         Array axes are swapped as required.
 
     Returns
     -------
-    proj : ndarray
-        The projection of `image` onto the specified axis.
+    GridDist
+        The projection of `grid` onto the specified axis.
     """
+    if grid.ndim == 1:
+        return grid
+
+    coords = grid.coords
+    values = grid.values
+
     # Sum over specified axes.
     if type(axis) is int:
         axis = [axis]
     axis = tuple(axis)
     axis_sum = tuple([i for i in range(values.ndim) if i not in axis])
-    proj = np.sum(values, axis_sum)
+    values_proj = np.sum(values, axis_sum)
 
     # Order the remaining axes.
     loc = list(range(proj.ndim))
@@ -388,37 +412,46 @@ def project(values: np.ndarray, axis: Union[int, tuple[int, ...]]) -> np.ndarray
     for i in range(proj.ndim):
         if loc[i] != destination[i]:
             j = loc.index(destination[i])
-            proj = np.swapaxes(proj, i, j)
-            loc[i], loc[j] = loc[j], loc[i]
-    return proj
+            values_proj = np.swapaxes(proj, i, j)
+            (loc[i], loc[j]) = (loc[j], loc[i])
+
+    # Make new grid
+    coords_proj = [grid.coords[i] for i in axis]
+    grid_proj = GridDist(values=values_proj, coords=coords_proj)
+    return grid_proj
 
 
 def project_contour_slice_1d(
-    values: np.ndarray,
+    grid: GridDist,
     axis: int = 0,
     lmin: float = 0.0,
     lmax: float = 1.0,
-    values_proj: np.ndarray = None,
+    grid_proj: GridDist = None,
 ) -> np.ndarray:
-    """Apply contour slice in n - 1 dimensions, then project onto the remaining dimension.
+    """Apply contour slice in N- 1 dimensions, then project onto the remaining dimension.
 
     Parameters
     ----------
-    values : ndarray
-        An n-dimensional image.
+    grid : GridDist
+        Distribution on N-dimensional grid.
     axis : int
         The projection axis.
     lmin, lmax : float
-        Min and max contour levels of the (d-1)-dimensional projection of `values`,
-        normalized the the range [0, 1].
-    values_proj : ndarray, shape [f.shape[i] for i in range(values.ndim) if i != axis]
-        The (n-1)-dimensional projection of `values` onto all dimensions other than `axis`.
-        (If not provided, it will be computed within the function.)
+        Min and max contour levels of the (N-1)-dimensional projection of `values`,
+        normalized the range [0, 1].
+    grid_proj : GridDist
+        The (N-1)-dimensional projection of `grid` onto all dimensions other than `axis`.
+        If not provided, it will be computed within the function.
+
+        Shape:
+        ```
+        tuple([grid.shape[i] for i in range(grid.ndim) if i != axis])
+        ```
 
     Returns
     -------
-    ndarray, shape (values.shape[axis],)
-        The projection of the slice.
+    GridDist
+        The projection of the sliced grid.
     """
     axis_proj = [i for i in range(values.ndim) if i != axis]
     if values_proj is None:
@@ -694,48 +727,3 @@ def sample_sparse(
     return points
 
 
-class Profile:
-    def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
-        self.ndim = values.shape
-        self.values = values
-        self.coords = coords
-        self.edges = edges
-        if (self.coords is None) and (self.edges is not None):
-            self.coords = coords_from_edges(self.edges)
-        if (self.edges is None) and (self.coords is not None):
-            self.edges = edges_from_coords(self.coords)
-
-    def sample(self, size: int, noise: int = 0.0) -> None:
-        return sample(self.values, edges=self.edges, size=size, noise=noise)
-
-
-class Image:
-    def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
-        self.ndim = values.shape
-        self.values = values
-        self.coords = coords
-        self.edges = edges
-        if (self.coords is None) and (self.edges is not None):
-            self.coords = [coords_from_edges(e) for e in self.edges]
-        if (self.edges is None) and (self.coords is not None):
-            self.edges = [edges_from_coords(c) for c in self.coords]
-
-    def sample(self, size: int, noise: int = 0.0) -> None:
-        return sample(self.values, edges=self.edges, size=size, noise=noise)
-
-    def project(self, axis: Union[int, tuple[int, ...]]):
-        values_proj = project(self.values, axis=axis)
-
-        if values_proj.ndim == 1:
-            edges_proj = self.edges[axis]
-        else:
-            edges_proj = [self.edges[i] for i in axis]
-        
-        return Image(values_proj, edges=edges_proj)
-
-    def slice(
-        self, 
-        axis: Union[int, tuple[int, ...]],
-        ind: Union[int, tuple[int, ...], list[tuple[int, ...]]],
-    ) -> np.ndarray:
-        return _slice(self.values, axis=axis, ind=ind)

@@ -59,18 +59,33 @@ def rotation_matrix(angle: float) -> np.ndarray:
     return np.array([[c, s], [-s, c]])
 
 
-def coords_from_edges(edges: np.ndarray) -> np.ndarray:
+def edges_to_coords(edges: np.ndarray | list[np.ndarray]) -> np.ndarray:
     """Compute bin center coordinates from evenly spaced bin edges."""
-    return 0.5 * (edges[:-1] + edges[1:])
+    def edges_to_coords_1d(_edges):
+        return 0.5 * (_edges[:-1] + _edges[1:])
+
+    coords = None
+    if np.ndim(edges[0]) == 0:
+        coords = edges_to_coords_1d(edges)
+    else:
+        coords = [edges_to_coords_1d(e) for e in edges]
+    return coords
 
 
-def edges_from_coords(coords: np.ndarray) -> np.ndarray:
+def coords_to_edges(coords: np.ndarray | list[np.ndarray]) -> np.ndarray:
     """Compute bin edges from evenly spaced bin center coordinates."""
-    delta = np.diff(coords)[0]
-    return np.hstack([coords - 0.5 * delta, [coords[-1] + 0.5 * delta]])
+    def coords_to_edges_1d(_coords):
+        delta = np.diff(_coords)[0]
+        return np.hstack([_coords - 0.5 * delta, [_coords[-1] + 0.5 * delta]])
 
+    edges = None
+    if np.ndim(coords[0]) == 0:
+        edges = coords_to_edges_1d(coords)
+    else:
+        edges = [coords_to_edges_1d(c) for c in coords]
+    return edges
 
-def coords_list_from_edges_list(edges_list: list[np.ndarray]) -> list[np.ndarray]:
+def edges_list_to_coords_list(edges_list: list[np.ndarray]) -> list[np.ndarray]:
     return [coords_from_edges(edges) for edges in edges_list]
 
 
