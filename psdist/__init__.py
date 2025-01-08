@@ -1,4 +1,3 @@
-from . import ap
 from . import cov
 from . import dist
 from . import image
