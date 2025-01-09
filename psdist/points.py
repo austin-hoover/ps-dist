@@ -8,6 +8,7 @@ import scipy.stats
 
 from . import cov as cov_utils
 from .hist import Histogram
+from .hist import Histogram1D
 from .hist import SparseHistogram
 from .utils import edges_to_coords
 from .utils import coords_to_edges
@@ -586,7 +587,7 @@ def radial_histogram(points: np.ndarray, **kws) -> None:
         rmax = edges[i + 1]
         values[i] /= sphere_shell_volume(rmin, rmax, points.shape[1])
 
-    return Histogram(values=values, edges=edges)
+    return Histogram1D(values=values, edges=edges)
 
 
 def build_gaussian_kde(points: np.ndarray, **kws) -> Callable:

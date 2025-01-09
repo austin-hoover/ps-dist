@@ -93,7 +93,7 @@ class SparseHistogram(Grid):
 
 
 class Histogram1D:
-    def __init__(self, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+    def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
         self.coords = coords
         self.edges = edges
 
@@ -107,6 +107,10 @@ class Histogram1D:
         self.ndim = 1
         self.size = len(self.coords)
         self.cell_volume = self.coords[1] - self.coords[0]
+
+        self.values = values
+        if self.values is None:
+            self.values = np.zeros(self.shape)
 
     def normalize(self) -> None:
         values_sum = np.sum(self.values)
