@@ -14,11 +14,7 @@ def get_grid_points(coords: list[np.ndarray]) -> np.ndarray:
 
 
 class Grid:
-    def __init__(
-        self,
-        coords: np.ndarray | list[np.ndarray] = None,
-        edges: np.ndarray | list[np.ndarray] = None,
-    ) -> None:
+    def __init__(self, coords: list[np.ndarray] = None, edges: list[np.ndarray] = None) -> None:
         self.coords = coords
         self.edges = edges
 
@@ -28,20 +24,10 @@ class Grid:
         if (self.edges is None) and (self.coords is not None):
             self.edges = coords_to_edges(self.coords)
 
-        self.ndim = None
-        if np.ndim(self.coords[0]) == 0:
-            self.shape = (len(self.coords),)
-        else:
-            self.shape = tuple([len(c) for c in self.coords])
-
+        self.shape = tuple([len(c) for c in self.coords])
         self.ndim = len(self.shape)
         self.size = np.prod(self.shape)
-
-        self.cell_volume = 1.0
-        if self.ndim == 1:
-            self.cell_volume = self.coords[1] - self.coords[0]
-        else:
-            self.cell_volume = np.prod([c[1] - c[0] for c in self.coords])
+        self.cell_volume = np.prod([c[1] - c[0] for c in self.coords])
 
     def points(self) -> np.ndarray:
         return get_grid_points(self.coords)
@@ -104,6 +90,28 @@ class SparseHistogram(Grid):
 
     def sample(self, **kwargs) -> np.ndarray:
         return sample_sparse_hist(**kwargs)
+
+
+class Histogram1D:
+    def __init__(self, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+        self.coords = coords
+        self.edges = edges
+
+        if (self.coords is None) and (self.edges is not None):
+            self.coords = edges_to_coords(self.edges)
+
+        if (self.edges is None) and (self.coords is not None):
+            self.edges = coords_to_edges(self.coords)
+
+        self.shape = (len(self.coords),)
+        self.ndim = 1
+        self.size = len(self.coords)
+        self.cell_volume = self.coords[1] - self.coords[0]
+
+    def normalize(self) -> None:
+        values_sum = np.sum(self.values)
+        if values_sum > 0.0:
+            self.values = self.values / values_sum / self.cell_volume
 
 
 def slice_idx(
