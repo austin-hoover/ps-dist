@@ -21,7 +21,7 @@ def test_projected_emittances_identity():
 
 def test_intrinsic_emittances_identity():
     S = np.eye(4)
-    assert np.allclose(ps.cov.intrinsic_emittances(S), [1.0, 1.0]) 
+    assert np.allclose(ps.cov.intrinsic_emittances(S), [1.0, 1.0])
 
 
 def test_twiss_identity():

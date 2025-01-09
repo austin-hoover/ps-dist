@@ -5,12 +5,11 @@ import numpy as np
 import scipy.special
 
 
-def array_like(array: Any) -> None:
-    """Return true if array like."""
+def array_like(array: Any) -> bool:
     return np.ndim(np.array(array, dtype=object)) > 0
 
 
-def symmetrize(a: np.ndarray) -> np.ndarray:
+def symmetrize(array: np.ndarray) -> np.ndarray:
     """Return a symmetrized version of array.
 
     array : A square upper or lower triangular matrix.
@@ -61,6 +60,7 @@ def rotation_matrix(angle: float) -> np.ndarray:
 
 def edges_to_coords(edges: np.ndarray | list[np.ndarray]) -> np.ndarray:
     """Compute bin center coordinates from evenly spaced bin edges."""
+
     def edges_to_coords_1d(_edges):
         return 0.5 * (_edges[:-1] + _edges[1:])
 
@@ -73,7 +73,8 @@ def edges_to_coords(edges: np.ndarray | list[np.ndarray]) -> np.ndarray:
 
 
 def coords_to_edges(coords: np.ndarray | list[np.ndarray]) -> np.ndarray:
-    """Compute bin edges from evenly spaced bin center coordinates."""
+    """Compute bin edges from evenly spaced bin coordinates."""
+
     def coords_to_edges_1d(_coords):
         delta = np.diff(_coords)[0]
         return np.hstack([_coords - 0.5 * delta, [_coords[-1] + 0.5 * delta]])
@@ -85,22 +86,13 @@ def coords_to_edges(coords: np.ndarray | list[np.ndarray]) -> np.ndarray:
         edges = [coords_to_edges_1d(c) for c in coords]
     return edges
 
-def edges_list_to_coords_list(edges_list: list[np.ndarray]) -> list[np.ndarray]:
-    return [coords_from_edges(edges) for edges in edges_list]
-
-
-def edges_list_from_coords_list(coords_list: list[np.ndarray]) -> list[np.ndarray]:
-    return [edges_from_coords(coords) for coords in coords_list]
-
-
-edges_to_coords = coords_from_edges
-coords_to_edges = edges_from_coords
-
 
 # The following three functions allow saving/loading ragged arrays in .npz format.
 # This is useful if we have multiple coordinate arrays with a different number of
 # points in each array.
 # (Source: https://tonysyu.github.io/ragged-arrays.html#.YKVwQy9h3OR)
+
+
 def stack_ragged(arrays: list[np.ndarray], axis: int = 0) -> tuple[np.ndarray]:
     """Stacks list of arrays along first axis.
 
