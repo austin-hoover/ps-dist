@@ -47,7 +47,6 @@ def process_values_blur(values: np.ndarray, sigma: float) -> np.ndarray:
 
 
 def process_values_normalize(values: np.ndarray, norm: str = "volume", pixel_volume: float = 1.0) -> np.ndarray:
-    """Scale to unit volume or unit maximum."""
     factor = 1.0
     if norm == "volume":
         factor = np.sum(values) * pixel_volume
@@ -66,7 +65,6 @@ def process(
     clip: tuple[float] = None,
     clip_type: str = "abs",
     norm: bool | str = None,
-    cell_volume: float = 1.0,
     blur: float = None,
 ) -> Histogram:
     """Return processed image.
@@ -105,12 +103,10 @@ def process(
 
     hist.values = values
     return hist
-#
-#
-# def plot_profiles(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+
+
+# def plot_profiles_overlay(
+#     hist: Histogram,
 #     profx: bool = True,
 #     profy: bool = True,
 #     scale: float = 0.12,
@@ -123,12 +119,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         A two-dimensional image.
-#     coords: list[np.ndarray]
-#         Lists specifying pixel center coordinates along each axis.
-#     edges: list[np.ndarray]
-#         Lists specifying pixel edge coordinates along each axis.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     profx, profy : bool
 #         Whether to plot the x/y profile.
 #     scale : float
@@ -185,9 +177,7 @@ def process(
 #
 #
 # def plot_rms_ellipse(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     level: float = 1.0,
 #     center_at_mean: bool = True,
 #     ax=None,
@@ -197,12 +187,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         A two-dimensional image.
-#     coords: list[np.ndarray]
-#         Lists specifying pixel center coordinates along each axis.
-#     edges: list[np.ndarray]
-#         Lists specifying pixel edge coordinates along each axis.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     level : number of list of numbers
 #         If a number, plot the rms ellipse inflated by the number. If a list
 #         of numbers, repeat for each number.
@@ -223,9 +209,7 @@ def process(
 #
 #
 # def plot(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     kind: str = "pcolor",
 #     profx: bool = False,
 #     profy: bool = False,
@@ -244,12 +228,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         A two-dimensional image.
-#     coords: list[np.ndarray]
-#         Lists specifying pixel center coordinates along each axis.
-#     edges: list[np.ndarray]
-#         Lists specifying pixel edge coordinates along each axis.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     ax : matplotlib.pyplt.Axes
 #         The axis on which to plot.
 #     kind : ['pcolor', 'contour', 'contourf']
@@ -348,9 +328,7 @@ def process(
 #
 #
 # def joint(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     grid_kws: dict = None,
 #     marg_kws: dict = None,
 #     **kws,
@@ -361,12 +339,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         A 2-dimensional image.
-#     coords: list[np.ndarray]
-#         Lists specifying pixel center coordinates along each axis.
-#     edges: list[np.ndarray]
-#         Lists specifying pixel edge coordinates along each axis.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     grid_kws : dict
 #         Key word arguments passed to `JointGrid`.
 #     marg_kws : dict
@@ -389,9 +363,7 @@ def process(
 #
 #
 # def corner(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     labels: list[str] = None,
 #     prof_edge_only: bool = False,
 #     update_limits: bool = True,
@@ -405,10 +377,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         An n-dimensional image.
-#     coords : list[ndarray]
-#         Coordinates along each dimension of `f`.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     labels : list[str], length n
 #         Label for each dimension.
 #     axis_view, axis_slice : 2-tuple of int
@@ -451,9 +421,7 @@ def process(
 #
 #
 # def slice_matrix(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     labels: list[str] = None,
 #     axis_view: tuple[int, int] = (0, 1),
 #     axis_slice: tuple[int, int] = (2, 3),
@@ -468,10 +436,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         An n-dimensional image.
-#     coords : list[ndarray]
-#         Coordinates along each axis of the grid (if `data` is an image).
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     labels : list[str], length n
 #         Label for each dimension.
 #     axis_view, axis_slice : 2-tuple of int
@@ -520,9 +486,7 @@ def process(
 #
 #
 # def interactive_slice_2d(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     default_ind: tuple[int, int] = (0, 1),
 #     slice_type: str = "int",
 #     dims: list[str] = None,
@@ -540,10 +504,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         An n-dimensional image.
-#     coords : list[ndarray]
-#         Coordinate arrays along each dimension. A square grid is assumed.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     default_ind : (i, j)
 #         Default x and y index to plot.
 #     slice_type : {'int', 'range'}
@@ -737,9 +699,7 @@ def process(
 #
 #
 # def interactive_slice_1d(
-#     values: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     edges: list[np.ndarray] = None,
+#     hist: Histogram,
 #     default_ind: int = 0,
 #     slice_type: str = "int",
 #     dims: list[str] = None,
@@ -751,10 +711,8 @@ def process(
 #
 #     Parameters
 #     ----------
-#     values : ndarray
-#         An n-dimensional image.
-#     coords : list[ndarray]
-#         Grid coordinates for each dimension.
+#     hist : Histogram
+#         A two-dimensional histogram.
 #     default_ind : int
 #         Default index to plot.
 #     slice_type : {'int', 'range'}
