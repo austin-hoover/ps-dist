@@ -211,7 +211,7 @@ class Histogram1D:
             self.values = np.zeros(self.shape)
 
     def copy(self) -> Self:
-        return Histogram(values=self.values, edges=self.edges)
+        return Histogram1D(values=self.values, edges=self.edges)
 
     def normalize(self) -> None:
         values_sum = np.sum(self.values)
