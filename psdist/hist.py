@@ -406,7 +406,7 @@ def slice_contour(
     return hist_new
 
 
-def project(hist: Histogram, axis: int | tuple[int, ...]) -> Histogram:
+def project(hist: Histogram, axis: int | tuple[int, ...], squeeze: bool = True) -> Histogram:
     """Project hist onto axis.
 
     Parameters
@@ -416,6 +416,8 @@ def project(hist: Histogram, axis: int | tuple[int, ...]) -> Histogram:
     axis: int | tuple[int, ...]
         The axes onto which the hist is projected, i.e., the axes which are not summed over.
         Array axes are swapped as required.
+    squeeze: bool
+        Whether to return Histogram1D if projecting onto integer axis.
 
     Returns
     -------
@@ -448,7 +450,7 @@ def project(hist: Histogram, axis: int | tuple[int, ...]) -> Histogram:
 
     # Make new hist
     hist_proj = None
-    if values_proj.ndim == 1:
+    if (values_proj.ndim == 1) and squeeze:
         axis = int(np.squeeze(axis))
         coords_proj = hist.coords[axis]
         hist_proj = Histogram1D(values_proj, coords_proj)
