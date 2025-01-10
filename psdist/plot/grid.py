@@ -1,165 +1,163 @@
-# import warnings
-# from typing import Callable
-# from typing import Union
-#
-# import numpy as np
-# import proplot as pplt
-#
-# import psdist.image
-# import psdist.points
-# import psdist.utils
-# import psdist.plot.points as vis_points
-# import psdist.plot.hist as vis_image
-# from psdist.plot.core import plot_profile
-# from psdist.plot.core import scale_profile
-#
-#
-# class JointGrid:
-#     """Grid for joint plots.
-#
-#     Attributes
-#     -----------
-#     fig : proplot.figure.Figure
-#         The main figure.
-#     ax : proplot.gridspec.SubplotGrid
-#         The main axis.
-#     ax_marg_x, ax_marg_y : proplot.gridspec.SubplotGrid
-#         The marginal (panel) axes on the top and right.
-#     """
-#
-#     def __init__(
-#         self,
-#         marg_kws: dict = None,
-#         marg_fmt_kws: dict = None,
-#         marg_fmt_kws_x: dict = None,
-#         marg_fmt_kws_y: dict = None,
-#         **fig_kws,
-#     ) -> None:
-#         """Constructor.
-#
-#         marg_kws : dict
-#             Key word arguments for `ax.panel`.
-#         marg_fmt_kws, marg_fmt_kws_x, marg_fmt_kws_y : dict
-#             Key word arguments for `ax.format` for each of the marginal (panel) axs.
-#         **fig_kws
-#             Key word arguments passed to `proplot.subplots`.
-#         """
-#         self.fig, self.ax = pplt.subplots(**fig_kws)
-#         if marg_kws is None:
-#             marg_kws = dict()
-#         if marg_fmt_kws is None:
-#             marg_fmt_kws = dict()
-#         if marg_fmt_kws_x is None:
-#             marg_fmt_kws_x = dict()
-#         if marg_fmt_kws_y is None:
-#             marg_fmt_kws_y = dict()
-#
-#         marg_fmt_kws_x.setdefault("xspineloc", "bottom")
-#         marg_fmt_kws_x.setdefault("yspineloc", "left")
-#         marg_fmt_kws_y.setdefault("xspineloc", "bottom")
-#         marg_fmt_kws_y.setdefault("yspineloc", "left")
-#
-#         self.ax_marg_x = self.ax.panel("t", **marg_kws)
-#         self.ax_marg_y = self.ax.panel("r", **marg_kws)
-#         self.marg_axs = [self.ax_marg_x, self.ax_marg_y]
-#         for ax in self.marg_axs:
-#             ax.format(**marg_fmt_kws)
-#         self.marg_axs[0].format(**marg_fmt_kws_x)
-#         self.marg_axs[1].format(**marg_fmt_kws_y)
-#
-#     def get_default_marg_kws(self, marg_kws: dict = None) -> None:
-#         if marg_kws is None:
-#             marg_kws = dict()
-#         marg_kws.setdefault("color", "black")
-#         marg_kws.setdefault("kind", "step")
-#         marg_kws.setdefault("lw", 1.0)
-#         marg_kws.setdefault("scale", "density")
-#         return marg_kws
-#
-#     def plot_points(
-#         self,
-#         points: np.ndarray,
-#         marg_hist_kws: dict = None,
-#         marg_kws: dict = None,
-#         **kws,
-#     ) -> None:
-#         """Plot 2D points.
-#
-#         Parameters
-#         ----------
-#         points: np.ndarray, shape (..., n)
-#             Particle coordinates
-#         marg_hist_kws : dict
-#             Key word arguments passed to `np.histogram` for 1D histograms.
-#         marg_kws : dict
-#             Key word arguments passed to `plot.plot_profile`.
-#         **kws
-#             Key word arguments passed to `plot.image.plot.`
-#         """
-#         marg_kws = self.get_default_marg_kws(marg_kws)
-#         if marg_hist_kws is None:
-#             marg_hist_kws = dict()
-#         marg_hist_kws.setdefault("bins", "auto")
-#
-#         kws.setdefault("kind", "hist")
-#         if kws["kind"] == "hist":
-#             kws.setdefault("mask", True)
-#             kws.setdefault("bins", marg_hist_kws["bins"])
-#         if kws["kind"] != "scatter":
-#             kws.setdefault("colorbar_kw", dict())
-#             kws["colorbar_kw"].setdefault("pad", 2.0)
-#
-#         for axis in range(2):
-#             profile, edges = np.histogram(points[:, axis], **marg_hist_kws)
-#             plot_profile(
-#                 profile=profile,
-#                 edges=edges,
-#                 ax=self.marg_axs[axis],
-#                 orientation=("horizontal" if bool(axis) else "vertical"),
-#                 **marg_kws,
-#             )
-#         vis_points.plot(points, ax=self.ax, **kws)
-#
-#     def plot_image(
-#         self, values: np.ndarray, coords: list[np.ndarray] = None, marg_kws=None, **kws
-#     ):
-#         """Plot a two-dimensional image.
-#
-#         Parameters
-#         ----------
-#         values: np.ndarray
-#             An n-dimensional image.
-#         coords : list[ndarray]
-#             Coordinates along each dimension of `f`.
-#         marg_kws : dict
-#             Key word arguments passed to `plot.plot_profile`.
-#         **kws
-#             Key word arguments passed to `plot.image.plot.`
-#         """
-#         marg_kws = self.get_default_marg_kws(marg_kws)
-#
-#         kws.setdefault("colorbar_kw", dict())
-#         kws["colorbar_kw"].setdefault("pad", 2.0)
-#
-#         if coords is None:
-#             coords = [np.arange(values.shape[axis]) for axis in range(values.ndim)]
-#
-#         for axis in range(2):
-#             plot_profile(
-#                 profile=psdist.image.project(values, axis),
-#                 coords=coords[axis],
-#                 ax=self.marg_axs[axis],
-#                 orientation=("horizontal" if bool(axis) else "vertical"),
-#                 **marg_kws,
-#             )
-#         return vis_image.plot(values, coords=coords, ax=self.ax, **kws)
-#
-#     def colorbar(self, mappable, **kws):
-#         """Add a colorbar."""
-#         kws.setdefault("loc", "r")
-#         kws.setdefault("pad", 2.0)
-#         self.fig.colorbar(mappable, **kws)
-#
+import warnings
+from typing import Callable
+from typing import Union
+
+import numpy as np
+import matplotlib.pyplot as plt
+import ultraplot as uplt
+
+from ..hist import Histogram
+from ..hist import Histogram1D
+from .points import plot as plot_points
+from .hist import plot as plot_hist
+
+
+class JointGrid:
+    """Grid for joint plots.
+
+    Attributes
+    -----------
+    fig : proplot.figure.Figure
+        The main figure.
+    ax : proplot.gridspec.SubplotGrid
+        The main axis.
+    ax_marg_x, ax_marg_y : proplot.gridspec.SubplotGrid
+        The marginal (panel) axes on the top and right.
+    """
+
+    def __init__(
+        self,
+        marg_kws: dict = None,
+        marg_fmt_kws: dict = None,
+        marg_fmt_kws_x: dict = None,
+        marg_fmt_kws_y: dict = None,
+        **fig_kws,
+    ) -> None:
+        """Constructor.
+
+        marg_kws : dict
+            Key word arguments for `ax.panel`.
+        marg_fmt_kws, marg_fmt_kws_x, marg_fmt_kws_y : dict
+            Key word arguments for `ax.format` for each of the marginal (panel) axs.
+        **fig_kws
+            Key word arguments passed to `proplot.subplots`.
+        """
+        self.fig, self.ax = uplt.subplots(**fig_kws)
+        if marg_kws is None:
+            marg_kws = dict()
+        if marg_fmt_kws is None:
+            marg_fmt_kws = dict()
+        if marg_fmt_kws_x is None:
+            marg_fmt_kws_x = dict()
+        if marg_fmt_kws_y is None:
+            marg_fmt_kws_y = dict()
+
+        marg_fmt_kws_x.setdefault("xspineloc", "bottom")
+        marg_fmt_kws_x.setdefault("yspineloc", "left")
+        marg_fmt_kws_y.setdefault("xspineloc", "bottom")
+        marg_fmt_kws_y.setdefault("yspineloc", "left")
+
+        self.ax_marg_x = self.ax.panel("t", **marg_kws)
+        self.ax_marg_y = self.ax.panel("r", **marg_kws)
+        self.marg_axs = [self.ax_marg_x, self.ax_marg_y]
+        for ax in self.marg_axs:
+            ax.format(**marg_fmt_kws)
+        self.marg_axs[0].format(**marg_fmt_kws_x)
+        self.marg_axs[1].format(**marg_fmt_kws_y)
+
+    def get_default_marg_kws(self, marg_kws: dict = None) -> None:
+        if marg_kws is None:
+            marg_kws = dict()
+        marg_kws.setdefault("color", "black")
+        marg_kws.setdefault("kind", "step")
+        marg_kws.setdefault("lw", 1.0)
+        marg_kws.setdefault("scale", "density")
+        return marg_kws
+
+    def plot_points(
+        self,
+        points: np.ndarray,
+        marg_hist_kws: dict = None,
+        marg_kws: dict = None,
+        **kws,
+    ) -> None:
+        """Plot 2D points.
+
+        Parameters
+        ----------
+        points: np.ndarray, shape (..., n)
+            Particle coordinates
+        marg_hist_kws : dict
+            Key word arguments passed to `np.histogram` for 1D histograms.
+        marg_kws : dict
+            Key word arguments passed to `plot.plot_profile`.
+        **kws
+            Key word arguments passed to `plot.image.plot.`
+        """
+        marg_kws = self.get_default_marg_kws(marg_kws)
+        if marg_hist_kws is None:
+            marg_hist_kws = dict()
+        marg_hist_kws.setdefault("bins", "auto")
+
+        kws.setdefault("kind", "hist")
+        if kws["kind"] == "hist":
+            kws.setdefault("mask", True)
+            kws.setdefault("bins", marg_hist_kws["bins"])
+        if kws["kind"] != "scatter":
+            kws.setdefault("colorbar_kw", dict())
+            kws["colorbar_kw"].setdefault("pad", 2.0)
+
+        for axis in range(2):
+            profile, edges = np.histogram(points[:, axis], **marg_hist_kws)
+            plot_profile(
+                profile=profile,
+                edges=edges,
+                ax=self.marg_axs[axis],
+                orientation=("horizontal" if bool(axis) else "vertical"),
+                **marg_kws,
+            )
+        vis_points.plot(points, ax=self.ax, **kws)
+
+    def plot_image(
+        self, values: np.ndarray, coords: list[np.ndarray] = None, marg_kws=None, **kws
+    ):
+        """Plot a two-dimensional image.
+
+        Parameters
+        ----------
+        values: np.ndarray
+            An n-dimensional image.
+        coords : list[ndarray]
+            Coordinates along each dimension of `f`.
+        marg_kws : dict
+            Key word arguments passed to `plot.plot_profile`.
+        **kws
+            Key word arguments passed to `plot.image.plot.`
+        """
+        marg_kws = self.get_default_marg_kws(marg_kws)
+
+        kws.setdefault("colorbar_kw", dict())
+        kws["colorbar_kw"].setdefault("pad", 2.0)
+
+        if coords is None:
+            coords = [np.arange(values.shape[axis]) for axis in range(values.ndim)]
+
+        for axis in range(2):
+            plot_profile(
+                profile=psdist.image.project(values, axis),
+                coords=coords[axis],
+                ax=self.marg_axs[axis],
+                orientation=("horizontal" if bool(axis) else "vertical"),
+                **marg_kws,
+            )
+        return vis_image.plot(values, coords=coords, ax=self.ax, **kws)
+
+    def colorbar(self, mappable, **kws):
+        """Add a colorbar."""
+        kws.setdefault("loc", "r")
+        kws.setdefault("pad", 2.0)
+        self.fig.colorbar(mappable, **kws)
+
 #
 # class CornerGrid:
 #     """Grid for corner plots.
@@ -214,7 +212,7 @@
 #         corner : bool
 #             Whether to hide the upper-triangular subplots.
 #         **fig_kws
-#             Key word arguments passed to `pplt.subplots()`.
+#             Key word arguments passed to `uplt.subplots()`.
 #         """
 #         # Create figure.
 #         self.new = True
@@ -232,7 +230,7 @@
 #         self.fig_kws = fig_kws
 #         self.fig_kws.setdefault("figwidth", 1.5 * self.nrows)
 #         self.fig_kws.setdefault("aligny", True)
-#         self.fig, self.axs = pplt.subplots(
+#         self.fig, self.axs = uplt.subplots(
 #             nrows=self.nrows,
 #             ncols=self.ncols,
 #             spanx=False,
@@ -731,7 +729,7 @@
 #         slice_label_height : float
 #             Tweaks the position of slice labels. Need a better way to handle this.
 #         **fig_kws
-#             Key word arguments for `pplt.subplots`.
+#             Key word arguments for `uplt.subplots`.
 #         """
 #         self.nrows = nrows
 #         self.ncols = ncols
@@ -778,7 +776,7 @@
 #         fig_kws["hspace"] = hspace
 #         fig_kws["wspace"] = wspace
 #
-#         self.fig, self.axs = pplt.subplots(**fig_kws)
+#         self.fig, self.axs = uplt.subplots(**fig_kws)
 #
 #         self._axs = self.axs[:-1, :-1]
 #         self._axs_marg_x = []

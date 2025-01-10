@@ -12,9 +12,9 @@ dependencies = [
     "scipy",
     "tqdm",
 
-    "seaborn",
     "ipywidgets",
     "matplotlib",
+    "seaborn",
     "ultraplot",
 ]
 

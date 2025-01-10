@@ -12,11 +12,6 @@ from psdist.hist import Histogram1D
 from . import core
 
 
-# TO DO
-# - Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
-#   `options` input; see the versions of these functions in `psdist.plot.points`.
-
-
 def _process_values_fill(values: np.ndarray, fill_value: float) -> np.ndarray:
     return np.ma.filled(values, fill_value=fill_value)
 
@@ -580,6 +575,8 @@ def plot(
 #     )
 #     return grid
 #
+# # [TO DO] Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
+# # `options` input; see the versions of these functions in `psdist.plot.points`.
 #
 # def interactive_slice_2d(
 #     hist: Histogram,

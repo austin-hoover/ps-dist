@@ -781,8 +781,6 @@ def thresh_hist(hist: Histogram, lmin: float = None, frac: bool = False) -> np.n
     return hist
 
 
-# Sampling
-
 def sample_hist(hist: Histogram, size: int = 100, noise: float = 0.0) -> np.ndarray:
 
     values = hist.values

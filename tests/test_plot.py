@@ -19,10 +19,6 @@ output_dir = os.path.join("outputs", path.stem)
 os.makedirs(output_dir, exist_ok=True)
 
 
-def test_grid():
-    pass
-
-
 def test_plot_ellipse():
     fig, ax = uplt.subplots()
     psv.plot_ellipse(r1=1.5, r2=0.5, ax=ax)
@@ -132,4 +128,5 @@ def test_plot_points_scatter():
     plt.close()
 
 
-
+def test_grid():
+    pass

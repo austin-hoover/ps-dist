@@ -8,6 +8,7 @@ from ipywidgets import widgets
 
 from psdist.points import downsample
 from psdist.points import gaussian_kde
+from psdist.points import limits as get_limits
 from .core import plot_rms_ellipse as _plot_rms_ellipse
 from .hist import plot as _plot_hist
 from ..hist import Histogram
@@ -115,6 +116,9 @@ def plot_kde(
     """
     if kde_kws is None:
         kde_kws = {}
+
+    if limits is None:
+        limits = get_limits(points)
 
     ndim = points.shape[1]
     edges = [np.linspace(limits[i][0], limits[i][1], bins + 1) for i in range(ndim)]
