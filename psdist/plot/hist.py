@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import psdist as ps
 from psdist.hist import Histogram
 from psdist.hist import Histogram1D
+from . import core
 
 
 # TO DO
@@ -274,36 +275,32 @@ def plot_profiles_overlay(
     return ax
 
 
-# def plot_rms_ellipse(
-#     hist: Histogram,
-#     level: float = 1.0,
-#     center_at_mean: bool = True,
-#     ax=None,
-#     **ellipse_kws,
-# ) -> uplt.Axes:
-#     """Compute and plot the RMS ellipse from a two-dimensional image.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     level : number of list of numbers
-#         If a number, plot the rms ellipse inflated by the number. If a list
-#         of numbers, repeat for each number.
-#     center_at_mean : bool
-#         Whether to center the ellipse at the image centroid.
-#     """
-#     if coords is None:
-#         if edges is not None:
-#             coords = [psdist.utils.coords_from_edges(e) for e in edges]
-#         else:
-#             coords = [np.arange(s) for s in values.shape]
-#
-#     cov = psdist.image.covariance_matrix(values, coords)
-#     mean = (0.0, 0.0)
-#     if center_at_mean:
-#         mean = psdist.image.centroid(values, coords)
-#     return psdist.plot.rms_ellipse(cov, mean, level=level, ax=ax, **ellipse_kws)
+def plot_rms_ellipse(
+    hist: Histogram,
+    level: float = 1.0,
+    center_at_mean: bool = True,
+    ax=None,
+    **kws,
+) -> uplt.Axes:
+    """Compute and plot the RMS ellipse from a two-dimensional image.
+
+    Parameters
+    ----------
+    hist : Histogram
+        A two-dimensional histogram.
+    level : number of list of numbers
+        If a number, plot the rms ellipse inflated by the number. If a list
+        of numbers, repeat for each number.
+    center_at_mean : bool
+        Whether to center the ellipse at the image centroid.
+    **kws
+        Key word arguments passed to `psdist.plot.plot_rms_ellipse`.
+    """
+    cov_matrix = ps.hist.cov(hist)
+    mean = (0.0, 0.0)
+    if center_at_mean:
+        mean = ps.hist.mean(hist)
+    return core.plot_rms_ellipse(cov_matrix, mean, level=level, ax=ax, **kws)
 
 
 # def plot(
