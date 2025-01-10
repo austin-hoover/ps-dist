@@ -5,16 +5,100 @@ import numpy as np
 
 from .cov import cov_to_corr
 from .utils import array_like
-from .utils import coords_to_edges
-from .utils import edges_to_coords
 
 
 def get_grid_points(coords: list[np.ndarray]) -> np.ndarray:
-    return np.vstack([C.ravel() for C in np.meshgrid(*self.coords, indexing="ij")]).T
+    return np.vstack([C.ravel() for C in np.meshgrid(*coords, indexing="ij")]).T
+
+
+def squeeze_coords(coords: list[np.ndarray]) -> np.ndarray:
+    if len(coords) == 1:
+        return coords[0]
+    return coords
+
+
+def edges_to_coords_1d(edges: np.ndarray) -> np.ndarray:
+    return 0.5 * (edges[:-1] + edges[1:])
+
+
+def coords_to_edges_1d(coords: np.ndarray) -> np.ndarray:
+    delta = np.diff(coords)[0]
+    return np.hstack([coords - 0.5 * delta, [coords[-1] + 0.5 * delta]])
+
+
+def edges_to_coords(edges: np.ndarray | list[np.ndarray]) -> np.ndarray | list[np.ndarray]:
+    """Compute bin center coordinates from evenly spaced bin edges."""
+    coords = None
+    if np.isscalar(edges[0]):
+        coords = edges_to_coords_1d(edges)
+    else:
+        coords = [edges_to_coords_1d(e) for e in edges]
+    return coords
+
+
+def coords_to_edges(coords: np.ndarray | list[np.ndarray]) -> np.ndarray:
+    """Compute bin edges from evenly spaced bin coordinates."""
+    edges = None
+    if np.isscalar(coords[0]):
+        edges = coords_to_edges_1d(coords)
+    else:
+        edges = [coords_to_edges_1d(c) for c in coords]
+    return edges
+
+
+def combine_limits(*limits: list[np.ndarray]) -> np.ndarray:
+    """Combine a stack of limits, keeping min/max values.
+
+    Example: [[(-1, 1), (-3, 2)], [(-1, 2), (-1, 3)]] --> [(-1, 2), (-3, 3)].
+
+    Parameters
+    ----------
+    limits_list : np.ndarray
+        Each element is a set of limits [(xmin, xmax), (ymin, ymax), ...].
+
+    Returns
+    -------
+    np.ndarray
+        New set of limits [(xmin, xmax), (ymin, ymax), ...].
+    """
+    limits_list = np.array(limits_list)
+    mins = np.min(limits_list[:, :, 0], axis=0)
+    maxs = np.max(limits_list[:, :, 1], axis=0)
+    limits = list(zip(mins, maxs))
+    limits = np.array(limits)
+    return limits
+
+
+def center_limits(limits: np.ndarray) -> np.ndarray:
+    """Center limits at zero.
+
+    Example: [(-3, 1), (-4, 5)] --> [(-3, 3), (-5, 5)].
+
+    Parameters
+    ----------
+    limits : list[tuple]
+        A set of limits [(xmin, xmax), (ymin, ymax), ...].
+
+    Returns
+    -------
+    limits : list[tuple]
+        A new set of limits centered at zero [(-x, x), (-y, y), ...].
+    """
+    limits = np.array(limits)
+    mins = limits[:, 0]
+    maxs = limits[:, 1]
+    maxs = np.maximum(np.abs(mins), np.abs(maxs))
+    limits = list(zip(-maxs, maxs))
+    limits = np.array(limits)
+    return limits
 
 
 class Grid:
-    def __init__(self, coords: list[np.ndarray] = None, edges: list[np.ndarray] = None) -> None:
+    def __init__(
+        self,
+        coords: list[np.ndarray] = None,
+        edges: list[np.ndarray] = None
+    ) -> None:
         self.coords = coords
         self.edges = edges
 
@@ -28,6 +112,11 @@ class Grid:
         self.ndim = len(self.shape)
         self.size = np.prod(self.shape)
         self.cell_volume = np.prod([c[1] - c[0] for c in self.coords])
+
+        self.limits = [(e[0], e[-1]) for e in self.edges]
+        self.limits = np.array(self.limits)
+
+        self.ranges = [(xmax - xmin) for (xmin, xmax) in self.limits]
 
     def points(self) -> np.ndarray:
         return get_grid_points(self.coords)
@@ -111,6 +200,8 @@ class Histogram1D:
         self.ndim = 1
         self.size = len(self.coords)
         self.cell_volume = self.coords[1] - self.coords[0]
+        self.limits = np.array((self.edges[0], self.edges[-1]))
+        self.range = self.limits[1] - self.limits[0]
 
         self.values = values
         if self.values is None:
@@ -356,8 +447,14 @@ def project(hist: Histogram, axis: int | tuple[int, ...]) -> Histogram:
             (loc[i], loc[j]) = (loc[j], loc[i])
 
     # Make new hist
-    coords_proj = [hist.coords[i] for i in axis]
-    hist_proj = Histogram(values_proj, coords_proj)
+    hist_proj = None
+    if values_proj.ndim == 1:
+        axis = int(np.squeeze(axis))
+        coords_proj = hist.coords[axis]
+        hist_proj = Histogram1D(values_proj, coords_proj)
+    else:
+        coords_proj = [hist.coords[i] for i in axis]
+        hist_proj = Histogram(values_proj, coords_proj)
     return hist_proj
 
 
