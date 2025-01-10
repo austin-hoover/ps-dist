@@ -6,7 +6,7 @@ import scipy.interpolate
 import scipy.optimize
 import scipy.stats
 
-from . import cov as cov_utils
+from . import cov
 from .hist import Histogram
 from .hist import Histogram1D
 from .hist import SparseHistogram
@@ -15,18 +15,6 @@ from .utils import coords_to_edges
 from .utils import array_like
 from .utils import random_choice_no_replacement
 from .utils import sphere_shell_volume
-
-
-def mean(points: np.ndarray) -> np.ndarray:
-    return np.mean(points, axis=0)
-
-
-def cov(points: np.ndarray) -> np.ndarray:
-    return np.cov(points.T)
-
-
-def corr(points: np.ndarray) -> np.ndarray:
-    return cov_utils.cov_to_corr(cov(points))
 
 
 def get_radii(points: np.ndarray, covariance_matrix: np.ndarray = None) -> np.ndarray:
@@ -51,7 +39,7 @@ def enclosing_sphere_radius(points: np.ndarray, fraction: float = 1.0) -> float:
 
 def enclosing_ellipsoid_radius(points: np.ndarray, fraction: float = 1.0) -> float:
     """Scale the rms ellipsoid until it contains some fraction of points."""
-    radii = np.sort(get_radii(points, cov(points)))
+    radii = np.sort(get_radii(points, np.cov(points.T)))
     index = int(np.round(points.shape[0] * fraction)) - 1
     return radii[index]
 
@@ -71,7 +59,7 @@ def find_min_volume_bounding_ellipse(
         return np.max(np.linalg.norm(_normalize(_points, _alpha, _beta), axis=1))
 
     S = covariance_matrix(points)
-    alpha, beta = cov_utils.twiss(S)
+    alpha, beta = cov.twiss(S)
     guess = [alpha, beta]
 
     result = scipy.optimize.least_squares(
@@ -177,7 +165,7 @@ def transform_linear(points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return np.matmul(points, matrix.T)
 
 
-def _slice(
+def slice_(
     points: np.ndarray,
     axis: int | tuple[int],
     center: np.ndarray = None,
@@ -236,7 +224,7 @@ def _slice(
     return points[idx, :]
 
 
-def _slice_sphere(
+def slice_sphere(
     points: np.ndarray,
     axis: int | tuple[int, ...] = None,
     rmin: float = 0.0,
@@ -270,7 +258,7 @@ def _slice_sphere(
     return points[idx, :]
 
 
-def _slice_ellipsoid(
+def slice_ellipsoid(
     points: np.ndarray,
     axis: int | tuple[int] = None,
     rmin: float = 0.0,
@@ -310,7 +298,7 @@ def _slice_ellipsoid(
     return points[idx, :]
 
 
-def _slice_contour(
+def slice_contour(
     points: np.ndarray,
     axis: int | tuple[int] = None,
     lmin: float = 0.0,
@@ -407,7 +395,8 @@ def normalize_2d_projections(points: np.ndarray, scale: bool = False) -> np.ndar
     if (ndim % 2) != 0:
         raise ValueError("Must have even number of dimensions")
 
-    norm_mat = cov_utils.normalization_matrix(cov(points), scale=True, block_diag=True)
+    cov_matrix = np.cov(points.T)
+    norm_mat = cov.normalization_matrix(cov_matrix, scale=scale, block_diag=True)
     return transform_linear(points, norm_mat)
 
 

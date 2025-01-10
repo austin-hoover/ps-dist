@@ -65,6 +65,10 @@ class Histogram(Grid):
 
     def bin(self, points: np.ndarray, density: bool = True) -> np.ndarray:
         self.values, _ = np.histogramdd(points, bins=self.edges, density=density)
+        return np.copy(self.values)
+
+    def __call__(self, **kwargs) -> np.ndarray:
+        return self.bin(**kwargs)
 
 
 class SparseHistogram(Grid):
@@ -93,7 +97,7 @@ class SparseHistogram(Grid):
 
 
 class Histogram1D:
-    def __init__(self, values: np.ndarray, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+    def __init__(self, values: np.ndarray = None, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
         self.coords = coords
         self.edges = edges
 
@@ -116,6 +120,13 @@ class Histogram1D:
         values_sum = np.sum(self.values)
         if values_sum > 0.0:
             self.values = self.values / values_sum / self.cell_volume
+
+    def bin(self, points: np.ndarray, density: bool = True) -> np.ndarray:
+        self.values, _ = np.histogram(points, bins=self.edges, density=density)
+        return np.copy(self.values)
+
+    def __call__(self, **kwargs) -> np.ndarray:
+        return self.bin(**kwargs)
 
 
 def slice_idx(
@@ -230,7 +241,7 @@ def slice_idx_contour(
     raise NotImplementedError
 
 
-def _slice(
+def slice_(
     hist: Histogram,
     axis: int | tuple[int, ...],
     ind: int | tuple[int, ...] | list[tuple[int, ...]],
@@ -261,7 +272,7 @@ def _slice(
     return hist_new
 
 
-def _slice_ellipsoid(
+def slice_ellipsoid(
     hist: Histogram,
     axis: tuple[int, ...],
     rmin: float,
@@ -285,7 +296,7 @@ def _slice_ellipsoid(
     return hist_new
 
 
-def _slice_contour(
+def slice_contour(
     hist: Histogram,
     axis: tuple[int, ...],
     lmin: float = 0.0,
@@ -634,13 +645,13 @@ def radial_density(
     return np.array(values_r)
 
 
-def blur(hist: Histogram, sigma: float) -> np.ndarray:
+def blur_hist(hist: Histogram, sigma: float) -> np.ndarray:
     """Call scipy.ndhist.gaussian_filter."""
     hist.values = ndhist.gaussian_filter(hist.values, sigma)
     return hist
 
 
-def clip(
+def clip_hist(
     hist: Histogram, lmin: float = None, lmax: float = None, frac: bool = False
 ) -> np.ndarray:
     """Clip between lmin and lmax, can be fractions or absolute values."""
@@ -657,13 +668,13 @@ def clip(
     return hist
 
 
-def fill(hist: np.ndarray, fill_value: float = None) -> np.ndarray:
+def fill_hist(hist: np.ndarray, fill_value: float = None) -> np.ndarray:
     """Call numpy.ma.filled."""
     hist.values = np.ma.filled(hist.values, fill_value=fill_value)
     return hist
 
 
-def thresh(hist: Histogram, lmin: float = None, frac: bool = False) -> np.ndarray:
+def thresh_hist(hist: Histogram, lmin: float = None, frac: bool = False) -> np.ndarray:
     if lmin:
         if frac:
             lmin = lmin * hist.values.max()
@@ -672,32 +683,6 @@ def thresh(hist: Histogram, lmin: float = None, frac: bool = False) -> np.ndarra
 
 
 # Sampling
-
-
-def sample(hist: Histogram, size: int = 100, noise: float = 0.0) -> np.ndarray:
-    values = hist.values
-    edges = hist.edges
-
-    if hist.ndim == 1:
-        edges = [edges]
-
-    idx = np.flatnonzero(values)
-    pdf = values.ravel()[idx]
-    pdf = pdf / np.sum(pdf)
-    idx = np.random.choice(idx, size, replace=True, p=pdf)
-    idx = np.unravel_index(idx, shape=values.shape)
-    lb = [edges[axis][idx[axis]] for axis in range(values.ndim)]
-    ub = [edges[axis][idx[axis] + 1] for axis in range(values.ndim)]
-
-    points = np.squeeze(np.random.uniform(lb, ub).T)
-    if noise:
-        for axis in range(points.shape[1]):
-            delta = ub[axis] - lb[axis]
-            points[:, axis] += (
-                noise * 0.5 * np.random.uniform(-delta, delta, size=points.shape[0])
-            )
-    return points
-
 
 def sample_hist(hist: Histogram, size: int = 100, noise: float = 0.0) -> np.ndarray:
 

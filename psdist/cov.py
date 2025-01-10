@@ -1,5 +1,4 @@
 """Covariance matrix analysis."""
-
 import numpy as np
 
 
@@ -137,42 +136,32 @@ def normalization_matrix(
     block_diag : bool
         If true, normalize only 2x2 block-diagonal elements (x-x', y-y', etc.).
     """
+    def _normalization_matrix(S: np.ndarray, scale: bool = False) -> np.ndarray:
+        U = unit_symplectic_matrix(ndim)
+        SU = np.matmul(S, U)
+        eigvals, eigvecs = np.linalg.eig(SU)
+        eigvecs = normalize_eigvecs(eigvecs)
+        V_inv = normalization_matrix_from_eigvecs(eigvecs)
+
+        if scale:
+            V = np.linalg.inv(V_inv)
+            A = np.eye(ndim)
+            for i in range(0, ndim, 2):
+                emittance = rms_ellipsoid_volume(S[i: i + 2, i: i + 2])
+                A[i: i + 2, i: i + 2] *= np.sqrt(emittance)
+            V = np.matmul(V, A)
+            V_inv = np.linalg.inv(V)
+
+        return V_inv
+
+
     ndim = S.shape[0]
     V_inv = np.eye(ndim)
     if block_diag:
         V_inv = _normalization_matrix(S, scale=scale)
     else:
-        V_inv = _normalization_matrix_block_diag(S, scale=scale)
-    return V_inv
-
-
-def _normalization_matrix(S: np.ndarray, scale: bool = False) -> np.ndarray:
-    ndim = S.shape[0]
-    assert ndim % 2 == 0
-
-    U = unit_symplectic_matrix(ndim)
-    SU = np.matmul(S, U)
-    eigvals, eigvecs = np.linalg.eig(SU)
-    eigvecs = normalize_eigvecs(eigvecs)
-    V_inv = normalization_matrix_from_eigvecs(eigvecs)
-    if scale:
-        V = np.linalg.inv(V_inv)
-        A = np.eye(ndim)
         for i in range(0, ndim, 2):
-            emittance = np.sqrt(np.linalg.det(S[i : i + 2, i : i + 2]))
-            A[i : i + 2, i : i + 2] *= np.sqrt(emittance)
-        V = np.matmul(V, A)
-        V_inv = np.linalg.inv(V)
-    return V_inv
-
-
-def _normalization_matrix_block_diag(S: np.ndarray, scale: bool = False) -> np.ndarray:
-    ndim = S.shape[0]
-    V_inv = np.eye(ndim)
-    for i in range(0, ndim, 2):
-        V_inv[i : i + 2, i : i + 2] = _normalization_matrix(
-            S[i : i + 2, i : i + 2], scale=scale
-        )
+            V_inv[i: i + 2, i: i + 2] = _normalization_matrix(S[i: i + 2, i: i + 2], scale=scale)
     return V_inv
 
 
