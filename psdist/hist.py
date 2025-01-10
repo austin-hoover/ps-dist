@@ -121,6 +121,9 @@ class Grid:
     def points(self) -> np.ndarray:
         return get_grid_points(self.coords)
 
+    def meshgrid(self) -> np.ndarray:
+        return np.meshgrid(*self.coords, indexing="ij")
+
     def normalize(self) -> None:
         values_sum = np.sum(self.values)
         if values_sum > 0.0:
@@ -623,8 +626,8 @@ def copy_values_into_new_dim(
         raise ValueError
 
 
-def mean(self) -> np.ndarray:
-    x = [np.average(C, weights=self.values) for C in self.mesh()]
+def mean(hist: Histogram) -> np.ndarray:
+    x = [np.average(C, weights=hist.values) for C in hist.meshgrid()]
     x = np.array(x)
     return x
 
