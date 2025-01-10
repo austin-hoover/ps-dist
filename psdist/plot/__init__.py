@@ -1,4 +1,6 @@
-import psdist.plot.hist
-import psdist.plot.points
-from psdist.plot.grid import *
-from psdist.plot.core import *
+from .core import *
+from .grid import *
+from . import hist
+from . import grid
+from . import points
+from . import utils

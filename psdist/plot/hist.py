@@ -1,14 +1,13 @@
 """Plotting routines for multi-dimensional images."""
 import numpy as np
-import proplot as pplt
 import scipy.ndimage
+import ultraplot as uplt
 from ipywidgets import interactive
 from ipywidgets import widgets
 from matplotlib import pyplot as plt
 
-from .. import points as ps_points
-from .. import utils as ps_utils
-from ..hist import Histogram
+import psdist as ps
+from psdist.hist import Histogram
 
 
 # TO DO
@@ -137,14 +136,9 @@ def process(
 #
 #     old_limits = [ax.get_xlim(), ax.get_ylim()]
 #
-#     if coords is None:
-#         if edges is not None:
-#             coords = [psdist.utils.coords_from_edges(e) for e in edges]
-#         else:
-#             coords = [np.arange(s) for s in values.shape]
-#
-#     if edges is None:
-#         edges = [psdist.utils.edges_from_coords(c) for c in coords]
+#     values = hist.values.copy()
+#     coords = hist.coords
+#     edges = hist.edges
 #
 #     for axis, proceed in enumerate([profx, profy]):
 #         if proceed:
