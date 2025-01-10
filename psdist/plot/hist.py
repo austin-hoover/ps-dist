@@ -8,11 +8,12 @@ from matplotlib import pyplot as plt
 
 import psdist as ps
 from psdist.hist import Histogram
+from psdist.hist import Histogram1D
 
 
 # TO DO
 # - Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
-#   `options` input; see the points version of these functions.
+#   `options` input; see the versions of these functions in `psdist.plot.points`.
 
 
 def process_values_fill(values: np.ndarray, fill_value: float) -> np.ndarray:
@@ -45,28 +46,27 @@ def process_values_blur(values: np.ndarray, sigma: float) -> np.ndarray:
     return scipy.dimage.gaussian_filter(values, sigma)
 
 
-def process_values_normalize(values: np.ndarray, norm: str = "volume", pixel_volume: float = 1.0) -> np.ndarray:
-    factor = 1.0
-    if norm == "volume":
-        factor = np.sum(values) * pixel_volume
-    elif norm == "max":
-        factor = np.max(values)
-    if factor == 0.0:
-        return values
-    return values / factor
+def process_values_scale_max(values: np.ndarray) -> np.ndarray:
+    values_max = np.max(values)
+    if values_max > 0.0:
+        values = values / values_max
+    return values
 
 
-def process(
-    hist: Histogram,
+def process_hist(
+    hist: Histogram | Histogram1D,
     fill_value: float = None,
     thresh: float = None,
     thresh_type: str = "abs",
     clip: tuple[float] = None,
     clip_type: str = "abs",
-    norm: bool | str = None,
     blur: float = None,
+    normalize: bool = False,
+    scale_max: bool = False,
 ) -> Histogram:
     """Return processed image.
+
+    Defaults leave histogram unchanged.
 
     Parameters
     ----------
@@ -82,10 +82,12 @@ def process(
         Clip (limit) elements to within the range [lmin, lmax].
     clip_type : {"frac", "abs"}
         Whether `clip` is absolute or relative to peak.
-    norm : {None, 'max', 'volume'}
-        Whether to normalize the image by its volume or maximum element.
+    normalize : bool
+        Make probability density.
+    scale_max : bool
+        Divide by maximum value.
     blur : float
-        Sigma for Gaussian filter.
+        Kernel width for gaussian filter.
     """
     values = hist.values.copy()
 
@@ -97,86 +99,188 @@ def process(
         values = process_values_clip(values, lmin=clip[0], lmax=clip[1], frac=(clip_type == "fract"))
     if blur is not None:
         values = process_values_blur(values, blur)
-    if norm:
-        values = process_values_normalize(values, norm=norm)
-
+    if scale_max:
+        values = process_values_scale_max(values)
     hist.values = values
+    if normalize:
+        hist.normalize()
     return hist
 
 
-# def plot_profiles_overlay(
-#     hist: Histogram,
-#     profx: bool = True,
-#     profy: bool = True,
-#     scale: float = 0.12,
-#     start: str = "edge",
-#     keep_limits: bool = False,
-#     ax=None,
-#     **kws,
-# ) -> pplt.Axes:
-#     """Overlay one-dimensional profiles on a two-dimensional image.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     profx, profy : bool
-#         Whether to plot the x/y profile.
-#     scale : float
-#         Maximum of the 1D plot relative to the axes limits.
-#     start : {'edge', 'center'}
-#         Whether to start the plot at the center or edge of the first row/column.
-#     **kws
-#         Key word arguments passed to `psdist.plot.plot_profile`.
-#     """
-#     kws.setdefault("kind", "step")
-#     kws.setdefault("lw", 1.0)
-#     kws.setdefault("color", "white")
-#     kws.setdefault("alpha", 0.6)
-#
-#     old_limits = [ax.get_xlim(), ax.get_ylim()]
-#
-#     values = hist.values.copy()
-#     coords = hist.coords
-#     edges = hist.edges
-#
-#     for axis, proceed in enumerate([profx, profy]):
-#         if proceed:
-#             profile = psdist.image.project(values, axis=axis)
-#             profile_max = np.max(profile)
-#             if profile_max > 0.0:
-#                 profile = profile / profile_max
-#
-#             index = int(axis == 0)
-#             profile = profile * scale * np.abs(coords[index][-1] - coords[index][0])
-#
-#             offset = 0.0
-#             if start == "edge":
-#                 offset = edges[index][0]
-#             elif start == "center":
-#                 offset = coords[index][0]
-#
-#             psdist.plot.plot_profile(
-#                 profile=profile,
-#                 coords=coords[axis],
-#                 edges=edges[axis],
-#                 ax=ax,
-#                 offset=offset,
-#                 orientation=("horizontal" if axis else "vertical"),
-#                 **kws,
-#             )
-#         if keep_limits:
-#             ax.format(xlim=old_limits[0], ylim=old_limits[1])
-#     return ax
-#
-#
+def scale_hist(hist: Histogram1D | Histogram, scale: str | float | int = None) -> Histogram1D | Histogram:
+    if scale is None:
+        return hist
+
+    if np.max(hist.values) <= 0.0:
+        return hist
+
+    if np.sum(hist.values) <= 0.0:
+        return hist
+
+    normalization = 1.0
+    if scale == "density":
+        normalization = np.sum(hist.values) * hist.cell_volume
+    elif scale == "max":
+        normalization = np.max(hist.values)
+    else:
+        normalization = scale
+
+    if normalization > 0.0:
+        hist.values = hist.values / normalization
+    return hist
+
+
+def plot_1d(
+    hist: Histogram1D,
+    orientation: str = "vertical",
+    kind: str = "line",
+    fill: bool = False,
+    offset: float = 0.0,
+    scale: float = None,
+    process_kws: dict = None,
+    ax=None,
+    **kws,
+):
+    """Plot one-dimensional histogram.
+
+    Parameters
+    ----------
+    hist : Histogram1D
+        A one-dimensional distribution.
+    ax : Axes
+        The plotting axis.
+    orientation : {"vertical", "horizontal"}
+        Whether to plot on the x or y axis.
+    kind : {"line", "step", "bar"}
+        Whether to plot a line or a piecewise-constant curve.
+        "line" calls `ax.plot`, `ax.plotx`, `ax.fill_between`, or `ax.fill_between_x`.
+        "step" calls `ax.stairs`.
+        "bar" calls `ax.bar` or `ax.barh`.
+    fill : bool
+        Whether to fill below the curve.
+    offset : float
+        Offset applied to the profile.
+    scale : {None, "density", "max", float}
+        Scale the profile by density (area under curve), max value, or value provided.
+    process_kws : dict
+        Key word arguments passed to `process_hist`.
+    **kws
+        Key word arguments passed to the plotting function.
+    """
+    if process_kws is None:
+        process_kws = {}
+
+    kws.setdefault("lw", 1.5)
+
+    hist = scale_hist(hist, scale=scale)
+    values = hist.values.copy()
+    coords = hist.coords.copy()
+    edges = hist.edges.copy()
+
+    if kind == "step":
+        return ax.stairs(
+            values + offset,
+            edges=edges,
+            fill=fill,
+            baseline=offset,
+            orientation=orientation,
+            **kws,
+        )
+    if kind == "line":
+        values += offset
+        if fill:
+            if orientation == "horizontal":
+                return ax.fill_betweenx(coords, offset, values, **kws)
+            else:
+                return ax.fill_between(coords, offset, values, **kws)
+        else:
+            coords = np.hstack([coords[0], coords, coords[-1]])
+            values = np.hstack([offset, values, offset])
+            if orientation == "horizontal":
+                return ax.plotx(coords, values, **kws)
+            else:
+                return ax.plot(coords, values, **kws)
+    elif kind == "bar":
+        pad = offset * np.ones(len(coords))
+        if orientation == "horizontal":
+            return ax.barh(coords, values, left=pad, **kws)
+        else:
+            return ax.bar(
+                coords, values, bottom=pad, **kws
+            )
+    else:
+        raise ValueError(f"Invalid plot kind '{kind}'")
+
+
+def plot_profiles_overlay(
+    hist: Histogram,
+    profx: bool = True,
+    profy: bool = True,
+    scale: float = 0.12,
+    start: str = "edge",
+    keep_limits: bool = False,
+    ax=None,
+    **kws,
+) -> uplt.Axes:
+    """Overlay one-dimensional profiles on two-dimensional image.
+
+    Parameters
+    ----------
+    hist : Histogram
+        A two-dimensional histogram.
+    profx, profy : bool
+        Whether to plot the x/y profile.
+    scale : float
+        Maximum of the 1D plot relative to the axes limits.
+    start : {'edge', 'center'}
+        Whether to start the plot at the center or edge of the first row/column.
+    **kws
+        Key word arguments passed to `psdist.plot.plot_profile`.
+    """
+    kws.setdefault("kind", "step")
+    kws.setdefault("lw", 1.0)
+    kws.setdefault("color", "white")  # good for viridis
+    kws.setdefault("alpha", 0.6)
+
+    values = hist.values.copy()
+    coords = hist.coords
+
+    old_limits = [ax.get_xlim(), ax.get_ylim()]
+
+    for axis, proceed in enumerate([profx, profy]):
+        if proceed:
+            hist_proj = ps.hist.project(hist, axis)
+            hist_proj = scale_hist(hist_proj, scale="max")
+
+            # Scale values based on coordinates on other axis
+            other_axis = int(axis == 0)
+            hist_proj.values *= scale * hist.ranges[other_axis]
+
+            offset = 0.0
+            if start == "edge":
+                offset = hist.edges[other_axis][0]
+            elif start == "center":
+                offset = hist.coords[other_axis][0]
+
+            plot_1d(
+                hist=hist_proj,
+                ax=ax,
+                offset=offset,
+                orientation=("horizontal" if axis else "vertical"),
+                **kws,
+            )
+        if keep_limits:
+            ax.format(xlim=old_limits[0], ylim=old_limits[1])
+    return ax
+
+
 # def plot_rms_ellipse(
 #     hist: Histogram,
 #     level: float = 1.0,
 #     center_at_mean: bool = True,
 #     ax=None,
 #     **ellipse_kws,
-# ) -> pplt.Axes:
+# ) -> uplt.Axes:
 #     """Compute and plot the RMS ellipse from a two-dimensional image.
 #
 #     Parameters
@@ -200,8 +304,8 @@ def process(
 #     if center_at_mean:
 #         mean = psdist.image.centroid(values, coords)
 #     return psdist.plot.rms_ellipse(cov, mean, level=level, ax=ax, **ellipse_kws)
-#
-#
+
+
 # def plot(
 #     hist: Histogram,
 #     kind: str = "pcolor",
@@ -217,7 +321,7 @@ def process(
 #     return_mesh: bool = False,
 #     ax=None,
 #     **kws,
-# ) -> pplt.Axes:
+# ) -> uplt.Axes:
 #     """Plot a two-dimensional image.
 #
 #     Parameters
@@ -507,7 +611,7 @@ def process(
 #     dims, units : list[str], shape (n,)
 #         Dimension names and units.
 #     fig_kws : dict
-#         Key words for `pplt.subplots`.
+#         Key words for `uplt.subplots`.
 #     cmaps : list
 #         Color map options for dropdown menu.
 #     thresh_slider : bool
@@ -664,7 +768,7 @@ def process(
 #             plot_kws["process_kws"]["thresh"] = None
 #
 #         # Plot the projection onto the specified axes.
-#         fig, ax = pplt.subplots(**fig_kws)
+#         fig, ax = uplt.subplots(**fig_kws)
 #         ax = plot(
 #             values_proj,
 #             coords=[coords[axis_view[0]], coords[axis_view[1]]],
@@ -672,7 +776,7 @@ def process(
 #             **plot_kws,
 #         )
 #         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
-#         pplt.show()
+#         uplt.show()
 #
 #     # Pass key word arguments for `update`.
 #     kws = {}
@@ -834,7 +938,7 @@ def process(
 #         )
 #
 #         # Plot the projection.
-#         fig, ax = pplt.subplots(**fig_kws)
+#         fig, ax = uplt.subplots(**fig_kws)
 #         ax.format(xlabel=dims_units[axis_view])
 #         psdist.plot.plot_profile(
 #             profile=profile, coords=coords[axis_view], ax=ax, **plot_kws

@@ -10,8 +10,9 @@ from . import cov
 from .hist import Histogram
 from .hist import Histogram1D
 from .hist import SparseHistogram
-from .utils import edges_to_coords
-from .utils import coords_to_edges
+from .hist import edges_to_coords
+from .hist import coords_to_edges
+from .hist import combine_limits
 from .utils import array_like
 from .utils import random_choice_no_replacement
 from .utils import sphere_shell_volume
@@ -63,7 +64,7 @@ def find_min_volume_bounding_ellipse(
     guess = [alpha, beta]
 
     result = scipy.optimize.least_squares(
-        bounding_ellipse_area,
+        _bounding_ellipse_area,
         guess,
         bounds=([-np.inf, 1.00e-08], [+np.inf, +np.inf]),
         args=(points,),
@@ -72,7 +73,7 @@ def find_min_volume_bounding_ellipse(
     (alpha, beta) = result.x
     V_inv = normalization_matrix_from_twiss_2d(alpha, beta)
     V = np.linalg.inv(V_inv)
-    emittance = bounding_ellipse_area([alpha, beta], points)
+    emittance = _bounding_ellipse_area([alpha, beta], points)
     return (V, emittance)
 
 
@@ -82,7 +83,7 @@ def limits(
     pad: float = 0.0,
     zero_center: bool = False,
     share: tuple[int, ...] | list[tuple[int, ...]] = None,
-) -> list[tuple[float, float]]:
+) -> np.ndarray:
     """Compute nice limits for binning/plotting.
 
     Parameters
@@ -103,7 +104,7 @@ def limits(
 
     Returns
     -------
-    list[tuple[float, float]]
+    np.ndarray
         The limits [(xmin, xmax), (ymin, ymax), ...].
     """
     if points.ndim == 1:
@@ -123,7 +124,7 @@ def limits(
     padding = deltas * pad
     mins = mins - padding
     maxs = maxs + padding
-    limits = [(_min, _max) for _min, _max in zip(mins, maxs)]
+    limits = list(zip(mins, maxs))
 
     if share:
         if np.ndim(share[0]) == 0:
@@ -141,7 +142,15 @@ def limits(
 
     if len(limits) == 1:
         limits = limits[0]
+
+    limits = np.array(limits)
+
     return limits
+
+
+def global_limits(points_list: list[np.ndarray], **kwargs) -> np.ndarray:
+    limits_list = [limits(points, **kwargs) for points in points_list]
+    return combine_limits(limits_list)
 
 
 # Transforms

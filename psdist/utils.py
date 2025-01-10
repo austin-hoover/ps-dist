@@ -58,35 +58,6 @@ def rotation_matrix(angle: float) -> np.ndarray:
     return np.array([[c, s], [-s, c]])
 
 
-def edges_to_coords(edges: np.ndarray | list[np.ndarray]) -> np.ndarray:
-    """Compute bin center coordinates from evenly spaced bin edges."""
-
-    def edges_to_coords_1d(_edges):
-        return 0.5 * (_edges[:-1] + _edges[1:])
-
-    coords = None
-    if np.ndim(edges[0]) == 0:
-        coords = edges_to_coords_1d(edges)
-    else:
-        coords = [edges_to_coords_1d(e) for e in edges]
-    return coords
-
-
-def coords_to_edges(coords: np.ndarray | list[np.ndarray]) -> np.ndarray:
-    """Compute bin edges from evenly spaced bin coordinates."""
-
-    def coords_to_edges_1d(_coords):
-        delta = np.diff(_coords)[0]
-        return np.hstack([_coords - 0.5 * delta, [_coords[-1] + 0.5 * delta]])
-
-    edges = None
-    if np.ndim(coords[0]) == 0:
-        edges = coords_to_edges_1d(coords)
-    else:
-        edges = [coords_to_edges_1d(c) for c in coords]
-    return edges
-
-
 # The following three functions allow saving/loading ragged arrays in .npz format.
 # This is useful if we have multiple coordinate arrays with a different number of
 # points in each array.

@@ -8,6 +8,8 @@ import psdist as ps
 import psdist.plot as psv
 
 
+uplt.rc["cmap.discrete"] = False
+uplt.rc["cmap.sequential"] = "viridis"
 uplt.rc["grid"] = False
 uplt.rc["savefig.dpi"] = 200
 
@@ -40,16 +42,33 @@ def test_plot_rms_ellipse():
     plt.close()
 
 
-def test_plot_profile():
+def test_plot_hist_1d():
     x = np.random.normal(size=10_000)
-
     bin_edges = np.linspace(-4.0, 4.0, 51)
     hist = ps.Histogram1D(edges=bin_edges)
     hist.bin(x)
 
     fig, ax = uplt.subplots(figsize=(3.0, 1.5))
-    psv.plot_profile(hist, kind="step", ax=ax)
+    psv.plot_hist_1d(hist, kind="step", ax=ax, color="black")
 
     plt.savefig(os.path.join(output_dir, "fig_plot_profile.png"))
+    plt.close()
+
+
+def test_plot_hist_overlay():
+    x = np.random.normal(size=(10_000, 2))
+    bin_edges = [
+        np.linspace(-4.0, 4.0, 51),
+        np.linspace(-4.0, 4.0, 51)
+    ]
+    hist = ps.Histogram(edges=bin_edges)
+    hist.bin(x)
+
+    fig, ax = uplt.subplots(figwidth=3.0)
+    ax.pcolormesh(hist.coords[0], hist.coords[1], hist.values.T)
+
+    psv.hist.plot_profiles_overlay(hist, profx=True, profy=True, ax=ax)
+
+    plt.savefig(os.path.join(output_dir, "fig_plot_hist_overlay.png"))
     plt.close()
 

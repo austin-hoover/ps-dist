@@ -8,13 +8,14 @@ version = "2.0.0"
 requires-python = ">=3.11"
 
 dependencies = [
-   "numpy",
-   "scipy",
-   "tqdm",
+    "numpy",
+    "scipy",
+    "tqdm",
 
-   "ipywidgets",
-   "matplotlib",
-   "ultraplot",
+    "seaborn",
+    "ipywidgets",
+    "matplotlib",
+    "ultraplot",
 ]
 
 [project.urls]
