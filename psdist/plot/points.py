@@ -1,178 +1,177 @@
-# """Plotting routines for point data."""
-# import numpy as np
-# import proplot as pplt
-# from ipywidgets import interactive
-# from ipywidgets import widgets
-# from matplotlib import pyplot as plt
-#
-# from .. import points as ps_points
-# from .. import hist as ps_hist
-#
-# from .hist import plot as plot_image
-# from psdist.points import get_limits as auto_limits
-#
-#
-# def plot_rms_ellipse(
-#     points: np.ndarray,
-#     level: float | list[float] = 1.0,
-#     center_at_mean: bool = True,
-#     ax=None,
-#     **ellipse_kws,
-# ):
-#     """Compute and plot RMS ellipse from bunch coordinates.
-#
-#     Parameters
-#     ----------
-#     points : ndarray, shape (..., 2)
-#         Particle coordinates.
-#     level : number of list of numbers
-#         If a number, plot the rms ellipse inflated by the number. If a list of
-#         numbers, repeat for each number.
-#     center_at_mean : bool
-#         Whether to center the ellipse at the image centroid.
-#     """
-#     center = np.mean(points, axis=0)
-#     if not center_at_mean:
-#         center = (0.0, 0.0)
-#     return psdist.plot.rms_ellipse(
-#         np.cov(points.T), center, level=level, ax=ax, **ellipse_kws
-#     )
-#
-#
-# def scatter(points: np.ndarray, samples: int = None, ax=None, **kws):
-#     """Convenience function for 2D scatter plot.
-#
-#     Parameters
-#     ----------
-#     points: np.ndarray, shape (..., n)
-#         Coordinate array for n points in d-dimensional space.
-#     samples : int
-#         Plot this many random samples.
-#     **kws
-#         Key word arguments passed to `ax.scatter`.
-#     """
-#     if "color" in kws:
-#         kws["c"] = kws.pop("color")
-#     for kw in ["size", "ms"]:
-#         if kw in kws:
-#             kws["s"] = kws.pop(kw)
-#     kws.setdefault("c", "black")
-#     kws.setdefault("ec", "None")
-#     kws.setdefault("s", 2.0)
-#
-#     _points = points
-#     if samples:
-#         _points = psdist.points.downsample(_points, samples)
-#     return ax.scatter(_points[:, 0], _points[:, 1], **kws)
-#
-#
-# def hist(
-#     points: np.ndarray,
-#     bins: str = "auto",
-#     limits: list[tuple[float, float]] = None,
-#     ax=None,
-#     **kws,
-# ):
-#     """Convenience function for 2D histogram with auto-binning.
-#
-#     Parameters
-#     ----------
-#     points: np.ndarray, shape (..., n)
-#         Particle coordinates.
-#     limits, bins :
-#         See `psdist.bunch.histogram`.
-#     **kws
-#         Key word arguments passed to `plotting.image`.
-#     """
-#     values, edges = psdist.points.histogram(points, bins=bins, limits=limits)
-#     return plot_image(values, edges=edges, ax=ax, **kws)
-#
-#
-# def kde(
-#     points: np.ndarray,
-#     coords: list[np.ndarray] = None,
-#     res: float = 100,
-#     kde_kws: dict = None,
-#     ax=None,
-#     **kws,
-# ):
-#     """Plot kernel density estimation (KDE).
-#
-#     Parameters
-#     ----------
-#     points: np.ndarray, shape (..., n)
-#         Particle coordinates.
-#     coords: list[np.ndarray]
-#         Coordinates along each axis of a two-dimensional regular grid on which to
-#         evaluate the density.
-#     res : int
-#         If coords is not provided, determines the evaluation grid resolution.
-#     kde_kws : dict
-#         Key word arguments passed to `psdist.bunch.kde`.
-#     **kws
-#         Key word arguments passed to `psdist.plot.image.plot2`.
-#     """
-#     if kde_kws is None:
-#         kde_kws = dict()
-#     if coords is None:
-#         lb = np.min(points, axis=0)
-#         ub = np.max(points, axis=0)
-#         coords = [np.linspace(l, u, res) for l, u in zip(lb, ub)]
-#     estimator = psdist.points.gaussian_kde(points, **kde_kws)
-#
-#     density = psdist.points.gaussian_kde(get_grid_points(coords))
-#     density = density.reshape([len(c) for c in coords])
-#     return plot_image(density, coords=coords, ax=ax, **kws)
-#
-#
-# def plot(
-#     points: np.ndarray,
-#     kind="hist",
-#     rms_ellipse=False,
-#     rms_ellipse_kws=None,
-#     ax=None,
-#     **kws,
-# ):
-#     """Two-dimensional density plot.
-#
-#     Parameters
-#     ----------
-#     points: np.ndarray, shape (..., n)
-#         Coordinate array for n points in d-dimensional space.
-#     kind : {'hist', 'contour', 'contourf', 'scatter', 'kde'}
-#         The kind of plot.
-#     rms_ellipse : bool
-#         Whether to plot the RMS ellipse.
-#     rms_ellipse_kws : dict
-#         Key word arguments passed to `plot.points.plot_rms_ellipse`.
-#     ax : Axes
-#         The axis on which to plot.
-#     **kws
-#         Key word arguments passed to `plot.points.plot`.
-#     """
-#     if kind == "hist":
-#         kws.setdefault("mask", True)
-#
-#     function = None
-#     if kind in ["hist", "contour", "contourf"]:
-#         function = hist
-#         if kind in ["contour", "contourf"]:
-#             kws["kind"] = kind
-#     elif kind == "scatter":
-#         function = scatter
-#     elif kind == "kde":
-#         function = kde
-#     else:
-#         raise ValueError("Invalid plot kind.")
-#
-#     output = function(points, ax=ax, **kws)
-#     if rms_ellipse:
-#         if rms_ellipse_kws is None:
-#             rms_ellipse_kws = dict()
-#         plot_rms_ellipse(points, ax=ax, **rms_ellipse_kws)
-#     return output
-#
-#
+"""Plotting routines for point data."""
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.ndimage
+import ultraplot as uplt
+from ipywidgets import interactive
+from ipywidgets import widgets
+
+from psdist.points import downsample
+from psdist.points import gaussian_kde
+from .core import plot_rms_ellipse as _plot_rms_ellipse
+from .hist import plot as _plot_hist
+from ..hist import Histogram
+
+
+def plot_rms_ellipse(
+    points: np.ndarray,
+    level: float | list[float] = 1.0,
+    center_at_mean: bool = True,
+    ax=None,
+    **ellipse_kws,
+):
+    """Compute and plot RMS ellipse from bunch coordinates.
+
+    Parameters
+    ----------
+    points : ndarray, shape (..., 2)
+        Particle coordinates.
+    level : number of list of numbers
+        If a number, plot the rms ellipse inflated by the number. If a list of
+        numbers, repeat for each number.
+    center_at_mean : bool
+        Whether to center the ellipse at the image centroid.
+    """
+    center = np.mean(points, axis=0)
+    if not center_at_mean:
+        center = (0.0, 0.0)
+    return _plot_rms_ellipse(
+        np.cov(points.T), center, level=level, ax=ax, **ellipse_kws
+    )
+
+
+def plot_scatter(points: np.ndarray, samples: int = None, ax=None, **kws):
+    """Convenience function for 2D scatter plot.
+
+    Parameters
+    ----------
+    points: np.ndarray, shape (..., n)
+        Coordinate array for n points in d-dimensional space.
+    size : int
+        Plot this many random samples.
+    **kws
+        Key word arguments passed to `ax.scatter`.
+    """
+    if "color" in kws:
+        kws["c"] = kws.pop("color")
+    for kw in ["size", "ms"]:
+        if kw in kws:
+            kws["s"] = kws.pop(kw)
+    kws.setdefault("c", "black")
+    kws.setdefault("ec", "None")
+    kws.setdefault("s", 2.0)
+
+    if samples is not None:
+        points = downsample(points, samples)
+    return ax.scatter(points[:, 0], points[:, 1], **kws)
+
+
+def plot_hist(
+    points: np.ndarray,
+    bins: int = 10,
+    limits: np.ndarray = None,
+    ax=None,
+    **kws,
+):
+    """Convenience function for 2D histogram with auto-binning.
+
+    Parameters
+    ----------
+    points: np.ndarray, shape (..., n)
+        Particle coordinates.
+    limits, bins :
+        See `psdist.bunch.histogram`.
+    **kws
+        Key word arguments passed to `plotting.image`.
+    """
+    values, edges = np.histogramdd(points, bins=bins, range=limits)
+    hist = Histogram(values, edges=edges)
+    return _plot_hist(hist, ax=ax, **kws)
+
+
+def plot_kde(
+    points: np.ndarray,
+    bins: int = 10,
+    limits: np.ndarray = None,
+    kde_kws: dict = None,
+    ax=None,
+    **kws,
+):
+    """Plot gaussian kernel density estimation (KDE).
+
+    Parameters
+    ----------
+    points: np.ndarray, shape (..., n)
+        Particle coordinates.
+    coords: list[np.ndarray]
+        Coordinates along each axis of a two-dimensional regular grid on which to
+        evaluate the density.
+    res : int
+        If coords is not provided, determines the evaluation grid resolution.
+    kde_kws : dict
+        Key word arguments passed to `psdist.points.gaussian_kde`.
+    **kws
+        Key word arguments passed to `plot_hist`.
+    """
+    if kde_kws is None:
+        kde_kws = {}
+
+    ndim = points.shape[1]
+    edges = [np.linspace(limits[i][0], limits[i][1], bins + 1) for i in range(ndim)]
+    hist = gaussian_kde(points, edges, **kde_kws)
+    return _plot_hist(hist, ax=ax, **kws)
+
+
+def plot(
+    points: np.ndarray,
+    kind: str = "hist",
+    rms_ellipse: bool = False,
+    rms_ellipse_kws: dict = None,
+    ax=None,
+    **kws
+):
+    """Plot two-dimensional density.
+
+    Parameters
+    ----------
+    points: np.ndarray, shape (..., N)
+        Coordinates of points in N-dimensional space.
+    kind : {'hist', 'contour', 'contourf', 'scatter', 'kde'}
+        The kind of plot. These key words map to the following functions:
+        "hist": psdist.plot.points.plot_hist(kind="hist")
+        "contour": psdist.plot.points.plot_hist(kind="contour")
+        "contourf": psdist.plot.points.plot_hist(kind="contourf")
+        "scatter": psdist.plot.points.plot_scatter
+        "kde": psdist.plot.points.plot_kde
+    ax : Axes
+        The axis on which to plot.
+    **kws
+        Key word arguments passed to plotting function.
+    """
+    if kind == "hist":
+        kws.setdefault("mask", True)
+
+    if rms_ellipse_kws is None:
+        rms_ellipse_kws = {}
+
+    plot_function = None
+    if kind in ["hist", "contour", "contourf"]:
+        plot_function = plot_hist
+        if kind in ["contour", "contourf"]:
+            kws["kind"] = kind
+    elif kind == "scatter":
+        plot_function = plot_scatter
+    elif kind == "kde":
+        plot_function = plot_kde
+    else:
+        raise ValueError(f"Invalid plot kind '{kind}'.")
+
+    output = plot_function(points, ax=ax, **kws)
+    if rms_ellipse:
+        plot_rms_ellipse(points, ax=ax, **rms_ellipse_kws)
+    return output
+
+
 # def joint(
 #     points: np.ndarray,
 #     grid_kws: dict = None,

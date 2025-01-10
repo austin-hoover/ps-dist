@@ -1,10 +1,10 @@
 """Plotting routines for multi-dimensional images."""
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
 import ultraplot as uplt
 from ipywidgets import interactive
 from ipywidgets import widgets
-from matplotlib import pyplot as plt
 
 import psdist as ps
 from psdist.hist import Histogram

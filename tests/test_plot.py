@@ -19,6 +19,10 @@ output_dir = os.path.join("outputs", path.stem)
 os.makedirs(output_dir, exist_ok=True)
 
 
+def test_grid():
+    pass
+
+
 def test_plot_ellipse():
     fig, ax = uplt.subplots()
     psv.plot_ellipse(r1=1.5, r2=0.5, ax=ax)
@@ -106,6 +110,26 @@ def test_plot_hist_rms_ellipse():
     plt.close()
 
 
+def test_plot_points_hist():
+    x = np.random.normal(size=(10_000, 2))
+    bin_edges = [
+        np.linspace(-4.0, 4.0, 51),
+        np.linspace(-4.0, 4.0, 51)
+    ]
+
+    fig, ax = uplt.subplots(figwidth=3.0)
+    psv.plot_points(x, bins=bin_edges, kind="hist", ax=ax)
+    plt.savefig(os.path.join(output_dir, "fig_plot_points_hist.png"))
+    plt.close()
+
+
+def test_plot_points_scatter():
+    x = np.random.normal(size=(10_000, 2))
+
+    fig, ax = uplt.subplots(figwidth=3.0)
+    psv.plot_points(x, kind="scatter", ax=ax)
+    plt.savefig(os.path.join(output_dir, "fig_plot_points_scatter.png"))
+    plt.close()
 
 
 

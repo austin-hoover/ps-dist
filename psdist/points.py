@@ -599,6 +599,7 @@ def gaussian_kde(points: np.ndarray, bins: np.ndarray | list[np.ndarray], **kws)
     values = kde(hist.grid_points().T)
     hist.values = values.reshape(hist.shape)
     hist.normalize()
+    return hist
 
 
 # Distances (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
