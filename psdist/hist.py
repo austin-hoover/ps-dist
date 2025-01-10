@@ -210,6 +210,9 @@ class Histogram1D:
         if self.values is None:
             self.values = np.zeros(self.shape)
 
+    def copy(self) -> Self:
+        return Histogram(values=self.values, edges=self.edges)
+
     def normalize(self) -> None:
         values_sum = np.sum(self.values)
         if values_sum > 0.0:
