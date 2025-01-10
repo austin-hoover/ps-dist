@@ -492,9 +492,6 @@ def project_contour_slice_1d(
     hist
         The 1D projection of the (N-1)D slice.
     """
-    coords = hist.coords
-    values = hist.values
-
     axis_proj = [i for i in range(hist.ndim) if i != axis]
     if hist_proj is None:
         hist_proj = project(hist, axis=axis_proj)
@@ -512,7 +509,7 @@ def project_contour_slice_1d(
     values_slice = hist_slice.values
     values_proj_1d = np.sum(values_slice, axis=int(axis == 0))
     coords_proj_1d = hist.coords[axis]
-    return hist1D(values=values_proj_1d, coords=coords_proj_1d)
+    return Histogram1D(values=values_proj_1d, coords=coords_proj_1d)
 
 
 def project_contour_slice_2d(
