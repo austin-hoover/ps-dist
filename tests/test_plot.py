@@ -55,7 +55,7 @@ def test_plot_hist_1d():
     plt.close()
 
 
-def test_plot_hist_overlay():
+def test_plot_hist():
     x = np.random.normal(size=(10_000, 2))
     bin_edges = [
         np.linspace(-4.0, 4.0, 51),
@@ -65,10 +65,47 @@ def test_plot_hist_overlay():
     hist.bin(x)
 
     fig, ax = uplt.subplots(figwidth=3.0)
-    ax.pcolormesh(hist.coords[0], hist.coords[1], hist.values.T)
+    psv.plot_hist(hist, ax=ax)
 
-    psv.hist.plot_profiles_overlay(hist, profx=True, profy=True, ax=ax)
-
-    plt.savefig(os.path.join(output_dir, "fig_plot_hist_overlay.png"))
+    plt.savefig(os.path.join(output_dir, "fig_plot_hist.png"))
     plt.close()
+
+
+def test_plot_hist_prof():
+    x = np.random.normal(size=(10_000, 2))
+    bin_edges = [
+        np.linspace(-4.0, 4.0, 51),
+        np.linspace(-4.0, 4.0, 51)
+    ]
+    hist = ps.Histogram(edges=bin_edges)
+    hist.bin(x)
+
+    fig, ax = uplt.subplots(figwidth=3.0)
+    psv.plot_hist(hist, ax=ax, profx=True, profy=True)
+    plt.savefig(os.path.join(output_dir, "fit_plot_hist_prof.png"))
+    plt.close()
+
+
+def test_plot_hist_rms_ellipse():
+    x = np.random.normal(size=(10_000, 2))
+    bin_edges = [
+        np.linspace(-4.0, 4.0, 51),
+        np.linspace(-4.0, 4.0, 51)
+    ]
+    hist = ps.Histogram(edges=bin_edges)
+    hist.bin(x)
+
+    fig, ax = uplt.subplots(figwidth=3.0)
+    psv.plot_hist(
+        hist,
+        ax=ax,
+        rms_ellipse=True,
+        rms_ellipse_kws=dict(level=[1.0, 2.0])
+    )
+    plt.savefig(os.path.join(output_dir, "fig_plot_hist_rms_ellipse.png"))
+    plt.close()
+
+
+
+
 

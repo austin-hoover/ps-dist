@@ -17,18 +17,18 @@ from . import core
 #   `options` input; see the versions of these functions in `psdist.plot.points`.
 
 
-def process_values_fill(values: np.ndarray, fill_value: float) -> np.ndarray:
+def _process_values_fill(values: np.ndarray, fill_value: float) -> np.ndarray:
     return np.ma.filled(values, fill_value=fill_value)
 
 
-def process_values_thresh(values: np.ndarray, lmin: 0.0, frac: bool = False) -> np.ndarray:
+def _process_values_thresh(values: np.ndarray, lmin: 0.0, frac: bool = False) -> np.ndarray:
     if frac:
         lmin = lmin * values.max()
     values[values < lmin] = 0.0
     return values
 
 
-def process_values_clip(
+def _process_values_clip(
     values: np.ndarray, lmin: float = None, lmax: float = None, frac: bool = False
 ) -> np.ndarray:
     """Clip between lmin and lmax, can be fractions or absolute values."""
@@ -43,11 +43,11 @@ def process_values_clip(
     return np.clip(f, lmin, lmax)
 
 
-def process_values_blur(values: np.ndarray, sigma: float) -> np.ndarray:
+def _process_values_blur(values: np.ndarray, sigma: float) -> np.ndarray:
     return scipy.dimage.gaussian_filter(values, sigma)
 
 
-def process_values_scale_max(values: np.ndarray) -> np.ndarray:
+def _process_values_scale_max(values: np.ndarray) -> np.ndarray:
     values_max = np.max(values)
     if values_max > 0.0:
         values = values / values_max
@@ -93,15 +93,15 @@ def process_hist(
     values = hist.values.copy()
 
     if fill_value is not None:
-        values = process_values_fill(values, fill_value)
+        values = _process_values_fill(values, fill_value)
     if thresh is not None:
-        values = process_values_thresh(values, thresh, frac=(thresh_type == "frac"))
+        values = _process_values_thresh(values, thresh, frac=(thresh_type == "frac"))
     if clip is not None:
-        values = process_values_clip(values, lmin=clip[0], lmax=clip[1], frac=(clip_type == "fract"))
+        values = _process_values_clip(values, lmin=clip[0], lmax=clip[1], frac=(clip_type == "fract"))
     if blur is not None:
-        values = process_values_blur(values, blur)
+        values = _process_values_blur(values, blur)
     if scale_max:
-        values = process_values_scale_max(values)
+        values = _process_values_scale_max(values)
     hist.values = values
     if normalize:
         hist.normalize()
@@ -303,125 +303,126 @@ def plot_rms_ellipse(
     return core.plot_rms_ellipse(cov_matrix, mean, level=level, ax=ax, **kws)
 
 
-# def plot(
-#     hist: Histogram,
-#     kind: str = "pcolor",
-#     profx: bool = False,
-#     profy: bool = False,
-#     prof_kws: dict = None,
-#     process_kws: dict = None,
-#     offset: float = None,
-#     offset_type: str = "relative",
-#     mask: bool = False,
-#     rms_ellipse: bool = False,
-#     rms_ellipse_kws: dict = None,
-#     return_mesh: bool = False,
-#     ax=None,
-#     **kws,
-# ) -> uplt.Axes:
-#     """Plot a two-dimensional image.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     ax : matplotlib.pyplt.Axes
-#         The axis on which to plot.
-#     kind : ['pcolor', 'contour', 'contourf']
-#         Whether to call `ax.pcolormesh`, `ax.contour`, or `ax.contourf`.
-#     profx, profy : bool
-#         Whether to plot the x/y profile.
-#     prof_kws : dict
-#         Key words arguments for `image_profiles`.
-#     rms_ellipse : bool
-#         Whether to plot rms ellipse.
-#     rms_ellipse_kws : dict
-#         Key word arguments for `image_rms_ellipse`.
-#     return_mesh : bool
-#         Whether to return a mesh from `ax.pcolormesh`.
-#     process_kws : dict
-#         Key word arguments passed to `psdist.image.process`.
-#     offset, offset_type : float, {"relative", "absolute"}
-#         Adds offset to the image (helpful to get rid of zeros for logarithmic
-#         color scales. If offset_type is 'relative' add `min(f) * offset` to
-#         the image. Otherwise add `offset`.
-#     mask : bool
-#         Whether to plot pixels at or below zero.
-#     **kws
-#         Key word arguments passed to plotting function.
-#     """
-#     if coords is None:
-#         if edges is not None:
-#             coords = [psdist.utils.coords_from_edges(e) for e in edges]
-#         else:
-#             coords = [np.arange(s) for s in values.shape]
-#
-#     # Process key word arguments.
-#     if process_kws is None:
-#         process_kws = dict()
-#
-#     if rms_ellipse_kws is None:
-#         rms_ellipse_kws = dict()
-#
-#     function = None
-#     if kind == "pcolor":
-#         function = ax.pcolormesh
-#         kws.setdefault("ec", "None")
-#         kws.setdefault("linewidth", 0.0)
-#         kws.setdefault("rasterized", True)
-#         kws.setdefault("shading", "auto")
-#     elif kind == "contour":
-#         function = ax.contour
-#     elif kind == "contourf":
-#         function = ax.contourf
-#     else:
-#         raise ValueError("Invalid plot kind.")
-#
-#     kws.setdefault("colorbar", False)
-#     kws.setdefault("colorbar_kw", dict())
-#
-#     # Process the image.
-#     values = values.copy()
-#     values = process(values, **process_kws)
-#     if offset is not None:
-#         if offset_type == "relative" and np.count_nonzero(values):
-#             offset = offset * np.min(values[values > 0])
-#         values += offset
-#     else:
-#         offset = 0.0
-#
-#     # Make sure there are no more zero elements if norm='log'.
-#     log = "norm" in kws and (kws["norm"] == "log")
-#     if log:
-#         kws["colorbar_kw"]["formatter"] = "log"
-#     if mask or log:
-#         values = np.ma.masked_less_equal(values, 0)
-#
-#     # If there are only zero elements, increase vmax so that the lowest color shows.
-#     if not np.count_nonzero(values):
-#         kws["vmin"] = 1.0
-#         kws["vmax"] = 1.0
-#
-#     # Plot the image.
-#     mesh = function(coords[0].T, coords[1].T, values.T, **kws)
-#     if rms_ellipse:
-#         if rms_ellipse_kws is None:
-#             rms_ellipse_kws = dict()
-#         plot_rms_ellipse(values, coords=coords, ax=ax, **rms_ellipse_kws)
-#     if profx or profy:
-#         if prof_kws is None:
-#             prof_kws = dict()
-#         if kind == "contourf":
-#             prof_kws.setdefault("keep_limits", True)
-#         plot_profiles(
-#             values - offset, coords=coords, ax=ax, profx=profx, profy=profy, **prof_kws
-#         )
-#     if return_mesh:
-#         return ax, mesh
-#     else:
-#         return ax
-#
-#
+def plot(
+    hist: Histogram,
+    kind: str = "pcolor",
+    process_kws: dict = None,
+    offset: float = None,
+    offset_type: str = "relative",
+    mask: bool = False,
+    profx: bool = False,
+    profy: bool = False,
+    prof_kws: dict = None,
+    rms_ellipse: bool = False,
+    rms_ellipse_kws: dict = None,
+    return_mesh: bool = False,
+    ax=None,
+    **kws,
+) -> uplt.Axes:
+    """Plot two-dimensional histogram..
+
+    Parameters
+    ----------
+    hist : Histogram
+        A two-dimensional histogram.
+    kind : ['pcolor', 'contour', 'contourf']
+        Whether to call `ax.pcolormesh`, `ax.contour`, or `ax.contourf`.
+    process_kws : dict
+        Key word arguments passed to `psdist.image.process`.
+    offset: float
+        Adds offset to the histogram values (usually to avoid zeros for
+         logarithmic colormaps).
+    offset_type : {"relative", "absolute"}
+        If offset_type is 'relative', adds `min(hist.values) * offset`.
+        Otherwise, adds `offset`.
+    mask : bool
+        Whether to mask zero/negative cells.
+    profx, profy : bool
+        Whether to plot the x/y profile.
+    prof_kws : dict
+        Key words arguments for `image_profiles`.
+    rms_ellipse : bool
+        Whether to plot rms ellipse.
+    rms_ellipse_kws : dict
+        Key word arguments for `image_rms_ellipse`.
+    return_mesh : bool
+        Whether to return a mesh from `ax.pcolormesh`.
+    ax : Axes
+        The axis on which to plot.
+    **kws
+        Key word arguments passed to plotting function.
+    """
+    # Process key word arguments.
+    if process_kws is None:
+        process_kws = {}
+
+    if rms_ellipse_kws is None:
+        rms_ellipse_kws = {}
+    rms_ellipse_kws.setdefault("color", "white")
+
+    if prof_kws is None:
+        prof_kws = {}
+    if kind == "contourf":
+        prof_kws.setdefault("keep_limits", True)
+
+    kws.setdefault("colorbar", False)
+    kws.setdefault("colorbar_kw", {})
+
+    plot_function = None
+    if kind == "pcolor":
+        plot_function = ax.pcolormesh
+        kws.setdefault("ec", "None")
+        kws.setdefault("linewidth", 0.0)
+        kws.setdefault("rasterized", True)
+        kws.setdefault("shading", "auto")
+    elif kind == "contour":
+        plot_function = ax.contour
+    elif kind == "contourf":
+        plot_function = ax.contourf
+    else:
+        raise ValueError("Invalid plot kind.")
+
+
+    # Process the histogram.
+    hist = hist.copy()
+    hist = process_hist(hist, **process_kws)
+
+    # Add offset to histogram values.
+    if offset is not None:
+        if offset_type == "relative":
+            if np.count_nonzero(hist.values):
+                offset *= np.min(hist.values[hist.values > 0])
+        hist.values += offset
+    else:
+        offset = 0.0
+
+    # Make sure there are no more zero elements if kws["norm"] == "log"
+    log = ("norm" in kws) and (kws["norm"] == "log")
+    if log:
+        kws["colorbar_kw"]["formatter"] = "log"
+    if mask or log:
+        hist.values = np.ma.masked_less_equal(hist.values, 0.0)
+
+    # If there are only zero elements, increase vmax so that the lowest color shows.
+    if not np.count_nonzero(hist.values):
+        kws["vmin"] = 1.0
+        kws["vmax"] = 1.0
+
+    # Plot the image.
+    values = hist.values
+    coords = hist.coords
+    mesh = plot_function(coords[0].T, coords[1].T, values.T, **kws)
+    if rms_ellipse:
+        plot_rms_ellipse(hist, ax=ax, **rms_ellipse_kws)
+    if profx or profy:
+        hist.values -= offset
+        plot_profiles_overlay(hist, profx=profx, profy=profy, ax=ax, **prof_kws)
+    if return_mesh:
+        return ax, mesh
+    else:
+        return ax
+
+
 # def joint(
 #     hist: Histogram,
 #     grid_kws: dict = None,
