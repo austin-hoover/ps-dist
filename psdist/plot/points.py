@@ -6,12 +6,14 @@ import ultraplot as uplt
 from ipywidgets import interactive
 from ipywidgets import widgets
 
-from psdist.points import downsample
-from psdist.points import gaussian_kde
+from psdist.points import downsample as _downsample
+from psdist.points import estimate_density as _estimate_density
 from psdist.points import limits as get_limits
 from .core import plot_rms_ellipse as _plot_rms_ellipse
 from .hist import plot as _plot_hist
+from .hist import plot_1d as _plot_hist_1d
 from ..hist import Histogram
+from ..hist import Histogram1D
 
 
 def plot_rms_ellipse(
@@ -55,15 +57,17 @@ def plot_scatter(points: np.ndarray, samples: int = None, ax=None, **kws):
     """
     if "color" in kws:
         kws["c"] = kws.pop("color")
+
     for kw in ["size", "ms"]:
         if kw in kws:
             kws["s"] = kws.pop(kw)
+
     kws.setdefault("c", "black")
     kws.setdefault("ec", "None")
     kws.setdefault("s", 2.0)
 
     if samples is not None:
-        points = downsample(points, samples)
+        points = _downsample(points, samples)
     return ax.scatter(points[:, 0], points[:, 1], **kws)
 
 
@@ -74,7 +78,7 @@ def plot_hist(
     ax=None,
     **kws,
 ):
-    """Convenience function for 2D histogram with auto-binning.
+    """Plot two-dimensional histogram.
 
     Parameters
     ----------
@@ -90,40 +94,103 @@ def plot_hist(
     return _plot_hist(hist, ax=ax, **kws)
 
 
-def plot_kde(
+def plot_hist_1d(
     points: np.ndarray,
     bins: int = 10,
     limits: np.ndarray = None,
-    kde_kws: dict = None,
     ax=None,
     **kws,
 ):
-    """Plot gaussian kernel density estimation (KDE).
+    """Plot one-dimensional histogram."""
+    values, edges = np.histogram(points, bins=bins, range=limits)
+    hist = Histogram1D(values, edges=edges)
+    return _plot_hist_1d(hist, ax=ax, **kws)
+
+
+def plot_density_estimate(
+    points: np.ndarray,
+    bins: int = 10,
+    limits: np.ndarray = None,
+    method: str = "kde",
+    method_kws: dict = None,
+    ax=None,
+    **kws,
+):
+    """Plot two-dimensional density estimate.
 
     Parameters
     ----------
-    points: np.ndarray, shape (..., n)
+    points: np.ndarray, shape (..., N)
         Particle coordinates.
-    coords: list[np.ndarray]
-        Coordinates along each axis of a two-dimensional regular grid on which to
-        evaluate the density.
-    res : int
-        If coords is not provided, determines the evaluation grid resolution.
-    kde_kws : dict
-        Key word arguments passed to `psdist.points.gaussian_kde`.
+    bins : int
+       Number of bins defining the evaluation grid along each dimension.
+    limits : np.ndarray
+        Evaluation grid limits [(xmin, xmax), (ymin, ymax)].
+    method: str
+        Name of density estimator.
+    method_kws: dict
+        Key word arguments passed to {}.
     **kws
         Key word arguments passed to `plot_hist`.
     """
-    if kde_kws is None:
-        kde_kws = {}
+    if method_kws is None:
+        method_kws = {}
 
     if limits is None:
         limits = get_limits(points)
 
     ndim = points.shape[1]
-    edges = [np.linspace(limits[i][0], limits[i][1], bins + 1) for i in range(ndim)]
-    hist = gaussian_kde(points, edges, **kde_kws)
+
+    edges = [
+        np.linspace(limits[i][0], limits[i][1], bins + 1)
+        for i in range(ndim)
+    ]
+    hist = Histogram(edges=edges)
+    eval_points = hist.points()
+
+    values = _estimate_density(points, eval_points, method, **method_kws)
+    values = values.reshape(hist.shape)
+    hist.values = values
+    hist.normalize()
     return _plot_hist(hist, ax=ax, **kws)
+
+
+def plot_density_estimate_1d(
+    points: np.ndarray,
+    bins: int = 10,
+    limits: np.ndarray = None,
+    method: str = "kde",
+    method_kws: dict = None,
+    ax=None,
+    **kws,
+):
+    """Plot one-dimensional density estimate."""
+    if method_kws is None:
+        method_kws = {}
+
+    if limits is None:
+        limits = get_limits(points)
+
+    edges = np.linspace(limits[0], limits[1], bins + 1)
+    hist = Histogram1D(edges=edges)
+
+    eval_points = hist.coords
+    values = _estimate_density(points, eval_points, method, **method_kws)
+    values = values.reshape(hist.shape)
+    hist.values = values
+    hist.normalize()
+    return _plot_hist_1d(hist, ax=ax, **kws)
+
+
+def plot_1d(points: np.ndarray, kde: bool = False, **kws):
+    """Plot one-dimensional density."""
+    plot_function = None
+    if kde:
+        plot_function = plot_density_estimate_1d
+    else:
+        plot_function = plot_hist_1d
+
+    return plot_function(points, **kws)
 
 
 def plot(
@@ -146,7 +213,7 @@ def plot(
         "contour": psdist.plot.points.plot_hist(kind="contour")
         "contourf": psdist.plot.points.plot_hist(kind="contourf")
         "scatter": psdist.plot.points.plot_scatter
-        "kde": psdist.plot.points.plot_kde
+        "density": psdist.plot.points.plot_density_estimate
     ax : Axes
         The axis on which to plot.
     **kws
@@ -165,8 +232,8 @@ def plot(
             kws["kind"] = kind
     elif kind == "scatter":
         plot_function = plot_scatter
-    elif kind == "kde":
-        plot_function = plot_kde
+    elif kind == "density":
+        plot_function = plot_density_estimate
     else:
         raise ValueError(f"Invalid plot kind '{kind}'.")
 

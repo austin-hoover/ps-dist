@@ -39,7 +39,7 @@ def _process_values_clip(
 
 
 def _process_values_blur(values: np.ndarray, sigma: float) -> np.ndarray:
-    return scipy.dimage.gaussian_filter(values, sigma)
+    return scipy.ndimage.gaussian_filter(values, sigma)
 
 
 def _process_values_scale_max(values: np.ndarray) -> np.ndarray:
@@ -57,8 +57,7 @@ def process_hist(
     clip: tuple[float] = None,
     clip_type: str = "abs",
     blur: float = None,
-    normalize: bool = False,
-    scale_max: bool = False,
+    scale: str = None,
 ) -> Histogram:
     """Return processed image.
 
@@ -78,10 +77,8 @@ def process_hist(
         Clip (limit) elements to within the range [lmin, lmax].
     clip_type : {"frac", "abs"}
         Whether `clip` is absolute or relative to peak.
-    normalize : bool
-        Make probability density.
-    scale_max : bool
-        Divide by maximum value.
+    scale : {None, "max", "density"}
+        Normalize by max, volume, or None.
     blur : float
         Kernel width for gaussian filter.
     """
@@ -95,10 +92,10 @@ def process_hist(
         values = _process_values_clip(values, lmin=clip[0], lmax=clip[1], frac=(clip_type == "fract"))
     if blur is not None:
         values = _process_values_blur(values, blur)
-    if scale_max:
+    if scale == "max":
         values = _process_values_scale_max(values)
     hist.values = values
-    if normalize:
+    if scale == "density":
         hist.normalize()
     return hist
 
@@ -168,7 +165,9 @@ def plot_1d(
 
     kws.setdefault("lw", 1.5)
 
+    hist = hist.copy()
     hist = scale_hist(hist, scale=scale)
+
     values = hist.values.copy()
     coords = hist.coords.copy()
     edges = hist.edges.copy()
@@ -183,7 +182,7 @@ def plot_1d(
             **kws,
         )
     if kind == "line":
-        values += offset
+        values = values + offset
         if fill:
             if orientation == "horizontal":
                 return ax.fill_betweenx(coords, offset, values, **kws)
@@ -201,11 +200,11 @@ def plot_1d(
         if orientation == "horizontal":
             return ax.barh(coords, values, left=pad, **kws)
         else:
-            return ax.bar(
-                coords, values, bottom=pad, **kws
-            )
+            return ax.bar(coords, values, bottom=pad, **kws)
     else:
         raise ValueError(f"Invalid plot kind '{kind}'")
+
+    return ax
 
 
 def plot_profiles_overlay(

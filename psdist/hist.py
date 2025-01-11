@@ -152,8 +152,11 @@ class Histogram(Grid):
     def max_indices(self) -> tuple[np.ndarray]:
         return np.unravel_index(np.argmax(self.values), self.shape)
 
-    def sample(self, **kwargs) -> np.ndarray:
-        return sample_hist(**kwargs)
+    def sample(self, size: int, noise: float = 0.0) -> np.ndarray:
+        return sample_hist(self, size=size, noise=noise)
+
+    def project(self, axis: int | tuple[int, ...]) -> Self:
+        return project(self, axis)
 
     def bin(self, points: np.ndarray, density: bool = True) -> np.ndarray:
         self.values, _ = np.histogramdd(points, bins=self.edges, density=density)

@@ -505,13 +505,15 @@ def histogram(
     density: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray]]:
     """Compute multidimensional histogram."""
+    hist = None
     if points.ndim == 1:
-        bins = np.histogram_bin_edges(points, bins, limits)
-        hist, _ = np.histogram(points, bins=bins)
-
-    edges = histogram_bin_edges(points, bins=bins, limits=limits)
-    values, _ = np.histogramdd(points, edges, density=density)
-    return Histogram(values=values, edges=edges)
+        edges = np.histogram_bin_edges(points, bins, limits)
+        hist = Histogram1D(edges=edges)
+    else:
+        edges = histogram_bin_edges(points, bins=bins, limits=limits)
+        hist = Histogram(edges=edges)
+    hist.bin(points)
+    return hist
 
 
 def sparse_histogram(

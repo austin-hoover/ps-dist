@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 import ultraplot as uplt
 
 from ..hist import Histogram
+from ..points import histogram as _histogram
 from ..hist import Histogram1D
-from .points import plot as plot_points
-from .hist import plot as plot_hist
+from .hist import plot as _plot_hist
+from .hist import plot_1d as _plot_hist_1d
+from .points import plot as _plot_points
 
 
 class JointGrid:
@@ -21,136 +23,180 @@ class JointGrid:
         The main figure.
     ax : proplot.gridspec.SubplotGrid
         The main axis.
-    ax_marg_x, ax_marg_y : proplot.gridspec.SubplotGrid
+    ax_panel_x, ax_panel_y : proplot.gridspec.SubplotGrid
         The marginal (panel) axes on the top and right.
     """
-
     def __init__(
         self,
-        marg_kws: dict = None,
-        marg_fmt_kws: dict = None,
-        marg_fmt_kws_x: dict = None,
-        marg_fmt_kws_y: dict = None,
+        limits: np.ndarray = None,
+        panel_kws: dict = None,
+        panel_fmt_kws: dict = None,
+        panel_fmt_kws_x: dict = None,
+        panel_fmt_kws_y: dict = None,
         **fig_kws,
     ) -> None:
         """Constructor.
 
-        marg_kws : dict
+        panel_kws : dict
             Key word arguments for `ax.panel`.
-        marg_fmt_kws, marg_fmt_kws_x, marg_fmt_kws_y : dict
+        panel_fmt_kws, panel_fmt_kws_x, panel_fmt_kws_y : dict
             Key word arguments for `ax.format` for each of the marginal (panel) axs.
         **fig_kws
             Key word arguments passed to `proplot.subplots`.
         """
         self.fig, self.ax = uplt.subplots(**fig_kws)
-        if marg_kws is None:
-            marg_kws = dict()
-        if marg_fmt_kws is None:
-            marg_fmt_kws = dict()
-        if marg_fmt_kws_x is None:
-            marg_fmt_kws_x = dict()
-        if marg_fmt_kws_y is None:
-            marg_fmt_kws_y = dict()
 
-        marg_fmt_kws_x.setdefault("xspineloc", "bottom")
-        marg_fmt_kws_x.setdefault("yspineloc", "left")
-        marg_fmt_kws_y.setdefault("xspineloc", "bottom")
-        marg_fmt_kws_y.setdefault("yspineloc", "left")
+        self.limits = limits
+        if self.limits is not None:
+            self.set_limits(self.limits)
 
-        self.ax_marg_x = self.ax.panel("t", **marg_kws)
-        self.ax_marg_y = self.ax.panel("r", **marg_kws)
-        self.marg_axs = [self.ax_marg_x, self.ax_marg_y]
-        for ax in self.marg_axs:
-            ax.format(**marg_fmt_kws)
-        self.marg_axs[0].format(**marg_fmt_kws_x)
-        self.marg_axs[1].format(**marg_fmt_kws_y)
+        if panel_kws is None:
+            panel_kws = {}
+        if panel_fmt_kws is None:
+            panel_fmt_kws = {}
+        if panel_fmt_kws_x is None:
+            panel_fmt_kws_x = {}
+        if panel_fmt_kws_y is None:
+            panel_fmt_kws_y = {}
 
-    def get_default_marg_kws(self, marg_kws: dict = None) -> None:
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault("color", "black")
-        marg_kws.setdefault("kind", "step")
-        marg_kws.setdefault("lw", 1.0)
-        marg_kws.setdefault("scale", "density")
-        return marg_kws
+        panel_fmt_kws_x.setdefault("xspineloc", "bottom")
+        panel_fmt_kws_x.setdefault("yspineloc", "left")
+        panel_fmt_kws_y.setdefault("xspineloc", "bottom")
+        panel_fmt_kws_y.setdefault("yspineloc", "left")
+
+        self.ax_panel_x = self.ax.panel("t", **panel_kws)
+        self.ax_panel_y = self.ax.panel("r", **panel_kws)
+        self.panel_axs = [self.ax_panel_x, self.ax_panel_y]
+        for ax in self.panel_axs:
+            ax.format(**panel_fmt_kws)
+        self.panel_axs[0].format(**panel_fmt_kws_x)
+        self.panel_axs[1].format(**panel_fmt_kws_y)
+
+        self.default_panel_plot_kws = {
+            "color": "black",
+            "kind": "step",
+            "lw": 1.5,
+            "scale": "density",
+        }
+
+        self.default_panel_hist_kws = {
+            "bins": "auto"
+        }
+
+        self.frozen_limits = False
+
+    def set_limits(self, limits: np.ndarray) -> None:
+        self.limits = limits
+        self.axs.format(xlim=limits[0], ylim=limits[1])
+
+    def reset_limits(self) -> None:
+        self.set_limits(self.limits)
+
+    def freeze_limits(self) -> None:
+        self.frozen_limits = True
+
+    def unfreeze_limits(self) -> None:
+        self.frozen_limits = False
+
+    def wrapup(self) -> None:
+        if self.frozen_limits:
+            self.reset_limits()
 
     def plot_points(
         self,
         points: np.ndarray,
-        marg_hist_kws: dict = None,
-        marg_kws: dict = None,
+        panel_hist_kws: dict = None,
+        panel_plot_kws: dict = None,
         **kws,
     ) -> None:
         """Plot 2D points.
 
         Parameters
         ----------
-        points: np.ndarray, shape (..., n)
+        points: np.ndarray, shape (..., 2)
             Particle coordinates
-        marg_hist_kws : dict
-            Key word arguments passed to `np.histogram` for 1D histograms.
-        marg_kws : dict
-            Key word arguments passed to `plot.plot_profile`.
+        panel_hist_kws : dict
+            Key word arguments passed to `psdist.points.histogram`.
+        panel_plot_kws : dict
+            Key word arguments passed to `plot_hist_1d`.
         **kws
-            Key word arguments passed to `plot.image.plot.`
+            Key word arguments passed to `plot_points.`
         """
-        marg_kws = self.get_default_marg_kws(marg_kws)
-        if marg_hist_kws is None:
-            marg_hist_kws = dict()
-        marg_hist_kws.setdefault("bins", "auto")
+        if panel_plot_kws is None:
+            panel_plot_kws = {}
+
+        if panel_hist_kws is None:
+            panel_hist_kws = {}
+
+        for key, val in self.default_panel_hist_kws.items():
+            panel_hist_kws.setdefault(key, val)
+
+        for key, val in self.default_panel_plot_kws.items():
+            panel_plot_kws.setdefault(key, val)
 
         kws.setdefault("kind", "hist")
         if kws["kind"] == "hist":
-            kws.setdefault("mask", True)
-            kws.setdefault("bins", marg_hist_kws["bins"])
+            kws.setdefault("bins", panel_hist_kws["bins"])
         if kws["kind"] != "scatter":
-            kws.setdefault("colorbar_kw", dict())
+            kws.setdefault("colorbar_kw", {})
             kws["colorbar_kw"].setdefault("pad", 2.0)
 
+        # Plot marginal distributions
         for axis in range(2):
-            profile, edges = np.histogram(points[:, axis], **marg_hist_kws)
-            plot_profile(
-                profile=profile,
-                edges=edges,
-                ax=self.marg_axs[axis],
+            hist_proj = _histogram(points[:, axis], **panel_hist_kws)
+            _plot_hist_1d(
+                hist_proj,
+                ax=self.panel_axs[axis],
                 orientation=("horizontal" if bool(axis) else "vertical"),
-                **marg_kws,
+                **panel_plot_kws,
             )
-        vis_points.plot(points, ax=self.ax, **kws)
 
-    def plot_image(
-        self, values: np.ndarray, coords: list[np.ndarray] = None, marg_kws=None, **kws
-    ):
-        """Plot a two-dimensional image.
+        # Plot joint distribution
+        _plot_points(points, ax=self.ax, **kws)
+
+        self.wrapup()
+
+    def plot_hist(
+        self,
+        hist: Histogram,
+        panel_plot_kws: dict = None,
+        **kws,
+    ) -> None:
+        """Plot a two-dimensional histogram.
 
         Parameters
         ----------
-        values: np.ndarray
-            An n-dimensional image.
-        coords : list[ndarray]
-            Coordinates along each dimension of `f`.
-        marg_kws : dict
-            Key word arguments passed to `plot.plot_profile`.
+        hist: Histogram
+            A two-dimensional histogram.
+        panel_plot_kws : dict
+            Key word arguments passed to `plot_hist_1d`.
         **kws
-            Key word arguments passed to `plot.image.plot.`
+            Key word arguments passed to `plot_hist.`
         """
-        marg_kws = self.get_default_marg_kws(marg_kws)
+        if panel_plot_kws is None:
+            panel_plot_kws = {}
 
-        kws.setdefault("colorbar_kw", dict())
+        for key, val in self.default_panel_plot_kws.items():
+            panel_plot_kws.setdefault(key, val)
+
+        kws.setdefault("kind", "pcolor")
+        kws.setdefault("colorbar_kw", {})
         kws["colorbar_kw"].setdefault("pad", 2.0)
 
-        if coords is None:
-            coords = [np.arange(values.shape[axis]) for axis in range(values.ndim)]
-
+        # Plot marginal distributions
         for axis in range(2):
-            plot_profile(
-                profile=psdist.image.project(values, axis),
-                coords=coords[axis],
-                ax=self.marg_axs[axis],
+            hist_proj = hist.project(axis)
+            _plot_hist_1d(
+                hist_proj,
+                ax=self.panel_axs[axis],
                 orientation=("horizontal" if bool(axis) else "vertical"),
-                **marg_kws,
+                **panel_plot_kws,
             )
-        return vis_image.plot(values, coords=coords, ax=self.ax, **kws)
+
+        # Plot joint distribution
+        _plot_hist(hist, ax=self.ax, **kws)
+
+        self.wrapup()
 
     def colorbar(self, mappable, **kws):
         """Add a colorbar."""
@@ -158,7 +204,7 @@ class JointGrid:
         kws.setdefault("pad", 2.0)
         self.fig.colorbar(mappable, **kws)
 
-#
+
 # class CornerGrid:
 #     """Grid for corner plots.
 #
@@ -375,7 +421,7 @@ class JointGrid:
 #
 #     def get_default_diag_kws(self, diag_kws: dict = None) -> dict:
 #         if diag_kws is None:
-#             diag_kws = dict()
+#             diag_kws = {}
 #         diag_kws.setdefault("color", "black")
 #         diag_kws.setdefault("lw", 1.0)
 #         diag_kws.setdefault("kind", "step")
@@ -513,7 +559,7 @@ class JointGrid:
 #         kws.setdefault("kind", "pcolor")
 #         kws.setdefault("profx", False)
 #         kws.setdefault("profy", False)
-#         kws.setdefault("process_kws", dict())
+#         kws.setdefault("process_kws", {})
 #         kws["process_kws"].setdefault("norm", "max")
 #
 #         if coords is None:
@@ -606,7 +652,7 @@ class JointGrid:
 #
 #         if limits is None:
 #             if autolim_kws is None:
-#                 autolim_kws = dict()
+#                 autolim_kws = {}
 #             autolim_kws.setdefault("pad", 0.1)
 #             limits = vis_points.auto_limits(points, **autolim_kws)
 #         if update_limits:
@@ -691,7 +737,7 @@ class JointGrid:
 #         The subplot axes.
 #     _axs : proplot.figure.Figure
 #         The subplot axes on the main panel.
-#     _axs_marg_x, _axs_marg_y, _axs_marg_xy : proplot.gridspec.SubplotGrid
+#     _axs_panel_x, _axs_panel_y, _axs_panel_xy : proplot.gridspec.SubplotGrid
 #         The subplot axes on the marginal panels.
 #     """
 #
@@ -745,7 +791,7 @@ class JointGrid:
 #
 #         self.annotate_kws_view = annotate_kws_view
 #         if self.annotate_kws_view is None:
-#             self.annotate_kws_view = dict()
+#             self.annotate_kws_view = {}
 #         self.annotate_kws_view.setdefault("color", "black")
 #         self.annotate_kws_view.setdefault("xycoords", "axes fraction")
 #         self.annotate_kws_view.setdefault("horizontalalignment", "center")
@@ -753,7 +799,7 @@ class JointGrid:
 #
 #         self.annotate_kws_slice = annotate_kws_slice
 #         if self.annotate_kws_slice is None:
-#             self.annotate_kws_slice = dict()
+#             self.annotate_kws_slice = {}
 #         self.annotate_kws_slice.setdefault("color", "black")
 #         self.annotate_kws_slice.setdefault("xycoords", "axes fraction")
 #         self.annotate_kws_slice.setdefault("horizontalalignment", "center")
@@ -779,12 +825,12 @@ class JointGrid:
 #         self.fig, self.axs = uplt.subplots(**fig_kws)
 #
 #         self._axs = self.axs[:-1, :-1]
-#         self._axs_marg_x = []
-#         self._axs_marg_y = []
+#         self._axs_panel_x = []
+#         self._axs_panel_y = []
 #         if self.marginals:
-#             self._axs_marg_x = self.axs[-1, :]
-#             self._axs_marg_y = self.axs[:, -1]
-#         self._ax_marg_xy = self.axs[-1, -1]
+#             self._axs_panel_x = self.axs[-1, :]
+#             self._axs_panel_y = self.axs[:, -1]
+#         self._ax_panel_xy = self.axs[-1, -1]
 #
 #     def _annotate(
 #         self,
