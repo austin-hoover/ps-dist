@@ -231,6 +231,7 @@ class CornerGrid:
     offdiag_indices : list[2-tuple of int]
         Indices of the dimensions plotted on each off-diagonal subplot.
     """
+
     def __init__(
         self,
         ndim: int,
@@ -392,7 +393,7 @@ class CornerGrid:
         """Set the dimension labels."""
         for ax, label in zip(self.axs[-1, :], labels):
             ax.format(xlabel=label)
-        for ax, label in zip(self.axs[int(self.diag):, 0], labels[1:]):
+        for ax, label in zip(self.axs[int(self.diag) :, 0], labels[1:]):
             ax.format(ylabel=label)
         if self.diag and not self.corner:
             self.axs[0, 0].format(ylabel=labels[0])
@@ -407,7 +408,9 @@ class CornerGrid:
             limits = limits + [self.axs[-1, 0].get_ylim()]
         return limits
 
-    def set_limits(self, limits: list[tuple[float, float]], expand: bool = False) -> None:
+    def set_limits(
+        self, limits: list[tuple[float, float]], expand: bool = False
+    ) -> None:
         """Set the plot limits.
 
         Parameters
@@ -544,10 +547,7 @@ class CornerGrid:
         for axis, hist in enumerate(hists):
             if not self.diag_ymin:
                 self.diag_ymin = np.inf
-            self.diag_ymin = min(
-                self.diag_ymin,
-                np.min(hist.values[hist.values > 0.0])
-            )
+            self.diag_ymin = min(self.diag_ymin, np.min(hist.values[hist.values > 0.0]))
 
     def plot_hist(
         self,
@@ -677,7 +677,9 @@ class CornerGrid:
             if array_like(bins[axis]):
                 edges = bins[axis]
             else:
-                edges = np.histogram_bin_edges(points[:, axis], bins[axis], limits[axis])
+                edges = np.histogram_bin_edges(
+                    points[:, axis], bins[axis], limits[axis]
+                )
             hist = Histogram1D(edges=edges)
             hist.bin(points[:, axis])
             hists.append(hist)

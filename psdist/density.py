@@ -19,7 +19,9 @@ class DensityEstimator:
 
 
 class GaussianKDE(DensityEstimator):
-    def __init__(self, points: np.ndarray = None, bandwidth: float = None, **kws) -> None:
+    def __init__(
+        self, points: np.ndarray = None, bandwidth: float = None, **kws
+    ) -> None:
         self.bandwidth = bandwidth
         self.estimator = None
         super().__init__(points, **kws)
@@ -31,7 +33,9 @@ class GaussianKDE(DensityEstimator):
         return self.estimator(points.T)
 
 
-def estimate_density(points: np.ndarray, eval_points: np.ndarray, method: str = "kde", **kws) -> np.ndarray:
+def estimate_density(
+    points: np.ndarray, eval_points: np.ndarray, method: str = "kde", **kws
+) -> np.ndarray:
     """Estimate density from samples."""
     estimator = None
     if method == "kde":

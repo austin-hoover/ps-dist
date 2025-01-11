@@ -415,7 +415,7 @@ def plot(
     if profx or profy:
         hist.values -= offset
         plot_hist_profiles_overlay(hist, profx=profx, profy=profy, ax=ax, **prof_kws)
-        
+
     if return_mesh:
         return ax, mesh
     else:

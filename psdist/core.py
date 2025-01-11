@@ -588,4 +588,3 @@ def radial_histogram(points: np.ndarray, **kws) -> None:
         values[i] /= sphere_shell_volume(rmin, rmax, points.shape[1])
 
     return Histogram1D(values=values, edges=edges)
-
