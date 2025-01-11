@@ -612,7 +612,7 @@ class GaussianKDE(DensityEstimator):
         )
 
     def prob(self, points: np.ndarray) -> np.ndarray:
-        return self.estimator(points)
+        return self.estimator(points.T)
 
 
 def estimate_density(
