@@ -35,7 +35,9 @@ def plot_ellipse(
     return ax
 
 
-def plot_circle(r: float = 1.0, center: tuple[float, float] = None, ax=None, **kws) -> uplt.Axes:
+def plot_circle(
+    r: float = 1.0, center: tuple[float, float] = None, ax=None, **kws
+) -> uplt.Axes:
     """Plot circle of radius r."""
     if center is None:
         center = (0.0, 0.0)
@@ -43,7 +45,11 @@ def plot_circle(r: float = 1.0, center: tuple[float, float] = None, ax=None, **k
 
 
 def plot_rms_ellipse(
-    cov_matrix: np.ndarray, center: np.ndarray = None, level: float = 1.0, ax=None, **ellipse_kws
+    cov_matrix: np.ndarray,
+    center: np.ndarray = None,
+    level: float = 1.0,
+    ax=None,
+    **ellipse_kws,
 ) -> uplt.Axes:
     """Plot RMS ellipse from 2 x 2 covariance matrix."""
     if center is None:
@@ -52,7 +58,9 @@ def plot_rms_ellipse(
         level = [level]
     r1, r2, angle = ps.cov.rms_ellipse_params(cov_matrix)
     for level in level:
-        plot_ellipse(r1 * level, r2 * level, angle=angle, center=center, ax=ax, **ellipse_kws)
+        plot_ellipse(
+            r1 * level, r2 * level, angle=angle, center=center, ax=ax, **ellipse_kws
+        )
     return ax
 
 

@@ -18,4 +18,3 @@ from .hist import thresh_hist
 from .hist import sample_hist
 from .hist import sample_sparse_hist
 from .utils import *
-

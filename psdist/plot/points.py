@@ -1,4 +1,5 @@
 """Plotting routines for point data."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
@@ -141,10 +142,7 @@ def plot_density_estimate(
 
     ndim = points.shape[1]
 
-    edges = [
-        np.linspace(limits[i][0], limits[i][1], bins + 1)
-        for i in range(ndim)
-    ]
+    edges = [np.linspace(limits[i][0], limits[i][1], bins + 1) for i in range(ndim)]
     hist = Histogram(edges=edges)
     eval_points = hist.points()
 
@@ -199,7 +197,7 @@ def plot(
     rms_ellipse: bool = False,
     rms_ellipse_kws: dict = None,
     ax=None,
-    **kws
+    **kws,
 ):
     """Plot two-dimensional density.
 

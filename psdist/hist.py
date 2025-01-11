@@ -26,7 +26,9 @@ def coords_to_edges_1d(coords: np.ndarray) -> np.ndarray:
     return np.hstack([coords - 0.5 * delta, [coords[-1] + 0.5 * delta]])
 
 
-def edges_to_coords(edges: np.ndarray | list[np.ndarray]) -> np.ndarray | list[np.ndarray]:
+def edges_to_coords(
+    edges: np.ndarray | list[np.ndarray],
+) -> np.ndarray | list[np.ndarray]:
     """Compute bin center coordinates from evenly spaced bin edges."""
     coords = None
     if np.isscalar(edges[0]):
@@ -95,9 +97,7 @@ def center_limits(limits: np.ndarray) -> np.ndarray:
 
 class Grid:
     def __init__(
-        self,
-        coords: list[np.ndarray] = None,
-        edges: list[np.ndarray] = None
+        self, coords: list[np.ndarray] = None, edges: list[np.ndarray] = None
     ) -> None:
         self.coords = coords
         self.edges = edges
@@ -192,7 +192,12 @@ class SparseHistogram(Grid):
 
 
 class Histogram1D:
-    def __init__(self, values: np.ndarray = None, coords: np.ndarray = None, edges: np.ndarray = None) -> None:
+    def __init__(
+        self,
+        values: np.ndarray = None,
+        coords: np.ndarray = None,
+        edges: np.ndarray = None,
+    ) -> None:
         self.coords = coords
         self.edges = edges
 
@@ -415,7 +420,9 @@ def slice_contour(
     return hist_new
 
 
-def project(hist: Histogram, axis: int | tuple[int, ...], squeeze: bool = True) -> Histogram:
+def project(
+    hist: Histogram, axis: int | tuple[int, ...], squeeze: bool = True
+) -> Histogram:
     """Project hist onto axis.
 
     Parameters

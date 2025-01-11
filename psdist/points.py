@@ -618,10 +618,7 @@ class GaussianKDE(DensityEstimator):
 
 
 def estimate_density(
-    points: np.ndarray,
-    eval_points: np.ndarray,
-    method: str = "kde",
-    **kws
+    points: np.ndarray, eval_points: np.ndarray, method: str = "kde", **kws
 ) -> Callable:
     """Estimate density from samples."""
     estimator = None

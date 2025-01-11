@@ -1,4 +1,5 @@
 """Covariance matrix analysis."""
+
 import numpy as np
 
 
@@ -136,6 +137,7 @@ def normalization_matrix(
     block_diag : bool
         If true, normalize only 2x2 block-diagonal elements (x-x', y-y', etc.).
     """
+
     def _normalization_matrix(S: np.ndarray, scale: bool = False) -> np.ndarray:
         U = unit_symplectic_matrix(ndim)
         SU = np.matmul(S, U)
@@ -147,13 +149,12 @@ def normalization_matrix(
             V = np.linalg.inv(V_inv)
             A = np.eye(ndim)
             for i in range(0, ndim, 2):
-                emittance = rms_ellipsoid_volume(S[i: i + 2, i: i + 2])
-                A[i: i + 2, i: i + 2] *= np.sqrt(emittance)
+                emittance = rms_ellipsoid_volume(S[i : i + 2, i : i + 2])
+                A[i : i + 2, i : i + 2] *= np.sqrt(emittance)
             V = np.matmul(V, A)
             V_inv = np.linalg.inv(V)
 
         return V_inv
-
 
     ndim = S.shape[0]
     V_inv = np.eye(ndim)
@@ -161,7 +162,9 @@ def normalization_matrix(
         V_inv = _normalization_matrix(S, scale=scale)
     else:
         for i in range(0, ndim, 2):
-            V_inv[i: i + 2, i: i + 2] = _normalization_matrix(S[i: i + 2, i: i + 2], scale=scale)
+            V_inv[i : i + 2, i : i + 2] = _normalization_matrix(
+                S[i : i + 2, i : i + 2], scale=scale
+            )
     return V_inv
 
 

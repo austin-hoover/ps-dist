@@ -1,4 +1,5 @@
 """Plotting routines for multi-dimensional images."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
@@ -16,7 +17,9 @@ def _process_values_fill(values: np.ndarray, fill_value: float) -> np.ndarray:
     return np.ma.filled(values, fill_value=fill_value)
 
 
-def _process_values_thresh(values: np.ndarray, lmin: 0.0, frac: bool = False) -> np.ndarray:
+def _process_values_thresh(
+    values: np.ndarray, lmin: 0.0, frac: bool = False
+) -> np.ndarray:
     if frac:
         lmin = lmin * values.max()
     values[values < lmin] = 0.0
@@ -89,7 +92,9 @@ def process_hist(
     if thresh is not None:
         values = _process_values_thresh(values, thresh, frac=(thresh_type == "frac"))
     if clip is not None:
-        values = _process_values_clip(values, lmin=clip[0], lmax=clip[1], frac=(clip_type == "fract"))
+        values = _process_values_clip(
+            values, lmin=clip[0], lmax=clip[1], frac=(clip_type == "fract")
+        )
     if blur is not None:
         values = _process_values_blur(values, blur)
     if scale == "max":
@@ -100,7 +105,9 @@ def process_hist(
     return hist
 
 
-def scale_hist(hist: Histogram1D | Histogram, scale: str | float | int = None) -> Histogram1D | Histogram:
+def scale_hist(
+    hist: Histogram1D | Histogram, scale: str | float | int = None
+) -> Histogram1D | Histogram:
     if scale is None:
         return hist
 
@@ -375,7 +382,6 @@ def plot(
         plot_function = ax.contourf
     else:
         raise ValueError("Invalid plot kind.")
-
 
     # Process the histogram.
     hist = hist.copy()

@@ -17,7 +17,9 @@ def fit_linear(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, float, float]:
     return (y_fit, slope, intercept)
 
 
-def fit_normal(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, float, float, float, float]:
+def fit_normal(
+    x: np.ndarray, y: np.ndarray
+) -> tuple[np.ndarray, float, float, float, float]:
     """Return (yfit, sigma, mu, amplitude, offset) from Gaussian fit."""
 
     def function(x, sigma, mu, amplitude, offset):

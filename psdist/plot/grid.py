@@ -26,6 +26,7 @@ class JointGrid:
     ax_panel_x, ax_panel_y : proplot.gridspec.SubplotGrid
         The marginal (panel) axes on the top and right.
     """
+
     def __init__(
         self,
         limits: np.ndarray = None,
@@ -79,9 +80,7 @@ class JointGrid:
             "scale": "density",
         }
 
-        self.default_panel_hist_kws = {
-            "bins": "auto"
-        }
+        self.default_panel_hist_kws = {"bins": "auto"}
 
         self.frozen_limits = False
 

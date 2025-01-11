@@ -82,9 +82,11 @@ def test_slice_sphere():
     x_slice = ps.slice_sphere(x, rmax=1.0)
     assert np.all(ps.get_radii(x_slice) <= 1.0)
 
+
 def test_slice_ellipsoid():
     x = gen_dist(ndim=6)
     x_slice = ps.slice_ellipsoid(x, rmax=1.0)
+
 
 def test_slice_contour():
     x = gen_dist(ndim=2)
