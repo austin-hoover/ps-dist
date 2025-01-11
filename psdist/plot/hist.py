@@ -214,7 +214,7 @@ def plot_1d(
     return ax
 
 
-def plot_profiles_overlay(
+def plot_hist_profiles_overlay(
     hist: Histogram,
     profx: bool = True,
     profy: bool = True,
@@ -409,113 +409,43 @@ def plot(
         kws["vmax"] = 1.0
 
     # Plot the image.
-    values = hist.values
-    coords = hist.coords
-    mesh = plot_function(coords[0].T, coords[1].T, values.T, **kws)
+    mesh = plot_function(hist.coords[0], hist.coords[1], hist.values.T, **kws)
     if rms_ellipse:
         plot_rms_ellipse(hist, ax=ax, **rms_ellipse_kws)
     if profx or profy:
         hist.values -= offset
-        plot_profiles_overlay(hist, profx=profx, profy=profy, ax=ax, **prof_kws)
+        plot_hist_profiles_overlay(hist, profx=profx, profy=profy, ax=ax, **prof_kws)
+        
     if return_mesh:
         return ax, mesh
     else:
         return ax
 
 
-# def joint(
-#     hist: Histogram,
-#     grid_kws: dict = None,
-#     marg_kws: dict = None,
-#     **kws,
-# ):
-#     """Joint plot.
-#
-#     This is a convenience function; see `JointGrid`.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     grid_kws : dict
-#         Key word arguments passed to `JointGrid`.
-#     marg_kws : dict
-#         Key word arguments passed to `plot.plot_profile`.
-#     **kws
-#         Key word arguments passed to `plot.image.plot.`
-#
-#     Returns
-#     -------
-#     JointGrid
-#     """
-#     from psdist.plot.grid import JointGrid
-#
-#     if grid_kws is None:
-#         grid_kws = dict()
-#
-#     grid = JointGrid(**grid_kws)
-#     grid.plot_image(values, coords=coords, edges=edges, marg_kws=marg_kws, **kws)
-#     return grid
-#
-#
-# def corner(
-#     hist: Histogram,
-#     labels: list[str] = None,
-#     prof_edge_only: bool = False,
-#     update_limits: bool = True,
-#     diag_kws: dict = None,
-#     grid_kws: dict = None,
-#     **kws,
-# ):
-#     """Corner plot (scatter plot matrix).
-#
-#     This is a convenience function; see `CornerGrid`.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     labels : list[str], length n
-#         Label for each dimension.
-#     axis_view, axis_slice : 2-tuple of int
-#         The axis to view (plot) and to slice.
-#     pad : int, float, list
-#         This determines the start/stop indices along the sliced dimensions. If
-#         0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
-#         Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
-#         the shape=10 and pad=0.1, we would start from 1 and end at 9.
-#     debug : bool
-#         Whether to print debugging messages.
-#     **kws
-#         Key word arguments pass to `plot.image.plot`
-#
-#     Returns
-#     -------
-#     CornerGrid
-#         The `CornerGrid` on which the plot was drawn.
-#     """
-#     from psdist.plot.grid import CornerGrid
-#
-#     if grid_kws is None:
-#         grid_kws = dict()
-#
-#     grid = CornerGrid(values.ndim, **grid_kws)
-#
-#     if labels is not None:
-#         grid.set_labels(labels)
-#
-#     grid.plot_image(
-#         values,
-#         coords=coords,
-#         edges=edges,
-#         prof_edge_only=prof_edge_only,
-#         update_limits=True,
-#         diag_kws=diag_kws,
-#         **kws,
-#     )
-#     return grid
-#
-#
+def plot_joint(hist: Histogram, grid_kws: dict = None, **kws):
+    from psdist.plot.grid import JointGrid
+
+    if grid_kws is None:
+        grid_kws = {}
+
+    grid = JointGrid(**grid_kws)
+    grid.plot_hist(hist, **kws)
+    return grid
+
+
+def plot_corner(hist: Histogram, grid_kws: dict = None, **kws):
+    from psdist.plot.grid import CornerGrid
+
+    if grid_kws is None:
+        grid_kws = {}
+
+    ndim = hist.ndim
+
+    grid = CornerGrid(ndim=ndim, **grid_kws)
+    grid.plot_hist(hist, **kws)
+    return grid
+
+
 # def slice_matrix(
 #     hist: Histogram,
 #     labels: list[str] = None,

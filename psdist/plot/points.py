@@ -1,4 +1,4 @@
-"""Plotting routines for point data."""
+"""Plotting routines for points."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,14 +7,65 @@ import ultraplot as uplt
 from ipywidgets import interactive
 from ipywidgets import widgets
 
-from psdist.points import downsample as _downsample
-from psdist.points import estimate_density as _estimate_density
-from psdist.points import limits as get_limits
+from ..core import downsample as _downsample
+from ..core import limits as get_limits
+from ..density import estimate_density as _estimate_density
 from .core import plot_rms_ellipse as _plot_rms_ellipse
 from .hist import plot as _plot_hist
 from .hist import plot_1d as _plot_hist_1d
 from ..hist import Histogram
 from ..hist import Histogram1D
+
+
+def plot_hist_1d(
+    points: np.ndarray,
+    bins: int = 10,
+    limits: np.ndarray = None,
+    ax=None,
+    **kws,
+):
+    """Plot one-dimensional histogram."""
+    values, edges = np.histogram(points, bins=bins, range=limits)
+    hist = Histogram1D(values, edges=edges)
+    return _plot_hist_1d(hist, ax=ax, **kws)
+
+
+def plot_density_estimate_1d(
+    points: np.ndarray,
+    bins: int = 10,
+    limits: np.ndarray = None,
+    method: str = "kde",
+    method_kws: dict = None,
+    ax=None,
+    **kws,
+):
+    """Plot one-dimensional density estimate."""
+    if method_kws is None:
+        method_kws = {}
+
+    if limits is None:
+        limits = get_limits(points)
+
+    edges = np.linspace(limits[0], limits[1], bins + 1)
+    hist = Histogram1D(edges=edges)
+
+    eval_points = hist.coords
+    values = _estimate_density(points, eval_points, method, **method_kws)
+    values = values.reshape(hist.shape)
+    hist.values = values
+    hist.normalize()
+    return _plot_hist_1d(hist, ax=ax, **kws)
+
+
+def plot_1d(points: np.ndarray, kde: bool = False, **kws):
+    """Plot one-dimensional density."""
+    plot_function = None
+    if kde:
+        plot_function = plot_density_estimate_1d
+    else:
+        plot_function = plot_hist_1d
+
+    return plot_function(points, **kws)
 
 
 def plot_rms_ellipse(
@@ -74,7 +125,7 @@ def plot_scatter(points: np.ndarray, samples: int = None, ax=None, **kws):
 
 def plot_hist(
     points: np.ndarray,
-    bins: int = 10,
+    bins: int = 50,
     limits: np.ndarray = None,
     ax=None,
     **kws,
@@ -90,22 +141,12 @@ def plot_hist(
     **kws
         Key word arguments passed to `plotting.image`.
     """
+    if bins is None:
+        bins = 50
+
     values, edges = np.histogramdd(points, bins=bins, range=limits)
     hist = Histogram(values, edges=edges)
     return _plot_hist(hist, ax=ax, **kws)
-
-
-def plot_hist_1d(
-    points: np.ndarray,
-    bins: int = 10,
-    limits: np.ndarray = None,
-    ax=None,
-    **kws,
-):
-    """Plot one-dimensional histogram."""
-    values, edges = np.histogram(points, bins=bins, range=limits)
-    hist = Histogram1D(values, edges=edges)
-    return _plot_hist_1d(hist, ax=ax, **kws)
 
 
 def plot_density_estimate(
@@ -153,44 +194,6 @@ def plot_density_estimate(
     return _plot_hist(hist, ax=ax, **kws)
 
 
-def plot_density_estimate_1d(
-    points: np.ndarray,
-    bins: int = 10,
-    limits: np.ndarray = None,
-    method: str = "kde",
-    method_kws: dict = None,
-    ax=None,
-    **kws,
-):
-    """Plot one-dimensional density estimate."""
-    if method_kws is None:
-        method_kws = {}
-
-    if limits is None:
-        limits = get_limits(points)
-
-    edges = np.linspace(limits[0], limits[1], bins + 1)
-    hist = Histogram1D(edges=edges)
-
-    eval_points = hist.coords
-    values = _estimate_density(points, eval_points, method, **method_kws)
-    values = values.reshape(hist.shape)
-    hist.values = values
-    hist.normalize()
-    return _plot_hist_1d(hist, ax=ax, **kws)
-
-
-def plot_1d(points: np.ndarray, kde: bool = False, **kws):
-    """Plot one-dimensional density."""
-    plot_function = None
-    if kde:
-        plot_function = plot_density_estimate_1d
-    else:
-        plot_function = plot_hist_1d
-
-    return plot_function(points, **kws)
-
-
 def plot(
     points: np.ndarray,
     kind: str = "hist",
@@ -226,8 +229,12 @@ def plot(
     plot_function = None
     if kind in ["hist", "contour", "contourf"]:
         plot_function = plot_hist
-        if kind in ["contour", "contourf"]:
-            kws["kind"] = kind
+        if kind == "hist":
+            kws["kind"] = "pcolor"
+        if kind == "contour":
+            kws["kind"] = "contour"
+        if kind == "contourf":
+            kws["kind"] = "contourf"
     elif kind == "scatter":
         plot_function = plot_scatter
     elif kind == "density":
@@ -241,103 +248,30 @@ def plot(
     return output
 
 
-# def joint(
-#     points: np.ndarray,
-#     grid_kws: dict = None,
-#     marg_hist_kws: dict = None,
-#     marg_kws: dict = None,
-#     **kws,
-# ):
-#     """Joint plot.
-#
-#     This is a convenience function; see `JointGrid`.
-#
-#     Parameters
-#     ----------
-#     points: np.ndarray, shape (..., n)
-#         Particle coordinates.
-#     grid_kws : dict
-#         Key word arguments passed to `JointGrid`.
-#     marg_hist_kws : dict
-#         Key word arguments passed to `np.histogram` for 1D histograms.
-#     marg_kws : dict
-#         Key word arguments passed to `plot.plot_profile`.
-#     **kws
-#         Key word arguments passed to `plot.image.plot.`
-#
-#     Returns
-#     -------
-#     psdist.plot.grid.JointGrid
-#     """
-#     from psdist.plot.grid import JointGrid
-#
-#     if grid_kws is None:
-#         grid_kws = dict()
-#     grid = JointGrid(**grid_kws)
-#     grid.plot_points(points, marg_hist_kws=marg_hist_kws, marg_kws=marg_kws, **kws)
-#     return grid
-#
-#
-# def corner(
-#     points: np.ndarray,
-#     grid_kws: dict = None,
-#     limits: list[tuple[float, float]] = None,
-#     labels: list[str] = None,
-#     autolim_kws: dict = None,
-#     prof_edge_only: bool = False,
-#     update_limits: bool = True,
-#     diag_kws: dict = None,
-#     **kws,
-# ):
-#     """Corner plot.
-#
-#     This is a convenience function; see `CornerGrid`.
-#
-#     Parameters
-#     ----------
-#     points: np.ndarray, shape (..., n)
-#         Particle coordinates.
-#     limits : list[tuple], length n
-#         The (min, max) plot limits for each axis.
-#     labels : list[str], length n
-#         The axis labels.
-#     prof_edge_only : bool
-#         If plotting profiles on top of images (on off-diagonal subplots), whether
-#         to plot x profiles only in bottom row and y profiles only in left column.
-#     update_limits : bool
-#         Whether to extend the existing plot limits.
-#     diag_kws : dict
-#         Key word argument passed to `plot.plot_profile`.
-#     **kws
-#         Key word arguments pass to `plot.points.plot`
-#
-#     Returns
-#     -------
-#     CornerGrid
-#         The `CornerGrid` on which the plot was drawn.
-#     """
-#     from psdist.plot.grid import CornerGrid
-#
-#     if grid_kws is None:
-#         grid_kws = dict()
-#
-#     grid = CornerGrid(ndim=points.shape[1], **grid_kws)
-#
-#     if labels is not None:
-#         grid.set_labels(labels)
-#
-#     grid.plot_points(
-#         points,
-#         limits=limits,
-#         autolim_kws=autolim_kws,
-#         prof_edge_only=prof_edge_only,
-#         update_limits=update_limits,
-#         diag_kws=diag_kws,
-#         **kws,
-#     )
-#     return grid
-#
-#
+def plot_joint(points: np.ndarray, grid_kws: dict = None, **kws):
+    from psdist.plot.grid import JointGrid
+
+    if grid_kws is None:
+        grid_kws = {}
+
+    grid = JointGrid(**grid_kws)
+    grid.plot_points(points, **kws)
+    return grid
+
+
+def plot_corner(points: np.ndarray, grid_kws: dict = None, **kws):
+    from psdist.plot.grid import CornerGrid
+
+    if grid_kws is None:
+        grid_kws = {}
+
+    ndim = points.shape[1]
+
+    grid = CornerGrid(ndim=ndim, **grid_kws)
+    grid.plot_points(points, **kws)
+    return grid
+
+
 # def interactive_slice_2d(
 #     data: np.ndarray | list[np.ndarray] | list[list[np.ndarray]],
 #     limits: list[tuple[float]] = None,

@@ -458,7 +458,7 @@ def downsample(points: np.ndarray, size: int = None, frac: float = None) -> np.n
     return points[idx, :]
 
 
-# Density estimation
+# Binning
 # --------------------------------------------------------------------------------------
 
 
@@ -589,55 +589,3 @@ def radial_histogram(points: np.ndarray, **kws) -> None:
 
     return Histogram1D(values=values, edges=edges)
 
-
-class DensityEstimator:
-    def __init__(self, name: str = None) -> None:
-        self.name = name
-
-    def prob(self, points: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
-
-    def __call__(self) -> np.ndarray:
-        return self.prob(points)
-
-
-class GaussianKDE(DensityEstimator):
-    def __init__(self, bandwidth: float = None, **kws) -> None:
-        super().__init__(**kws)
-        self.bandwidth = bandwidth
-        self.estimator = None
-
-    def train(self, points: np.ndarray) -> None:
-        self.estimator = scipy.stats.gaussian_kde(
-            points.T,
-            # bandwidth
-        )
-
-    def prob(self, points: np.ndarray) -> np.ndarray:
-        return self.estimator(points.T)
-
-
-def estimate_density(
-    points: np.ndarray, eval_points: np.ndarray, method: str = "kde", **kws
-) -> Callable:
-    """Estimate density from samples."""
-    estimator = None
-    if method == "kde":
-        estimator = GaussianKDE(**kws)
-    else:
-        ValueError(f"Invalid method '{method}'")
-
-    ndim = 1
-    if np.ndim(points) > 1:
-        ndim = points.shape[1]
-
-    estimator.train(points)
-    return estimator.prob(eval_points)
-
-
-# Distances (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
-# --------------------------------------------------------------------------------------
-
-## Wasserstein
-
-## Maximum Mean Discrepancy (MMD)

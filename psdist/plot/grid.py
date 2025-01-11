@@ -7,9 +7,12 @@ import matplotlib.pyplot as plt
 import ultraplot as uplt
 
 from ..hist import Histogram
-from ..points import histogram as _histogram
 from ..hist import Histogram1D
-from .hist import plot as _plot_hist
+from ..core import histogram as _histogram
+from ..core import limits as _get_limits
+from ..hist import Histogram
+from ..utils import array_like
+from .hist import plot as _plot_hist, scale_hist
 from .hist import plot_1d as _plot_hist_1d
 from .points import plot as _plot_points
 
@@ -80,7 +83,7 @@ class JointGrid:
             "scale": "density",
         }
 
-        self.default_panel_hist_kws = {"bins": "auto"}
+        self.default_panel_hist_kws = {"bins": 64}
 
         self.frozen_limits = False
 
@@ -100,6 +103,9 @@ class JointGrid:
     def wrapup(self) -> None:
         if self.frozen_limits:
             self.reset_limits()
+
+    def plot(self, **kws):
+        return self.plot_points(**kws)
 
     def plot_points(
         self,
@@ -133,16 +139,11 @@ class JointGrid:
         for key, val in self.default_panel_plot_kws.items():
             panel_plot_kws.setdefault(key, val)
 
-        kws.setdefault("kind", "hist")
-        if kws["kind"] == "hist":
-            kws.setdefault("bins", panel_hist_kws["bins"])
-        if kws["kind"] != "scatter":
-            kws.setdefault("colorbar_kw", {})
-            kws["colorbar_kw"].setdefault("pad", 2.0)
-
         # Plot marginal distributions
         for axis in range(2):
             hist_proj = _histogram(points[:, axis], **panel_hist_kws)
+            bins = hist_proj.size
+
             _plot_hist_1d(
                 hist_proj,
                 ax=self.panel_axs[axis],
@@ -151,6 +152,14 @@ class JointGrid:
             )
 
         # Plot joint distribution
+        kws.setdefault("kind", "hist")
+        if kws["kind"] != "scatter":
+            if "bins" in kws:
+                panel_hist_kws.setdefault("bins", kws["bins"])
+            kws.setdefault("bins", bins)
+            kws.setdefault("colorbar_kw", {})
+            kws["colorbar_kw"].setdefault("pad", 2.0)
+
         _plot_points(points, ax=self.ax, **kws)
 
         self.wrapup()
@@ -204,506 +213,517 @@ class JointGrid:
         self.fig.colorbar(mappable, **kws)
 
 
-# class CornerGrid:
-#     """Grid for corner plots.
-#
-#     Attributes
-#     ----------
-#     fig : proplot.figure.Figure
-#         The main figure.
-#     axs : proplot.gridspec.SubplotGrid
-#         The subplot axes.
-#     diag_axs : list[proplot.gridspec.SubplotGrid]
-#         The axes for diagonal (univariate) subplots. Can be empty.
-#     offdiag_axs : list[proplot.gridspec.SubplotGrid]
-#         The axes for off-diagonal (bivariate) subplots.
-#     diag_indices : list[int]
-#         The index of the dimension plotted on each diagonal subplot.
-#     offdiag_indices : list[2-tuple of int]
-#         Indices of the dimensions plotted on each off-diagonal subplot.
-#     """
-#
-#     def __init__(
-#         self,
-#         ndim: int = 4,
-#         diag: bool = True,
-#         diag_shrink: float = 1.0,
-#         diag_rspine: bool = False,
-#         diag_share: bool = False,
-#         limits: list[tuple[float, float]] = None,
-#         labels: list[str] = None,
-#         corner: bool = True,
-#         **fig_kws,
-#     ) -> None:
-#         """
-#         Parameters
-#         ----------
-#         d : int
-#             The number of rows/columns.
-#         diag : bool
-#             Whether to include diagonal subplots (univariate plots). If False,
-#             we have an (n - 1) x (n - 1) grid instead of an n x n grid.
-#         diag_shrink : float in range [0, 1]
-#             Scales the maximum y value of the diagonal profile plots.
-#         diag_rspine : bool
-#             Whether to include right spine on diagonal subplots (if `corner`).
-#         diag_share : bool
-#             Whether to share diagonal axis limits; i.e., whether we can compare
-#             the areas under the diagonal profile plots.
-#         limits : list[tuple], length n
-#             The (min, max) for each dimension. (These can be set later.)
-#         labels : list[str]
-#             The label for each dimension. (These can be set later.)
-#         corner : bool
-#             Whether to hide the upper-triangular subplots.
-#         **fig_kws
-#             Key word arguments passed to `uplt.subplots()`.
-#         """
-#         # Create figure.
-#         self.new = True
-#         self.ndim = self.nrows = self.ncols = ndim
-#         self.corner = corner
-#         self.diag = diag
-#         self.diag_shrink = diag_shrink
-#         self.diag_rspine = diag_rspine
-#         self.diag_share = diag_share
-#         self.diag_ymin = None
-#         self.diag_yscale = self.ndim * [None]
-#         if not self.diag:
-#             self.nrows = self.nrows - 1
-#             self.ncols = self.ncols - 1
-#         self.fig_kws = fig_kws
-#         self.fig_kws.setdefault("figwidth", 1.5 * self.nrows)
-#         self.fig_kws.setdefault("aligny", True)
-#         self.fig, self.axs = uplt.subplots(
-#             nrows=self.nrows,
-#             ncols=self.ncols,
-#             spanx=False,
-#             spany=False,
-#             sharex=False,
-#             sharey=False,
-#             **self.fig_kws,
-#         )
-#
-#         # Collect diagonal/off-diagonal subplots and indices.
-#         self.diag_axs = []
-#         self.offdiag_axs = []
-#         self.offdiag_axs_u = []
-#         self.diag_indices = []
-#         self.offdiag_indices = []
-#         self.offdiag_indices_u = []
-#         if self.diag:
-#             for i in range(self.ndim):
-#                 self.diag_axs.append(self.axs[i, i])
-#                 self.diag_indices.append(i)
-#             for i in range(1, self.ndim):
-#                 for j in range(i):
-#                     self.offdiag_axs.append(self.axs[i, j])
-#                     self.offdiag_axs_u.append(self.axs[j, i])
-#                     self.offdiag_indices.append((j, i))
-#                     self.offdiag_indices_u.append((i, j))
-#         else:
-#             for i in range(self.ndim - 1):
-#                 for j in range(i + 1):
-#                     self.offdiag_axs.append(self.axs[i, j])
-#                     self.offdiag_indices.append((j, i + 1))
-#
-#         # Set limits and labels.
-#         self.limits = limits
-#         if limits is not None:
-#             self.set_limits(limits)
-#         self.labels = labels
-#         if labels is not None:
-#             self.set_labels(labels)
-#
-#         # Formatting
-#         if self.corner or not self.diag:
-#             for i in range(self.nrows):
-#                 for j in range(self.ncols):
-#                     if j > i:
-#                         self.axs[i, j].axis("off")
-#         self.axs[:-1, :].format(xticklabels=[])
-#         for i in range(self.nrows):
-#             for j in range(self.ncols):
-#                 ax = self.axs[i, j]
-#                 if i != self.nrows - 1:
-#                     ax.format(xticklabels=[])
-#                 if j != 0:
-#                     if not (i == j and self.diag_rspine and self.corner and self.diag):
-#                         ax.format(yticklabels=[])
-#         self.axs.format(xspineloc="bottom", yspineloc="left")
-#         if self.corner:
-#             if self.diag_rspine:
-#                 self.format_diag(yspineloc="right")
-#             else:
-#                 self.format_diag(yspineloc="neither")
-#         self.axs.format(
-#             xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3)
-#         )
-#         self.set_diag_scale("linear")
-#
-#     def format_diag(self, **kws) -> None:
-#         """Format diagonal subplots."""
-#         for ax in self.diag_axs:
-#             ax.format(**kws)
-#         if not self.corner:
-#             for ax in self.diag_axs[1:]:
-#                 ax.format(yticklabels=[])
-#         self._fake_diag_yticks()
-#
-#     def format_offdiag(self, **kws) -> None:
-#         """Format off-diagonal subplots."""
-#         for ax in [self.offdiag_axs + self.offdiag_axs_u]:
-#             ax.format(**kws)
-#
-#     def get_labels(self) -> list[str]:
-#         """Return the dimension labels."""
-#         if self.diag:
-#             labels = [ax.get_xlabel() for ax in self.diag_axs]
-#         else:
-#             labels = [self.axs[-1, i].get_xlabel() for i in range(self.ndim - 1)]
-#             labels = labels + [self.axs[-1, 0].get_ylabel()]
-#         return labels
-#
-#     def set_labels(self, labels: list[str]) -> None:
-#         """Set the dimension labels."""
-#         for ax, label in zip(self.axs[-1, :], labels):
-#             ax.format(xlabel=label)
-#         for ax, label in zip(self.axs[int(self.diag) :, 0], labels[1:]):
-#             ax.format(ylabel=label)
-#         if self.diag and not self.corner:
-#             self.axs[0, 0].format(ylabel=labels[0])
-#         self.labels = labels
-#
-#     def get_limits(self) -> list[tuple[float, float]]:
-#         """Return the plot limits."""
-#         if self.diag:
-#             limits = [ax.get_xlim() for ax in self.diag_axs]
-#         else:
-#             limits = [self.axs[-1, i].get_xlim() for i in range(self.ndim - 1)]
-#             limits = limits + [self.axs[-1, 0].get_ylim()]
-#         return limits
-#
-#     def set_limits(
-#         self, limits: list[tuple[float, float]], expand: bool = False
-#     ) -> None:
-#         """Set the plot limits.
-#
-#         Parameters
-#         ----------
-#         limits : list[tuple], length n
-#             The (min, max) for each dimension.
-#         expand : bool
-#             If True, compare the proposed limits to the existing limits, expanding
-#             if the new limits are wider.
-#         """
-#         if limits is not None:
-#             if expand:
-#                 limits = np.array(limits)
-#                 limits_old = np.array(self.get_limits())
-#                 mins = np.minimum(limits[:, 0], limits_old[:, 0])
-#                 maxs = np.maximum(limits[:, 1], limits_old[:, 1])
-#                 limits = list(zip(mins, maxs))
-#             if self.diag:
-#                 for i in range(self.ndim):
-#                     for j in range(self.ndim):
-#                         if i != j:
-#                             if (j < i) or (not self.corner):
-#                                 self.axs[i, j].format(ylim=limits[i])
-#             else:
-#                 for i in range(self.ndim - 1):
-#                     for ax in self.axs[i, :]:
-#                         ax.format(ylim=limits[i + 1])
-#             for i in range(self.ncols):
-#                 self.axs[:, i].format(xlim=limits[i])
-#         self.limits = self.get_limits()
-#
-#     def get_default_diag_kws(self, diag_kws: dict = None) -> dict:
-#         if diag_kws is None:
-#             diag_kws = {}
-#         diag_kws.setdefault("color", "black")
-#         diag_kws.setdefault("lw", 1.0)
-#         diag_kws.setdefault("kind", "step")
-#         diag_kws.setdefault("scale", "density")
-#         return diag_kws
-#
-#     def _fake_diag_yticks(self) -> None:
-#         """The yticks on the (0, 0) subplot correspond to the other subplots in the row.
-#
-#         Source: pandas.plotting.scatterplot_matrix.
-#         """
-#         if self.corner or not self.diag:
-#             return
-#         limits = self.limits
-#         if limits is None:
-#             limits = self.get_limits()
-#
-#         lim1 = limits[0]
-#         locs = self.axs[0, 0].xaxis.get_majorticklocs()
-#         locs = locs[(lim1[0] <= locs) & (locs <= lim1[1])]
-#         adj = (locs - lim1[0]) / (lim1[1] - lim1[0])
-#
-#         lim0 = self.axs[0, 0].get_ylim()
-#         adj = adj * (lim0[1] - lim0[0]) + lim0[0]
-#         self.axs[0, 0].yaxis.set_ticks(adj)
-#
-#         if np.all(locs == locs.astype(int)):
-#             locs = locs.astype(int)
-#         self.axs[0, 0].yaxis.set_ticklabels(locs)
-#
-#     def _force_non_negative_diag_ymin(self) -> None:
-#         """Force diagonal ymins to be at least zero."""
-#         if any([ax.get_ylim()[0] < 0.0 for ax in self.diag_axs]):
-#             self.format_diag(ylim=0.0)
-#
-#     def set_diag_scale(self, scale: str = "linear", pad: float = 0.05) -> None:
-#         """Set diagonal y axis scale.
-#
-#         Parameters
-#         ----------
-#         scale : {"linear", "log"}
-#             If "linear", scale runs from 0 to 1. If "log", scale runs from half the
-#             minimum plotted value to 1.
-#         """
-#         if scale == "linear":
-#             ymin = 0.0
-#             ymax = 1.0 / self.diag_shrink
-#             delta = ymax - ymin
-#             ymax = ymin + delta * (1.0 + pad)
-#             self.format_diag(yscale="linear", yformatter="auto", ymin=ymin, ymax=ymax)
-#         elif scale == "log":
-#             ymin = self.diag_ymin
-#             ymax = 1.0
-#             log_ymin = np.log10(ymin)
-#             log_ymax = np.log10(ymax)
-#             log_delta = log_ymax - log_ymin
-#             log_delta = log_delta / self.diag_shrink
-#             ymax = 10.0 ** (log_ymin + log_delta * (1.0 + pad))
-#             self.format_diag(yscale="log", yformatter="log", ymin=ymin, ymax=ymax)
-#
-#     def _plot_diag(self, get_data: Callable, **kws) -> None:
-#         # Compute one-dimensional probabiliy density functions.
-#         if "scale" in kws:
-#             kws.pop("scale")
-#
-#         profiles, edges_list = [], []
-#         for axis in range(self.ndim):
-#             profile, edges = get_data(axis)
-#             profile = scale_profile(profile, edges=edges, scale="density")
-#             profiles.append(profile)
-#             edges_list.append(edges)
-#
-#         # Update scaling factor for each profile, taking into account all existing plots.
-#         for axis in range(self.ndim):
-#             if self.diag_yscale[axis] is None:
-#                 self.diag_yscale[axis] = -np.inf
-#         if self.diag_share:
-#             max_value = max([np.max(profile) for profile in profiles])
-#             for axis in range(self.ndim):
-#                 self.diag_yscale[axis] = max(self.diag_yscale[axis], max_value)
-#         else:
-#             for axis in range(self.ndim):
-#                 self.diag_yscale[axis] = max(
-#                     self.diag_yscale[axis], np.max(profiles[axis])
-#                 )
-#
-#         # Plot the profiles.
-#         for axis in range(self.ndim):
-#             if self.diag_yscale[axis]:
-#                 profiles[axis] = profiles[axis] / self.diag_yscale[axis]
-#             plot_profile(
-#                 profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws
-#             )
-#
-#         # Compute min positive value for log scaling.
-#         for axis in range(self.ndim):
-#             if not self.diag_ymin:
-#                 self.diag_ymin = np.inf
-#             self.diag_ymin = min(self.diag_ymin, np.min(profile[profile > 0.0]))
-#
-#     def plot_image(
-#         self,
-#         values: np.ndarray,
-#         coords: list[np.ndarray] = None,
-#         edges: list[np.ndarray] = None,
-#         prof_edge_only: bool = False,
-#         lower: bool = True,
-#         upper: bool = True,
-#         diag: bool = True,
-#         update_limits: bool = True,
-#         diag_kws: dict = None,
-#         **kws,
-#     ) -> None:
-#         """Plot an image.
-#
-#         Parameters
-#         ----------
-#         values: np.ndarray
-#             An n-dimensional image.
-#         coords : list[ndarray]
-#             Coordinates along each axis of the grid (if `data` is an image).
-#         prof_edge_only : bool
-#             If plotting profiles on top of images (on off-diagonal subplots), whether
-#             to plot x profiles only in bottom row and y profiles only in left column.
-#         lower, upper, diag : bool
-#             Whether to plot on the lower triangular, upper triangular, and/or diagonal subplots.
-#         update_limits : bool
-#             Whether to extend the existing plot limits.
-#         diag_kws : dict
-#             Key word argument passed to `plot.plot_profile`.
-#         **kws
-#             Key word arguments pass to `plot.image.plot`
-#         """
-#         diag_kws = self.get_default_diag_kws(diag_kws)
-#         kws.setdefault("kind", "pcolor")
-#         kws.setdefault("profx", False)
-#         kws.setdefault("profy", False)
-#         kws.setdefault("process_kws", {})
-#         kws["process_kws"].setdefault("norm", "max")
-#
-#         if coords is None:
-#             if edges is None:
-#                 coords = [np.arange(s) for s in values.shape]
-#             else:
-#                 coords = [psdist.utils.coords_from_edges(e) for e in edges]
-#         edges = [psdist.utils.edges_from_coords(c) for c in coords]
-#
-#         if update_limits:
-#             limits = [(np.min(e), np.max(e)) for e in edges]
-#             self.set_limits(limits, expand=(not self.new))
-#         self.new = False
-#
-#         # Univariate plots.
-#         if self.diag and diag:
-#             self._plot_diag(
-#                 lambda axis: (psdist.image.project(values, axis=axis), edges[axis]),
-#                 **diag_kws,
-#             )
-#
-#         # Bivariate plots.
-#         profx = kws.pop("profx")
-#         profy = kws.pop("profy")
-#         if lower:
-#             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
-#                 if prof_edge_only:
-#                     if profx:
-#                         kws["profx"] = axis[1] == self.ndim - 1
-#                     if profy:
-#                         kws["profy"] = axis[0] == 0
-#                 vis_image.plot(
-#                     psdist.image.project(values, axis=axis),
-#                     coords=[coords[k] for k in axis],
-#                     ax=ax,
-#                     **kws,
-#                 )
-#         if not self.corner and upper:
-#             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
-#                 values_proj = psdist.image.project(values, axis=axis)
-#                 values_proj = values_proj / np.max(values_proj)
-#                 coords_proj = [coords[k] for k in axis]
-#                 vis_image.plot(values_proj, coords=coords_proj, ax=ax, **kws)
-#         self._cleanup()
-#
-#     def plot_points(
-#         self,
-#         points: np.ndarray,
-#         limits: list[tuple[float, float]] = None,
-#         bins: str = "auto",
-#         autolim_kws: dict = None,
-#         prof_edge_only: bool = False,
-#         lower: bool = True,
-#         upper: bool = True,
-#         diag: bool = True,
-#         update_limits: bool = True,
-#         diag_kws: dict = None,
-#         **kws,
-#     ) -> None:
-#         """Plot points.
-#
-#         Parameters
-#         ----------
-#         points : np.ndarray, shape (..., n)
-#             Particle coordinates.
-#         limits : list[tuple], length d
-#             The (min, max) axis limits.
-#         bins : 'auto', int, list[int]
-#             The number of bins along each dimension (if plot type requires histogram
-#             computation). If int or 'auto', applies to all dimensions. Currently
-#             the histogram is computed with limits based on the data min/max, not
-#             the plot limits.
-#         prof_edge_only : bool
-#             If plotting profiles on top of images (on off-diagonal subplots), whether
-#             to plot x profiles only in bottom row and y profiles only in left column.
-#         lower, upper, diag : bool
-#             Whether to plot on the lower triangular, upper triangular, and/or diagonal subplots.
-#         update_limits : bool
-#             Whether to extend the existing plot limits.
-#         diag_kws : dict
-#             Key word argument passed to `plot.plot_profile`.
-#         **kws
-#             Key word arguments pass to `plot.points.plot`
-#         """
-#         kws.setdefault("kind", "hist")
-#         kws.setdefault("profx", False)
-#         kws.setdefault("profy", False)
-#
-#         diag_kws = self.get_default_diag_kws(diag_kws)
-#
-#         if limits is None:
-#             if autolim_kws is None:
-#                 autolim_kws = {}
-#             autolim_kws.setdefault("pad", 0.1)
-#             limits = vis_points.auto_limits(points, **autolim_kws)
-#         if update_limits:
-#             self.set_limits(limits, expand=(not self.new))
-#         limits = self.get_limits()
-#
-#         self.new = False
-#
-#         if not psdist.utils.array_like(bins):
-#             bins = points.shape[1] * [bins]
-#
-#         # Compute histogram bin edges.
-#         edges = []
-#         for axis in range(self.ndim):
-#             if psdist.utils.array_like(bins[axis]):
-#                 edges.append(bins[axis])
-#             else:
-#                 edges.append(
-#                     np.histogram_bin_edges(points[:, axis], bins[axis], limits[axis])
-#                 )
-#
-#         # Univariate plots.
-#         if self.diag and diag:
-#             self._plot_diag(
-#                 lambda axis: np.histogram(points[:, axis], edges[axis]), **diag_kws
-#             )
-#
-#         # Bivariate plots:
-#         profx = kws.pop("profx")
-#         profy = kws.pop("profy")
-#         if lower:
-#             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
-#                 if prof_edge_only:
-#                     if profx:
-#                         kws["profx"] = axis[1] == self.d - 1
-#                     if profy:
-#                         kws["profy"] = axis[0] == 0
-#                 if kws["kind"] in ["hist", "contour", "contourf"]:
-#                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-#                 vis_points.plot(points[:, axis], ax=ax, **kws)
-#         if upper and not self.corner:
-#             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
-#                 if kws["kind"] in ["hist", "contour", "contourf"]:
-#                     kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-#                 vis_points.plot(points[:, axis], ax=ax, **kws)
-#         self._cleanup()
-#
-#     def _cleanup(self):
-#         self._fake_diag_yticks()
-#         self._force_non_negative_diag_ymin()
-#
-#
+class CornerGrid:
+    """Grid for corner plots.
+
+    Attributes
+    ----------
+    fig : proplot.figure.Figure
+        The main figure.
+    axs : proplot.gridspec.SubplotGrid
+        The subplot axes.
+    diag_axs : list[proplot.gridspec.SubplotGrid]
+        The axes for diagonal (univariate) subplots. Can be empty.
+    offdiag_axs : list[proplot.gridspec.SubplotGrid]
+        The axes for off-diagonal (bivariate) subplots.
+    diag_indices : list[int]
+        The index of the dimension plotted on each diagonal subplot.
+    offdiag_indices : list[2-tuple of int]
+        Indices of the dimensions plotted on each off-diagonal subplot.
+    """
+    def __init__(
+        self,
+        ndim: int,
+        diag: bool = True,
+        diag_shrink: float = 1.0,
+        diag_rspine: bool = False,
+        diag_share: bool = False,
+        diag_frozen: bool = False,
+        limits: list[tuple[float, float]] = None,
+        labels: list[str] = None,
+        corner: bool = True,
+        **fig_kws,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        ndim : int
+            The number of rows/columns.
+        diag : bool
+            Whether to include diagonal subplots (univariate plots). If False,
+            we have an (N - 1) x (N - 1) grid instead of an N x N grid.
+        diag_shrink : float in range [0, 1]
+            Scales the maximum y value of the diagonal profile plots.
+        diag_rspine : bool
+            Whether to include right spine on diagonal subplots (if `corner`).
+        diag_share : bool
+            Whether to share diagonal axis limits; i.e., whether we can compare
+            the areas under the diagonal profile plots.
+        diag_frozen : bool
+            If true, don't adjust the y limits on diagonal axes after the first
+            distribution is plotted. Otherwise, always adjust to keep the
+            histograms in view.
+        limits : list[tuple], length n
+            The (min, max) for each dimension. (These can be set later.)
+        labels : list[str]
+            The label for each dimension. (These can be set later.)
+        corner : bool
+            Whether to hide the upper-triangular subplots.
+        **fig_kws
+            Key word arguments passed to `uplt.subplots()`.
+        """
+        # Create figure.
+        self.new = True
+        self.ndim = self.nrows = self.ncols = ndim
+        self.corner = corner
+
+        self.diag = diag
+        self.diag_shrink = diag_shrink
+        self.diag_rspine = diag_rspine
+        self.diag_share = diag_share
+        self.diag_ymin = None
+        self.diag_yscale = self.ndim * [None]
+        self.diag_frozen = diag_frozen
+
+        if not self.diag:
+            self.nrows = self.nrows - 1
+            self.ncols = self.ncols - 1
+
+        self.fig_kws = fig_kws
+        self.fig_kws.setdefault("figwidth", 1.5 * self.nrows)
+        self.fig_kws.setdefault("aligny", True)
+
+        self.fig, self.axs = uplt.subplots(
+            nrows=self.nrows,
+            ncols=self.ncols,
+            spanx=False,
+            spany=False,
+            sharex=False,
+            sharey=False,
+            **self.fig_kws,
+        )
+
+        # Collect diagonal/off-diagonal subplots and indices.
+        self.diag_axs = []
+        self.offdiag_axs = []
+        self.offdiag_axs_u = []
+
+        self.diag_indices = []
+        self.offdiag_indices = []
+        self.offdiag_indices_u = []
+
+        if self.diag:
+            for i in range(self.ndim):
+                self.diag_axs.append(self.axs[i, i])
+                self.diag_indices.append(i)
+            for i in range(1, self.ndim):
+                for j in range(i):
+                    self.offdiag_axs.append(self.axs[i, j])
+                    self.offdiag_axs_u.append(self.axs[j, i])
+                    self.offdiag_indices.append((j, i))
+                    self.offdiag_indices_u.append((i, j))
+        else:
+            for i in range(self.ndim - 1):
+                for j in range(i + 1):
+                    self.offdiag_axs.append(self.axs[i, j])
+                    self.offdiag_indices.append((j, i + 1))
+
+        # Set limits and labels.
+        self.limits = limits
+        if limits is not None:
+            self.set_limits(limits)
+
+        self.labels = labels
+        if labels is not None:
+            self.set_labels(labels)
+
+        # Formatting
+        if self.corner or not self.diag:
+            for i in range(self.nrows):
+                for j in range(self.ncols):
+                    if j > i:
+                        self.axs[i, j].axis("off")
+
+        self.axs[:-1, :].format(xticklabels=[])
+        for i in range(self.nrows):
+            for j in range(self.ncols):
+                ax = self.axs[i, j]
+                if i != self.nrows - 1:
+                    ax.format(xticklabels=[])
+                if j != 0:
+                    if not (i == j and self.diag_rspine and self.corner and self.diag):
+                        ax.format(yticklabels=[])
+
+        self.axs.format(xspineloc="bottom", yspineloc="left")
+        if self.corner:
+            if self.diag_rspine:
+                self.format_diag(yspineloc="right")
+            else:
+                self.format_diag(yspineloc="neither")
+        self.axs.format(
+            xtickminor=True, ytickminor=True, xlocator=("maxn", 3), ylocator=("maxn", 3)
+        )
+        self.set_diag_scale("linear")
+
+    def format_diag(self, **kws) -> None:
+        """Format diagonal subplots."""
+        for ax in self.diag_axs:
+            ax.format(**kws)
+        if not self.corner:
+            for ax in self.diag_axs[1:]:
+                ax.format(yticklabels=[])
+        self._fake_diag_yticks()
+
+    def format_offdiag(self, **kws) -> None:
+        """Format off-diagonal subplots."""
+        for ax in [self.offdiag_axs + self.offdiag_axs_u]:
+            ax.format(**kws)
+
+    def get_labels(self) -> list[str]:
+        """Return the dimension labels."""
+        if self.diag:
+            labels = [ax.get_xlabel() for ax in self.diag_axs]
+        else:
+            labels = [self.axs[-1, i].get_xlabel() for i in range(self.ndim - 1)]
+            labels = labels + [self.axs[-1, 0].get_ylabel()]
+        return labels
+
+    def set_labels(self, labels: list[str]) -> None:
+        """Set the dimension labels."""
+        for ax, label in zip(self.axs[-1, :], labels):
+            ax.format(xlabel=label)
+        for ax, label in zip(self.axs[int(self.diag):, 0], labels[1:]):
+            ax.format(ylabel=label)
+        if self.diag and not self.corner:
+            self.axs[0, 0].format(ylabel=labels[0])
+        self.labels = labels
+
+    def get_limits(self) -> list[tuple[float, float]]:
+        """Return the plot limits."""
+        if self.diag:
+            limits = [ax.get_xlim() for ax in self.diag_axs]
+        else:
+            limits = [self.axs[-1, i].get_xlim() for i in range(self.ndim - 1)]
+            limits = limits + [self.axs[-1, 0].get_ylim()]
+        return limits
+
+    def set_limits(self, limits: list[tuple[float, float]], expand: bool = False) -> None:
+        """Set the plot limits.
+
+        Parameters
+        ----------
+        limits : list[tuple], length n
+            The (min, max) for each dimension.
+        expand : bool
+            If True, compare the proposed limits to the existing limits, expanding
+            if the new limits are wider.
+        """
+        if limits is not None:
+            if expand:
+                limits = np.array(limits)
+                limits_old = np.array(self.get_limits())
+                mins = np.minimum(limits[:, 0], limits_old[:, 0])
+                maxs = np.maximum(limits[:, 1], limits_old[:, 1])
+                limits = list(zip(mins, maxs))
+
+            if self.diag:
+                for i in range(self.ndim):
+                    for j in range(self.ndim):
+                        if i != j:
+                            if (j < i) or (not self.corner):
+                                self.axs[i, j].format(ylim=limits[i])
+            else:
+                for i in range(self.ndim - 1):
+                    for ax in self.axs[i, :]:
+                        ax.format(ylim=limits[i + 1])
+
+            for i in range(self.ncols):
+                self.axs[:, i].format(xlim=limits[i])
+
+        self.limits = self.get_limits()
+
+    def get_default_diag_kws(self, diag_kws: dict = None) -> dict:
+        if diag_kws is None:
+            diag_kws = {}
+        diag_kws.setdefault("color", "black")
+        diag_kws.setdefault("lw", 1.0)
+        diag_kws.setdefault("kind", "step")
+        diag_kws.setdefault("scale", "density")
+        return diag_kws
+
+    def _fake_diag_yticks(self) -> None:
+        """The yticks on the (0, 0) subplot correspond to the other subplots in the row.
+
+        Source: pandas.plotting.scatterplot_matrix.
+        """
+        if self.corner or not self.diag:
+            return
+        limits = self.limits
+        if limits is None:
+            limits = self.get_limits()
+
+        lim1 = limits[0]
+        locs = self.axs[0, 0].xaxis.get_majorticklocs()
+        locs = locs[(lim1[0] <= locs) & (locs <= lim1[1])]
+        adj = (locs - lim1[0]) / (lim1[1] - lim1[0])
+
+        lim0 = self.axs[0, 0].get_ylim()
+        adj = adj * (lim0[1] - lim0[0]) + lim0[0]
+        self.axs[0, 0].yaxis.set_ticks(adj)
+
+        if np.all(locs == locs.astype(int)):
+            locs = locs.astype(int)
+        self.axs[0, 0].yaxis.set_ticklabels(locs)
+
+    def _force_non_negative_diag_ymin(self) -> None:
+        """Force diagonal ymins to be at least zero."""
+        if any([ax.get_ylim()[0] < 0.0 for ax in self.diag_axs]):
+            self.format_diag(ylim=0.0)
+
+    def set_diag_scale(self, scale: str = "linear", pad: float = 0.05) -> None:
+        """Set diagonal axis scale.
+
+        Parameters
+        ----------
+        scale : {"linear", "log"}
+            If "linear", scale runs from 0 to 1. If "log", scale runs from half the
+            minimum plotted value to 1.
+        pad: float
+            Padding applied to the y axis limit.
+        """
+        if scale == "linear":
+            ymin = 0.0
+            ymax = 1.0 / self.diag_shrink
+            delta = ymax - ymin
+            ymax = ymin + delta * (1.0 + pad)
+            self.format_diag(yscale="linear", yformatter="auto", ymin=ymin, ymax=ymax)
+        elif scale == "log":
+            ymin = self.diag_ymin
+            ymax = 1.0
+            log_ymin = np.log10(ymin)
+            log_ymax = np.log10(ymax)
+            log_delta = log_ymax - log_ymin
+            log_delta = log_delta / self.diag_shrink
+            ymax = 10.0 ** (log_ymin + log_delta * (1.0 + pad))
+            self.format_diag(yscale="log", yformatter="log", ymin=ymin, ymax=ymax)
+
+    def plot_diag(self, hists: list[Histogram1D], **kws) -> None:
+        """Compute one-dimensional histograms."""
+        if "scale" in kws:
+            kws.pop("scale")
+
+        # Normalize histograms
+        for hist in hists:
+            hist.normalize()
+
+        # Update diag_yscale
+        if not (self.diag_frozen and not self.new):
+            for axis in range(self.ndim):
+                if self.diag_yscale[axis] is None:
+                    self.diag_yscale[axis] = -np.inf
+            if self.diag_share:
+                max_value = np.max([np.max(hist.values) for hist in hists])
+                self.diag_yscale = np.maximum(self.diag_yscale, max_value)
+            else:
+                max_values = np.array([np.max(hist.values) for hist in hists])
+                self.diag_yscale = np.maximum(self.diag_yscale, max_values)
+
+        # Plot histograms
+        for axis, hist in enumerate(hists):
+
+            yscale = self.diag_yscale[axis]
+            if yscale is None:
+                yscale = 1.0
+
+            hist_scaled = hist.copy()
+            hist_scaled.values /= yscale
+
+            _plot_hist_1d(hist_scaled, ax=self.diag_axs[axis], **kws)
+
+        # Compute minimum positive value (for log scaling)
+        for axis, hist in enumerate(hists):
+            if not self.diag_ymin:
+                self.diag_ymin = np.inf
+            self.diag_ymin = min(
+                self.diag_ymin,
+                np.min(hist.values[hist.values > 0.0])
+            )
+
+    def plot_hist(
+        self,
+        hist: Histogram,
+        prof_edge_only: bool = False,
+        lower: bool = True,
+        upper: bool = True,
+        diag: bool = True,
+        update_limits: bool = True,
+        diag_kws: dict = None,
+        **kws,
+    ) -> None:
+        """Plot an image.
+
+        Parameters
+        ----------
+        hist: np.ndarray
+            An N-dimensional histogram.
+        prof_edge_only : bool
+            If plotting profiles on top of images (on off-diagonal subplots), whether
+            to plot x profiles only in bottom row and y profiles only in left column.
+        lower, upper, diag : bool
+            Whether to plot on the lower triangular, upper triangular, and/or diagonal subplots.
+        update_limits : bool
+            Whether to extend the existing plot limits.
+        diag_kws : dict
+            Key word argument passed to `plot_hist_1d`.
+        **kws
+            Key word arguments pass to `plot_hist`
+        """
+        kws.setdefault("kind", "pcolor")
+
+        diag_kws = self.get_default_diag_kws(diag_kws)
+
+        if update_limits:
+            self.set_limits(hist.limits, expand=(not self.new))
+
+        # Univariate plots
+        if self.diag and diag:
+            hists = [hist.project(axis) for axis in range(hist.ndim)]
+            self.plot_diag(hists, **diag_kws)
+
+        # Bivariate plots
+        profx = kws.get("profx", False)
+        profy = kws.pop("profy", False)
+
+        if lower:
+            for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
+                hist_proj = hist.project(axis)
+
+                if prof_edge_only:
+                    if profx:
+                        kws["profx"] = axis[1] == self.ndim - 1
+                    if profy:
+                        kws["profy"] = axis[0] == 0
+
+                _plot_hist(hist_proj, ax=ax, **kws)
+
+        if upper and not self.corner:
+            for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
+                _plot_hist(hist.project(axis), ax=ax, **kws)
+
+        self._post_plot()
+
+    def plot(self, **kws):
+        return self.plot_points(**kws)
+
+    def plot_points(
+        self,
+        points: np.ndarray,
+        limits: list[tuple[float, float]] = None,
+        bins: int = 50,
+        prof_edge_only: bool = False,
+        lower: bool = True,
+        upper: bool = True,
+        diag: bool = True,
+        autolim_kws: dict = None,
+        update_limits: bool = True,
+        diag_kws: dict = None,
+        **kws,
+    ) -> None:
+        """Plot points.
+
+        Parameters
+        ----------
+        points : np.ndarray, shape (..., N)
+            Particle coordinates.
+        limits : list[tuple[float, float]], length N
+            The (min, max) axis limits.
+        bins : 'auto', int, list[int]
+            The number of bins along each dimension (if plot type requires histogram
+            computation). If int or 'auto', applies to all dimensions.
+        prof_edge_only : bool
+            If plotting profiles on top of images (on off-diagonal subplots), whether
+            to plot x profiles only in bottom row and y profiles only in left column.
+        lower, upper, diag : bool
+            Whether to plot on the lower triangular, upper triangular, and/or diagonal subplots.
+        update_limits : bool
+            Whether to extend the existing plot limits.
+        diag_kws : dict
+            Key word argument passed to `plot.plot_profile`.
+        **kws
+            Key word arguments pass to `plot.points.plot`
+        """
+        kws.setdefault("kind", "hist")
+
+        diag_kws = self.get_default_diag_kws(diag_kws)
+
+        if autolim_kws is None:
+            autolim_kws = {}
+        autolim_kws.setdefault("pad", 0.25)
+
+        if limits is None:
+            limits = _get_limits(points, **autolim_kws)
+
+        if update_limits:
+            self.set_limits(limits, expand=(not self.new))
+
+        limits = self.get_limits()
+
+        if not array_like(bins):
+            bins = points.shape[1] * [bins]
+
+        # Compute histogram bin edges.
+        hists = []
+        for axis in range(self.ndim):
+            if array_like(bins[axis]):
+                edges = bins[axis]
+            else:
+                edges = np.histogram_bin_edges(points[:, axis], bins[axis], limits[axis])
+            hist = Histogram1D(edges=edges)
+            hist.bin(points[:, axis])
+            hists.append(hist)
+
+        # Univariate plots.
+        if self.diag and diag:
+            self.plot_diag(hists, **diag_kws)
+
+        # Bivariate plots:
+        profx = kws.pop("profx", False)
+        profy = kws.pop("profy", False)
+
+        if lower:
+            for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
+                if prof_edge_only:
+                    if profx:
+                        kws["profx"] = axis[1] == self.ndim - 1
+                    if profy:
+                        kws["profy"] = axis[0] == 0
+
+                if kws["kind"] in ["hist", "contour", "contourf"]:
+                    kws["bins"] = [
+                        hists[axis[0]].edges,
+                        hists[axis[1]].edges,
+                    ]
+
+                _plot_points(points[:, axis], ax=ax, **kws)
+
+        if upper and not self.corner:
+            for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
+                if kws["kind"] in ["hist", "contour", "contourf"]:
+                    kws["bins"] = [
+                        hists[axis[0]].edges,
+                        hists[axis[1]].edges,
+                    ]
+
+                _plot_points(points[:, axis], ax=ax, **kws)
+
+        self._post_plot()
+
+    def _post_plot(self) -> None:
+        self.new = False
+        self._fake_diag_yticks()
+        self._force_non_negative_diag_ymin()
+
+
 # class SliceGrid:
 #     """Grid for slice matrix plots (https://arxiv.org/abs/2301.04178).
 #

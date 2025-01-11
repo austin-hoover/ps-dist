@@ -3,13 +3,7 @@ import numpy as np
 import seaborn as sns
 import ultraplot as uplt
 
-import psdist as ps
-from psdist.hist import Histogram
-from psdist.hist import Histogram1D
-
-# from psdist.cov import rms_ellipse_dims
-# from psdist.plot.hist import plot as plot_image
-# from psdist.plot.points import plot as plot_points
+from ..cov import rms_ellipse_params as _rms_ellipse_params
 
 
 def plot_ellipse(
@@ -56,7 +50,7 @@ def plot_rms_ellipse(
         center = (0.0, 0.0)
     if type(level) not in [list, tuple, np.ndarray]:
         level = [level]
-    r1, r2, angle = ps.cov.rms_ellipse_params(cov_matrix)
+    r1, r2, angle = _rms_ellipse_params(cov_matrix)
     for level in level:
         plot_ellipse(
             r1 * level, r2 * level, angle=angle, center=center, ax=ax, **ellipse_kws

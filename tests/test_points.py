@@ -1,5 +1,6 @@
 import numpy as np
 import psdist as ps
+from psdist import GaussianKDE
 
 
 def gen_dist(ndim: int) -> np.ndarray:
@@ -134,9 +135,10 @@ def test_radial_histogram():
     hist = ps.radial_histogram(x, bins=10)
 
 
-def test_gaussian_kde():
+def test_density_estimation_gaussian_kde():
     x = gen_dist(ndim=2)
-    kde = ps.build_gaussian_kde(x)
-    assert callable(kde)
-    density = kde(x.T)
+    x_eval = x
+
+    estimator = ps.GaussianKDE(x)
+    density = estimator(x_eval)
     assert len(density) == x.shape[0]

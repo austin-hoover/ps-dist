@@ -186,9 +186,10 @@ class SparseHistogram(Grid):
         super().__init__(coords=coords, edges=edges)
         self.values = values
         self.indices = indices
+        self.size = len(self.values)  # number of nonzero cells
 
-    def sample(self, **kwargs) -> np.ndarray:
-        return sample_sparse_hist(**kwargs)
+    def sample(self, size: int, noise: float = 0.0) -> np.ndarray:
+        return sample_sparse_hist(self, size=size, noise=noise)
 
 
 class Histogram1D:
