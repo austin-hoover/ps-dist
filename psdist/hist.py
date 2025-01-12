@@ -48,53 +48,6 @@ def coords_to_edges(coords: np.ndarray | list[np.ndarray]) -> np.ndarray:
     return edges
 
 
-def combine_limits(*limits: list[np.ndarray]) -> np.ndarray:
-    """Combine a stack of limits, keeping min/max values.
-
-    Example: [[(-1, 1), (-3, 2)], [(-1, 2), (-1, 3)]] --> [(-1, 2), (-3, 3)].
-
-    Parameters
-    ----------
-    limits_list : np.ndarray
-        Each element is a set of limits [(xmin, xmax), (ymin, ymax), ...].
-
-    Returns
-    -------
-    np.ndarray
-        New set of limits [(xmin, xmax), (ymin, ymax), ...].
-    """
-    limits_list = np.array(limits_list)
-    mins = np.min(limits_list[:, :, 0], axis=0)
-    maxs = np.max(limits_list[:, :, 1], axis=0)
-    limits = list(zip(mins, maxs))
-    limits = np.array(limits)
-    return limits
-
-
-def center_limits(limits: np.ndarray) -> np.ndarray:
-    """Center limits at zero.
-
-    Example: [(-3, 1), (-4, 5)] --> [(-3, 3), (-5, 5)].
-
-    Parameters
-    ----------
-    limits : list[tuple]
-        A set of limits [(xmin, xmax), (ymin, ymax), ...].
-
-    Returns
-    -------
-    limits : list[tuple]
-        A new set of limits centered at zero [(-x, x), (-y, y), ...].
-    """
-    limits = np.array(limits)
-    mins = limits[:, 0]
-    maxs = limits[:, 1]
-    maxs = np.maximum(np.abs(mins), np.abs(maxs))
-    limits = list(zip(-maxs, maxs))
-    limits = np.array(limits)
-    return limits
-
-
 class Grid:
     def __init__(
         self, coords: list[np.ndarray] = None, edges: list[np.ndarray] = None
@@ -157,6 +110,32 @@ class Histogram(Grid):
 
     def project(self, axis: int | tuple[int, ...]) -> Self:
         return project(self, axis)
+
+    def slice(
+        self,
+        axis: int | tuple[int, ...],
+        ind: int | tuple[int, ...] | list[tuple[int, ...]],
+        return_indices: bool = False,
+    ) -> Self | tuple[Self, list[slice]]:
+        return slice_(self, axis=axis, ind=ind, return_indices=return_indices)
+
+    def slice_ellipsoid(
+        self,
+        axis: tuple[int, ...],
+        rmin: float,
+        rmax: float,
+        return_indices: bool = False,
+    ) -> Self | tuple[Self, list[slice]]:
+        return slice_ellipsoid(self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices)
+
+    def slice_contour(
+        self,
+        axis: tuple[int, ...],
+        rmin: float,
+        rmax: float,
+        return_indices: bool = False,
+    ) -> Self | tuple[Self, list[slice]]:
+        return slice_contour(self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices)
 
     def bin(self, points: np.ndarray, density: bool = True) -> np.ndarray:
         self.values, _ = np.histogramdd(points, bins=self.edges, density=density)
@@ -352,14 +331,14 @@ def slice_(
     axis: int | tuple[int, ...],
     ind: int | tuple[int, ...] | list[tuple[int, ...]],
     return_indices: bool = False,
-) -> Histogram:
+) -> Histogram | tuple[Histogram, list[slice]]:
 
     ndim = hist.ndim
     idx = slice_idx(ndim=hist.ndim, axis=axis, ind=ind)
 
     coords_new = []
     for axis in range(ndim):
-        ilo, ihi = idx[axis].start
+        ilo = idx[axis].start
         if ilo is None:
             ilo = 0
 
@@ -368,10 +347,11 @@ def slice_(
             ihi = hist.shape[axis]
 
         if ihi - ilo > 1:
-            coords_new.append(coords[axis][idx[axis]])
+            coords_new.append(hist.coords[axis][idx[axis]])
 
     values_new = hist.values[idx]
-    hist_new = hist(values=values_new, coords=coords_new)
+    values_new = np.squeeze(values_new)
+    hist_new = Histogram(values=values_new, coords=coords_new)
 
     if return_indices:
         return hist_new, idx
@@ -384,7 +364,7 @@ def slice_ellipsoid(
     rmin: float,
     rmax: float,
     return_indices: bool = False,
-) -> Histogram:
+) -> Histogram | tuple[Histogram, list[slice]]:
 
     idx = slice_idx_ellipsoid(
         axis=axis,
@@ -408,7 +388,7 @@ def slice_contour(
     lmin: float = 0.0,
     lmax: float = 1.0,
     return_indices: bool = False,
-) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+) -> Histogram | tuple[Histogram, list[slice]]:
 
     idx = slice_idx_contour(hist, axis=axis, lmin=lmin, lmax=lmax)
 

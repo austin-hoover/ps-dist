@@ -1,7 +1,7 @@
-from matplotlib import patches
 import numpy as np
 import seaborn as sns
-import ultraplot as uplt
+from matplotlib import patches
+from matplotlib import pyplot as plt
 
 from ..cov import rms_ellipse_params as _rms_ellipse_params
 
@@ -13,7 +13,7 @@ def plot_ellipse(
     center: tuple[float, float] = None,
     ax=None,
     **kws,
-) -> uplt.Axes:
+):
     """Plot ellipse with semi-axes `c1`,`c2` tilted `angle`radians below the x axis."""
     kws.setdefault("fill", False)
     kws.setdefault("color", "black")
@@ -31,7 +31,7 @@ def plot_ellipse(
 
 def plot_circle(
     r: float = 1.0, center: tuple[float, float] = None, ax=None, **kws
-) -> uplt.Axes:
+):
     """Plot circle of radius r."""
     if center is None:
         center = (0.0, 0.0)
@@ -44,7 +44,7 @@ def plot_rms_ellipse(
     level: float = 1.0,
     ax=None,
     **ellipse_kws,
-) -> uplt.Axes:
+):
     """Plot RMS ellipse from 2 x 2 covariance matrix."""
     if center is None:
         center = (0.0, 0.0)

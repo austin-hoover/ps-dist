@@ -104,8 +104,8 @@ class JointGrid:
         if self.frozen_limits:
             self.reset_limits()
 
-    def plot(self, **kws):
-        return self.plot_points(**kws)
+    def plot(self, points: np.ndarray, **kws):
+        return self.plot_points(points, **kws)
 
     def plot_points(
         self,
@@ -612,8 +612,8 @@ class CornerGrid:
 
         self._post_plot()
 
-    def plot(self, **kws):
-        return self.plot_points(**kws)
+    def plot(self, points: np.ndarray, **kws) -> None:
+        return self.plot_points(points, **kws)
 
     def plot_points(
         self,
@@ -726,437 +726,336 @@ class CornerGrid:
         self._force_non_negative_diag_ymin()
 
 
-# class SliceGrid:
-#     """Grid for slice matrix plots (https://arxiv.org/abs/2301.04178).
-#
-#     This plot is used to visualize four dimensions of a distribution f(x1, x2, x3, x4).
-#
-#     The main panel is an nrows x ncols grid that shows f(x1, x2 | x3, x4) -- the
-#     x1-x2 distribution for a planar slice in x3-x4. Each subplot corresponds to a
-#     different location in the x3-x4 plane.
-#
-#     The following is only included if `marginals` is True:
-#
-#         The bottom panel shows the marginal 3D distribution f(x1, x2 | x3).
-#
-#         The right panel shows the marginal 3D distribution f(x1, x2 | x4).
-#
-#         The bottom right subplot shows the full projection f(x1, x2).
-#
-#         The lone subplot on the bottom right shows f(x1, x2)l, the full projection
-#         onto the x1-x2 plane.
-#
-#     To do
-#     -----
-#     * Option to flow from top left to bottom right.
-#
-#     Attributes
-#     ----------
-#     fig : proplot.figure.Figure
-#         The main figure.
-#     axs : proplot.gridspec.SubplotGrid
-#         The subplot axes.
-#     _axs : proplot.figure.Figure
-#         The subplot axes on the main panel.
-#     _axs_panel_x, _axs_panel_y, _axs_panel_xy : proplot.gridspec.SubplotGrid
-#         The subplot axes on the marginal panels.
-#     """
-#
-#     def __init__(
-#         self,
-#         nrows: int = 9,
-#         ncols: int = 9,
-#         space: float = 0.0,
-#         gap: float = 2.0,
-#         marginals: bool = True,
-#         annotate: bool = True,
-#         annotate_kws_view: dict = None,
-#         annotate_kws_slice: dict = None,
-#         slice_label_height: float = 0.22,
-#         **fig_kws,
-#     ) -> None:
-#         """Constructor.
-#
-#         nrows, ncols : int
-#             The number of rows/colums in the figure.
-#         space : float
-#             Spacing between subplots.
-#         gap : float
-#             Gap between main and marginal panels.
-#         marginals : bool
-#             Whether to include the marginal panels. If they are not included, we just
-#             have an nrows x ncols grid.
-#         annotate : bool
-#             Whether to add dimension labels/arrows to the figure.
-#         annotate_kws_view, annotate_kws_slice : dict
-#             Key word arguments for figure text. The 'view' key words are for the view
-#             dimension labels; they are printed on top of one of the subplots. The
-#             'slice' key words are for the slice dimension labels; they are printed
-#             on the sides of the figure, between the main and marginal panels.
-#         slice_label_height : float
-#             Tweaks the position of slice labels. Need a better way to handle this.
-#         **fig_kws
-#             Key word arguments for `uplt.subplots`.
-#         """
-#         self.nrows = nrows
-#         self.ncols = ncols
-#         self.space = space
-#         self.gap = gap
-#         self.marginals = marginals
-#         self.annotate = annotate
-#         self.slice_label_height = slice_label_height
-#         self.fig_kws = fig_kws
-#         self.axis_slice = None
-#         self.axis_view = None
-#         self.ind_slice = None
-#
-#         self.annotate_kws_view = annotate_kws_view
-#         if self.annotate_kws_view is None:
-#             self.annotate_kws_view = {}
-#         self.annotate_kws_view.setdefault("color", "black")
-#         self.annotate_kws_view.setdefault("xycoords", "axes fraction")
-#         self.annotate_kws_view.setdefault("horizontalalignment", "center")
-#         self.annotate_kws_view.setdefault("verticalalignment", "center")
-#
-#         self.annotate_kws_slice = annotate_kws_slice
-#         if self.annotate_kws_slice is None:
-#             self.annotate_kws_slice = {}
-#         self.annotate_kws_slice.setdefault("color", "black")
-#         self.annotate_kws_slice.setdefault("xycoords", "axes fraction")
-#         self.annotate_kws_slice.setdefault("horizontalalignment", "center")
-#         self.annotate_kws_slice.setdefault("verticalalignment", "center")
-#         self.annotate_kws_slice.setdefault(
-#             "arrowprops", dict(arrowstyle="->", color="black")
-#         )
-#
-#         fig_kws.setdefault("figwidth", 8.5 * (ncols / 13.0))
-#         fig_kws.setdefault("share", True)
-#         fig_kws["ncols"] = ncols + 1 if marginals else ncols
-#         fig_kws["nrows"] = nrows + 1 if marginals else nrows
-#         hspace = nrows * [space]
-#         wspace = ncols * [space]
-#         if marginals:
-#             hspace[-1] = wspace[-1] = gap
-#         else:
-#             hspace = hspace[:-1]
-#             wspace = wspace[:-1]
-#         fig_kws["hspace"] = hspace
-#         fig_kws["wspace"] = wspace
-#
-#         self.fig, self.axs = uplt.subplots(**fig_kws)
-#
-#         self._axs = self.axs[:-1, :-1]
-#         self._axs_panel_x = []
-#         self._axs_panel_y = []
-#         if self.marginals:
-#             self._axs_panel_x = self.axs[-1, :]
-#             self._axs_panel_y = self.axs[:, -1]
-#         self._ax_panel_xy = self.axs[-1, -1]
-#
-#     def _annotate(
-#         self,
-#         labels=None,
-#         slice_label_height=0.22,
-#         annotate_kws_view=None,
-#         annotate_kws_slice=None,
-#     ):
-#         """Add dimension labels and arrows."""
-#         # Label the view dimensions.
-#         for i, xy in enumerate([(0.5, 0.13), (0.12, 0.5)]):
-#             self.axs[0, 0].annotate(labels[i], xy=xy, **self.annotate_kws_view)
-#
-#         # Label the slice dimensions. Print dimension labels with arrows like this:
-#         # "<----- x ----->" on the bottom and right side of the main panel.
-#         arrow_length = 2.5  # arrow length
-#         text_length = 0.15  # controls space between dimension label and start of arrow
-#         i = -1 - int(self.marginals)
-#         anchors = (
-#             self.axs[i, self.ncols // 2],
-#             self.axs[self.nrows // 2, i],
-#         )
-#         anchors[0].annotate(
-#             labels[2], xy=(0.5, -slice_label_height), **annotate_kws_slice
-#         )
-#         anchors[1].annotate(
-#             labels[3], xy=(1.0 + slice_label_height, 0.5), **annotate_kws_slice
-#         )
-#         for arrow_direction in (1.0, -1.0):
-#             anchors[0].annotate(
-#                 "",
-#                 xy=(0.5 + arrow_direction * arrow_length, -slice_label_height),
-#                 xytext=(0.5 + arrow_direction * text_length, -slice_label_height),
-#                 **annotate_kws_slice,
-#             )
-#             anchors[1].annotate(
-#                 "",
-#                 xy=(1.0 + slice_label_height, 0.5 + arrow_direction * arrow_length),
-#                 xytext=(1.0 + slice_label_height, 0.5 + arrow_direction * text_length),
-#                 **annotate_kws_slice,
-#             )
-#
-#     def get_ind_slice(self) -> int:
-#         """Return slice indices from latest plot call."""
-#         return self.ind_slice
-#
-#     def get_axis_slice(self) -> int:
-#         """Return slice axis from latest plot call."""
-#         return self.axis_slice
-#
-#     def get_axis_view(self) -> tuple[int, ...]:
-#         """Return view axis from latest plot call."""
-#         return self.axis_view
-#
-#     def set_limits(self, limits) -> None:
-#         """Set the plot limits."""
-#         for ax in self.axs:
-#             ax.format(xlim=limits[0], ylim=limits[1])
-#
-#     def plot_image(
-#         self,
-#         values: np.ndarray,
-#         coords: list[np.ndarray] = None,
-#         edges: list[np.ndarray] = None,
-#         labels: list[str] = None,
-#         axis_view: tuple[int, ...] = (0, 1),
-#         axis_slice: tuple[int, ...] = (2, 3),
-#         pad: float = 0.0,
-#         debug: bool = False,
-#         **kws,
-#     ) -> None:
-#         """Plot an n-dimensional image.
-#
-#         Parameters
-#         ----------
-#         values: np.ndarray
-#             An n-dimensional image.
-#         coords : list[ndarray]
-#             Coordinates along each axis of the grid (if `data` is an image).
-#         labels : list[str], length n
-#             Label for each dimension.
-#         axis_view, axis_slice : 2-tuple of int
-#             The axis to view (plot) and to slice.
-#         pad : int, float, list
-#             This determines the start/stop indices along the sliced dimensions. If
-#             0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
-#             Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
-#             the shape=10 and pad=0.1, we would start from 1 and end at 9.
-#         debug : bool
-#             Whether to print debugging messages.
-#         **kws
-#             Key word arguments pass to `plot.image.plot`
-#         """
-#         # Setup
-#         # -----------------------------------------------------------------------
-#         if values.ndim < 4:
-#             raise ValueError(f"values.ndim = {values.ndim} < 4")
-#         if coords is None:
-#             coords = [np.arange(s) for s in values.shape]
-#         self.axis_view = axis_view
-#         self.axis_slice = axis_slice
-#
-#         # Compute 4D/3D/2D projections.
-#         _values = psdist.image.project(values, axis_view + axis_slice)
-#         _values_x = psdist.image.project(values, axis_view + axis_slice[:1])
-#         _values_y = psdist.image.project(values, axis_view + axis_slice[1:])
-#         _values_xy = psdist.image.project(values, axis_view)
-#
-#         # Compute new coords and labels.
-#         _coords = [coords[i] for i in axis_view + axis_slice]
-#         _labels = None
-#         if labels is not None:
-#             _labels = [labels[i] for i in axis_view + axis_slice]
-#
-#         # Select slice indices.
-#         if type(pad) in [float, int]:
-#             pad = len(axis_slice) * [pad]
-#         ind_slice = []
-#         for i, nsteps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
-#             start = int(_pad * values.shape[i])
-#             stop = values.shape[i] - 1 - start
-#             if stop - start == nsteps - 1:
-#                 ind_slice.append(np.arange(nsteps))
-#             elif (stop - start) < nsteps:
-#                 raise ValueError(
-#                     f"values.shape[{i}] < number of slice indices requested."
-#                 )
-#             ind_slice.append(np.linspace(start, stop, nsteps).astype(int))
-#         ind_slice = tuple(ind_slice)
-#         self.ind_slice = ind_slice
-#
-#         if debug:
-#             print("Slice indices:")
-#             for ind in ind_slice:
-#                 print(ind)
-#
-#         # Slice the 4D projection. The axes order was already handled by `project`;
-#         # the first two axes are the view axes and the last two axes are the
-#         # slice axes.
-#         axis_view = (0, 1)
-#         axis_slice = (2, 3)
-#         idx = 4 * [slice(None)]
-#         for axis, ind in zip(axis_slice, ind_slice):
-#             idx[axis] = ind
-#             _values = _values[tuple(idx)]
-#             idx[axis] = slice(None)
-#
-#         # Slice the 3D projections.
-#         _values_x = _values_x[:, :, ind_slice[0]]
-#         _values_y = _values_y[:, :, ind_slice[1]]
-#
-#         # Slice coords.
-#         for i, ind in zip(axis_slice, ind_slice):
-#             _coords[i] = _coords[i][ind]
-#
-#         # Normalize each distribution.
-#         _values = psdist.plot.image.process(_values, norm="max")
-#         _values_x = psdist.plot.image.process(_values_x, norm="max")
-#         _values_y = psdist.plot.image.process(_values_y, norm="max")
-#         _values_xy = psdist.plot.image.process(_values_xy, norm="max")
-#
-#         if debug:
-#             print("_values.shape =", _values.shape)
-#             print("_values_x.shape =", _values_x.shape)
-#             print("_values_y.shape =", _values_y.shape)
-#             print("_values_xy.shape =", _values_xy.shape)
-#             for i in range(_values.ndim):
-#                 assert _values.shape[i] == len(_coords[i])
-#
-#         # Add dimension labels to the figure.
-#         if self.annotate and _labels is not None:
-#             self._annotate(
-#                 labels=_labels,
-#                 slice_label_height=self.slice_label_height,
-#                 annotate_kws_view=self.annotate_kws_view,
-#                 annotate_kws_slice=self.annotate_kws_slice,
-#             )
-#
-#         # Plotting
-#         # -----------------------------------------------------------------------
-#         for i in range(self.nrows):
-#             for j in range(self.ncols):
-#                 ax = self.axs[self.nrows - 1 - i, j]
-#                 idx = psdist.image.slice_idx(
-#                     _values.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)]
-#                 )
-#                 vis_image.plot(
-#                     psdist.image.project(_values[idx], axis_view),
-#                     coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-#                     ax=ax,
-#                     **kws,
-#                 )
-#         if self.marginals:
-#             for i, ax in enumerate(reversed(self.axs[:-1, -1])):
-#                 vis_image.plot(
-#                     _values_y[:, :, i],
-#                     coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-#                     ax=ax,
-#                     **kws,
-#                 )
-#             for i, ax in enumerate(self.axs[-1, :-1]):
-#                 vis_image.plot(
-#                     _values_x[:, :, i],
-#                     [_coords[axis_view[0]], _coords[axis_view[1]]],
-#                     ax=ax,
-#                     **kws,
-#                 )
-#             vis_image.plot(
-#                 _values_xy,
-#                 coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-#                 ax=self.axs[-1, -1],
-#                 **kws,
-#             )
-#
-#     def _plot_points(
-#         self,
-#         X,
-#         labels=None,
-#         bins_slice="auto",
-#         axis_view=(0, 1),
-#         axis_slice=(2, 3),
-#         pad=0.0,
-#         debug=False,
-#         autolim_kws=None,
-#         **kws,
-#     ):
-#         """Plot points.
-#
-#         NOTE: this is not currently working... for the time being, it is recommended
-#         to generate a 4D histogram and then call `plot_image`.
-#
-#         Parameters
-#         ----------
-#         X : np.ndarray, shape (..., n)
-#             Particle coordinates.
-#         labels : list[str], length d
-#             Label for each dimension.
-#         bins_slice : int, list[int], list[ndarray]
-#             Specifies the bins used for slicing in `axis_slice`. The bin range
-#             is determined by the min/max point in `X`.
-#         axis_view, axis_slice : 2-tuple of int
-#             The axis to view (plot) and to slice.
-#         pad : int, float, list
-#             Fractional padding added to the start/stop indices for the bins in the sliced
-#             dimensions.
-#         debug : bool
-#             Whether to print debugging messages.
-#         **kws
-#             Key word arguments pass to `plot.points.plot`
-#         """
-#
-#         warnings.warn(
-#             "This is not currently working. For the time being, it is recommended to generate a 4D histogram and call `plot_image`."
-#         )
-#
-#         # Setup
-#         # -----------------------------------------------------------------------
-#         if X.shape[1] < 4:
-#             raise ValueError(f"X.shape[1] = {X.shape[1]} < 4")
-#         self.axis_view = axis_view
-#         self.axis_slice = axis_slice
-#
-#         edges_slice = psdist.points.histogram_bin_edges(X[:, axis_slice], bins_slice)
-#
-#         # Select slice indices.
-#         if type(pad) in [float, int]:
-#             pad = len(axis_slice) * [pad]
-#         ind_slice = []
-#         for i, (steps, _pad) in enumerate(zip([self.nrows, self.ncols], pad)):
-#             start = int(_pad * len(edges_slice[i]))
-#             stop = len(edges_slice[i]) - 1 - start
-#             if (stop - start) < steps:
-#                 raise ValueError(f"Too many slices requested.")
-#             ind_slice.append(np.linspace(start, stop, steps + 1).astype(int))
-#         ind_slice = tuple(ind_slice)
-#         self.ind_slice = ind_slice
-#
-#         # Slice the bin indices.
-#         edges_slice = [e[ind] for e, ind in zip(edges_slice, ind_slice)]
-#
-#         # Add dimension labels to the figure.
-#         if labels is not None:
-#             if self.annotate and labels is not None:
-#                 self._annotate(
-#                     labels=[labels[k] for k in axis_view + axis_slice],
-#                     slice_label_height=self.slice_label_height,
-#                     annotate_kws_view=self.annotate_kws_view,
-#                     annotate_kws_slice=self.annotate_kws_slice,
-#                 )
-#
-#         # Plotting
-#         # -----------------------------------------------------------------------
-#         for i in range(self.nrows):
-#             for j in range(self.ncols):
-#                 ax = self.axs[self.nrows - 1 - i, j]
-#                 _X = psdist.points.slice_planar(
-#                     X,
-#                     axis=axis_slice,
-#                     center=[
-#                         0.5 * (edges_slice[0][j] + edges_slice[0][j + 1]),
-#                         0.5 * (edges_slice[1][i] + edges_slice[1][i + 1]),
-#                     ],
-#                     width=[
-#                         np.abs(edges_slice[0][j] - edges_slice[1][j + 1]),
-#                         np.abs(edges_slice[1][i] - edges_slice[1][i + 1]),
-#                     ],
-#                 )
-#                 vis_points.plot(_X[:, axis_slice], ax=ax, **kws)
+class SliceGrid:
+    """Grid for slice matrix plots (https://arxiv.org/abs/2301.04178).
+
+    This plot is used to visualize four dimensions of a distribution f(x1, x2, x3, x4).
+
+    The main panel is an nrows x ncols grid that shows f(x1, x2 | x3, x4) -- the
+    x1-x2 distribution for a planar slice in x3-x4. Each subplot corresponds to a
+    different location in the x3-x4 plane.
+
+    The following is only included if `marginals` is True:
+
+        The bottom panel shows the marginal 3D distribution f(x1, x2 | x3).
+
+        The right panel shows the marginal 3D distribution f(x1, x2 | x4).
+
+        The bottom right subplot shows the full projection f(x1, x2).
+
+        The lone subplot on the bottom right shows f(x1, x2)l, the full projection
+        onto the x1-x2 plane.
+
+    To do
+    -----
+    * Option to flow from top left to bottom right.
+
+    Attributes
+    ----------
+    fig : proplot.figure.Figure
+        The main figure.
+    axs : proplot.gridspec.SubplotGrid
+        The subplot axes.
+    _axs : proplot.figure.Figure
+        The subplot axes on the main panel.
+    _axs_panel_x, _axs_panel_y, _axs_panel_xy : proplot.gridspec.SubplotGrid
+        The subplot axes on the marginal panels.
+    """
+
+    def __init__(
+        self,
+        nrows: int = 9,
+        ncols: int = 9,
+        space: float = 0.0,
+        gap: float = 2.0,
+        marginals: bool = True,
+        annotate: bool = True,
+        annotate_kws_view: dict = None,
+        annotate_kws_slice: dict = None,
+        slice_label_height: float = 0.22,
+        **fig_kws,
+    ) -> None:
+        """Constructor.
+
+        nrows, ncols : int
+            The number of rows/colums in the figure.
+        space : float
+            Spacing between subplots.
+        gap : float
+            Gap between main and marginal panels.
+        marginals : bool
+            Whether to include the marginal panels. If they are not included, we just
+            have an nrows x ncols grid.
+        annotate : bool
+            Whether to add dimension labels/arrows to the figure.
+        annotate_kws_view, annotate_kws_slice : dict
+            Key word arguments for figure text. The 'view' key words are for the view
+            dimension labels; they are printed on top of one of the subplots. The
+            'slice' key words are for the slice dimension labels; they are printed
+            on the sides of the figure, between the main and marginal panels.
+        slice_label_height : float
+            Tweaks the position of slice labels. Need a better way to handle this.
+        **fig_kws
+            Key word arguments for `uplt.subplots`.
+        """
+        self.nrows = nrows
+        self.ncols = ncols
+        self.space = space
+        self.gap = gap
+        self.marginals = marginals
+        self.annotate = annotate
+        self.slice_label_height = slice_label_height
+        self.fig_kws = fig_kws
+        self.axis_slice = None
+        self.axis_view = None
+        self.ind_slice = None
+
+        self.annotate_kws_view = annotate_kws_view
+        if self.annotate_kws_view is None:
+            self.annotate_kws_view = {}
+        self.annotate_kws_view.setdefault("color", "black")
+        self.annotate_kws_view.setdefault("xycoords", "axes fraction")
+        self.annotate_kws_view.setdefault("horizontalalignment", "center")
+        self.annotate_kws_view.setdefault("verticalalignment", "center")
+
+        self.annotate_kws_slice = annotate_kws_slice
+        if self.annotate_kws_slice is None:
+            self.annotate_kws_slice = {}
+        self.annotate_kws_slice.setdefault("color", "black")
+        self.annotate_kws_slice.setdefault("xycoords", "axes fraction")
+        self.annotate_kws_slice.setdefault("horizontalalignment", "center")
+        self.annotate_kws_slice.setdefault("verticalalignment", "center")
+        self.annotate_kws_slice.setdefault(
+            "arrowprops", dict(arrowstyle="->", color="black")
+        )
+
+        fig_kws.setdefault("figwidth", 8.5 * (ncols / 13.0))
+        fig_kws.setdefault("share", True)
+        fig_kws["ncols"] = ncols + 1 if marginals else ncols
+        fig_kws["nrows"] = nrows + 1 if marginals else nrows
+        hspace = nrows * [space]
+        wspace = ncols * [space]
+        if marginals:
+            hspace[-1] = wspace[-1] = gap
+        else:
+            hspace = hspace[:-1]
+            wspace = wspace[:-1]
+        fig_kws["hspace"] = hspace
+        fig_kws["wspace"] = wspace
+
+        self.fig, self.axs = uplt.subplots(**fig_kws)
+
+        self._axs = self.axs[:-1, :-1]
+        self._axs_panel_x = []
+        self._axs_panel_y = []
+        if self.marginals:
+            self._axs_panel_x = self.axs[-1, :]
+            self._axs_panel_y = self.axs[:, -1]
+        self._ax_panel_xy = self.axs[-1, -1]
+
+    def _annotate(
+        self,
+        labels=None,
+        slice_label_height=0.22,
+        annotate_kws_view=None,
+        annotate_kws_slice=None,
+    ):
+        """Add dimension labels and arrows."""
+        # Label the view dimensions.
+        for i, xy in enumerate([(0.5, 0.13), (0.12, 0.5)]):
+            self.axs[0, 0].annotate(labels[i], xy=xy, **self.annotate_kws_view)
+
+        # Label the slice dimensions. Print dimension labels with arrows like this:
+        # "<----- x ----->" on the bottom and right side of the main panel.
+        arrow_length = 2.5  # arrow length
+        text_length = 0.15  # controls space between dimension label and start of arrow
+        i = -1 - int(self.marginals)
+        anchors = (
+            self.axs[i, self.ncols // 2],
+            self.axs[self.nrows // 2, i],
+        )
+        anchors[0].annotate(
+            labels[2], xy=(0.5, -slice_label_height), **annotate_kws_slice
+        )
+        anchors[1].annotate(
+            labels[3], xy=(1.0 + slice_label_height, 0.5), **annotate_kws_slice
+        )
+        for arrow_direction in (1.0, -1.0):
+            anchors[0].annotate(
+                "",
+                xy=(0.5 + arrow_direction * arrow_length, -slice_label_height),
+                xytext=(0.5 + arrow_direction * text_length, -slice_label_height),
+                **annotate_kws_slice,
+            )
+            anchors[1].annotate(
+                "",
+                xy=(1.0 + slice_label_height, 0.5 + arrow_direction * arrow_length),
+                xytext=(1.0 + slice_label_height, 0.5 + arrow_direction * text_length),
+                **annotate_kws_slice,
+            )
+
+    def get_ind_slice(self) -> int:
+        """Return slice indices from latest plot call."""
+        return self.ind_slice
+
+    def get_axis_slice(self) -> int:
+        """Return slice axis from latest plot call."""
+        return self.axis_slice
+
+    def get_axis_view(self) -> tuple[int, ...]:
+        """Return view axis from latest plot call."""
+        return self.axis_view
+
+    def set_limits(self, limits) -> None:
+        """Set the plot limits."""
+        for ax in self.axs:
+            ax.format(xlim=limits[0], ylim=limits[1])
+
+    def plot_hist(
+        self,
+        hist: Histogram,
+        labels: list[str] = None,
+        axis_view: tuple[int, ...] = (0, 1),
+        axis_slice: tuple[int, ...] = (2, 3),
+        pad: float = 0.0,
+        debug: bool = False,
+        **kws,
+    ) -> None:
+        """Plot an n-dimensional image.
+
+        Parameters
+        ----------
+        hist: Histogram
+            An N-dimensional histogram.
+        labels : list[str]
+            Label for each dimension.
+        axis_view, axis_slice : 2-tuple of int
+            The axis to view (plot) and to slice.
+        pad : int, float, list
+            This determines the start/stop indices along the sliced dimensions. If
+            0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
+            Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
+            the shape=10 and pad=0.1, we would start from 1 and end at 9.
+        debug : bool
+            Whether to print debugging messages.
+        **kws
+            Key word arguments pass to `plot.image.plot`
+        """
+
+        # Setup
+        # -----------------------------------------------------------------------
+        if hist.ndim < 4:
+            raise ValueError(f"hist.ndim = {hist.ndim} < 4")
+
+        self.axis_view = axis_view
+        self.axis_slice = axis_slice
+
+        # Compute 4D/3D/2D projections.
+        _hist = hist.project(axis_view + axis_slice)
+        _hist_x = hist.project(axis_view + axis_slice[:1])
+        _hist_y = hist.project(axis_view + axis_slice[1:])
+        _hist_xy = hist.project(axis_view)
+
+        _values = _hist.values
+        _values_x = _hist_x.values
+        _values_y = _hist_y.values
+        _values_xy = _hist_xy.values
+
+        _coords = _hist.coords
+        _coords_x = _hist_x.coords
+        _coords_y = _hist_y.coords
+        _coords_xy = _hist_xy.coords
+
+        # Get labels
+        _labels = None
+        if labels is not None:
+            _labels = [labels[i] for i in axis_view + axis_slice]
+
+        # Get slice indices
+        if type(pad) in [float, int]:
+            pad = len(axis_slice) * [pad]
+
+        ind_slice = []
+        for i, nsteps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
+            start = int(_pad * hist.shape[i])
+            stop = hist.shape[i] - 1 - start
+            if stop - start == nsteps - 1:
+                ind_slice.append(np.arange(nsteps))
+            elif (stop - start) < nsteps:
+                raise ValueError(
+                    f"values.shape[{i}] < number of slice indices requested."
+                )
+            ind_slice.append(np.linspace(start, stop, nsteps).astype(int))
+
+        ind_slice = tuple(ind_slice)
+        self.ind_slice = ind_slice
+
+        if debug:
+            print("Slice indices:")
+            for ind in ind_slice:
+                print(ind)
+
+        # Slice the 4D histogram. The axes order was already handled by `project`;
+        # the first two axes are the view axes and the last two axes are the
+        # slice axes.
+        axis_view = (0, 1)
+        axis_slice = (2, 3)
+        idx = 4 * [slice(None)]
+        for axis, ind in zip(axis_slice, ind_slice):
+            idx[axis] = ind
+            _values = _values[tuple(idx)]
+            idx[axis] = slice(None)
+
+        # Slice the 3D projections.
+        _values_x = _values_x[:, :, ind_slice[0]]
+        _values_y = _values_y[:, :, ind_slice[1]]
+
+        # Slice coords.
+        for i, ind in zip(axis_slice, ind_slice):
+            _coords[i] = _coords[i][ind]
+
+        # Normalize each distribution to unit maximum.
+        _values /= np.max(_values)
+        _values_x /= np.max(_values_x)
+        _values_y /= np.max(_values_y)
+        _values_xy /= np.max(_values_xy)
+
+        # Reconstruct histograms
+        _hist = Histogram(_values, _coords)
+        _hist_x = Histogram(_values_x, _coords_x)
+        _hist_y = Histogram(_values_y, _coords_y)
+        _hist_xy = Histogram(_values_xy, _coords_xy)
+
+        if debug:
+            print("_values.shape =", _hist.shape)
+            print("_values_x.shape =", _hist_x.shape)
+            print("_values_y.shape =", _hist_y.shape)
+            print("_values_xy.shape =", _hist_xy.shape)
+
+        # Add dimension labels to the figure.
+        if self.annotate and _labels is not None:
+            self._annotate(
+                labels=_labels,
+                slice_label_height=self.slice_label_height,
+                annotate_kws_view=self.annotate_kws_view,
+                annotate_kws_slice=self.annotate_kws_slice,
+            )
+
+        # Plotting
+        # -----------------------------------------------------------------------
+        for i in range(self.nrows):
+            for j in range(self.ncols):
+                ax = self.axs[self.nrows - 1 - i, j]
+                _hist_slice = _hist.slice(axis=axis_slice, ind=[(j, j + 1), (i, i + 1)])
+                _plot_hist(_hist_slice, ax=ax, **kws)
+
+        if self.marginals:
+            for i, ax in enumerate(reversed(self.axs[:-1, -1])):
+                _hist_y_slice = _hist_y.slice(axis=2, ind=(i, i + 1))
+                _plot_hist(_hist_y_slice, ax=ax, **kws)
+
+            for i, ax in enumerate(self.axs[-1, :-1]):
+                _hist_x_slice = _hist_x.slice(axis=2, ind=(i, i + 1))
+                _plot_hist(_hist_x_slice, ax=ax, **kws)
+
+            _plot_hist(_hist_xy, ax=ax, **kws)

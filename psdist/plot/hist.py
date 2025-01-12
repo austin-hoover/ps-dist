@@ -398,10 +398,10 @@ def plot(
 
     # Make sure there are no more zero elements if kws["norm"] == "log"
     log = ("norm" in kws) and (kws["norm"] == "log")
-    if log:
-        kws["colorbar_kw"]["formatter"] = "log"
     if mask or log:
         hist.values = np.ma.masked_less_equal(hist.values, 0.0)
+    if log:
+        kws["colorbar_kw"]["formatter"] = "log"
 
     # If there are only zero elements, increase vmax so that the lowest color shows.
     if not np.count_nonzero(hist.values):

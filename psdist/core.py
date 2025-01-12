@@ -12,7 +12,6 @@ from .hist import Histogram1D
 from .hist import SparseHistogram
 from .hist import edges_to_coords
 from .hist import coords_to_edges
-from .hist import combine_limits
 from .utils import array_like
 from .utils import random_choice_no_replacement
 from .utils import sphere_shell_volume
@@ -151,6 +150,43 @@ def limits(
 def global_limits(points_list: list[np.ndarray], **kwargs) -> np.ndarray:
     limits_list = [limits(points, **kwargs) for points in points_list]
     return combine_limits(limits_list)
+
+
+def combine_limits(limits: list[np.ndarray]) -> np.ndarray:
+    """Combine a stack of limits, keeping min/max values.
+
+    Example: [[(-1, 1), (-3, 2)], [(-1, 2), (-1, 3)]] --> [(-1, 2), (-3, 3)].
+    """
+    limits = np.array(limits)
+    mins = np.min(limits[:, :, 0], axis=0)
+    maxs = np.max(limits[:, :, 1], axis=0)
+    limits = list(zip(mins, maxs))
+    limits = np.array(limits)
+    return limits
+
+
+def center_limits(limits: np.ndarray) -> np.ndarray:
+    """Center limits at zero.
+
+    Example: [(-3, 1), (-4, 5)] --> [(-3, 3), (-5, 5)].
+
+    Parameters
+    ----------
+    limits : list[tuple]
+        A set of limits [(xmin, xmax), (ymin, ymax), ...].
+
+    Returns
+    -------
+    limits : list[tuple]
+        A new set of limits centered at zero [(-x, x), (-y, y), ...].
+    """
+    limits = np.array(limits)
+    mins = limits[:, 0]
+    maxs = limits[:, 1]
+    maxs = np.maximum(np.abs(mins), np.abs(maxs))
+    limits = list(zip(-maxs, maxs))
+    limits = np.array(limits)
+    return limits
 
 
 # Transforms
