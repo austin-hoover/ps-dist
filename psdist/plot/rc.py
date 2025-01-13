@@ -5,13 +5,13 @@ BLACK = "black"
 CYCLE = "colorblind"
 CMAPCYC = "twilight"
 CMAPDIV = "BuRd"
-CMAPSEQ = "Fire"
+CMAPSEQ = "Viridis"
 CMAPCAT = "colorblind10"
 DIVERGING = "div"
 FRAMEALPHA = 0.8  # legend and colorbar
 FONTNAME = "sans-serif"
 FONTSIZE = 9.0
-GRIDALPHA = 0.1
+GRIDALPHA = 0.0
 GRIDBELOW = "line"
 GRIDPAD = 3.0
 GRIDRATIO = 0.5  # differentiated from major by half size reduction
@@ -36,7 +36,7 @@ ZPATCHES = 1
 _rc_matplotlib_default = {
     "axes.axisbelow": GRIDBELOW,
     "axes.formatter.use_mathtext": MATHTEXT,
-    "axes.grid": True,  # enable lightweight transparent grid by default
+    "axes.grid": False,  # enable lightweight transparent grid by default
     "axes.grid.which": "major",
     "axes.edgecolor": BLACK,
     "axes.labelcolor": BLACK,
@@ -53,7 +53,7 @@ _rc_matplotlib_default = {
     "figure.autolayout": False,
     "figure.figsize": (4.0, 4.0),  # for interactife backends
     "figure.dpi": 100,
-    "figure.facecolor": "#f4f4f4",  # similar to MATLAB interface
+    "figure.facecolor": "white",  # similar to MATLAB interface
     "figure.titlesize": LARGESIZE,
     "figure.titleweight": "bold",  # differentiate from axes titles
     "font.serif": [
@@ -203,6 +203,6 @@ _rc_matplotlib_default = {
 }
 
 
-if __name__ == "__main__":
+def set_rcparams():
     for key, val in _rc_matplotlib_default.items():
-        plt.rcParams[key] = vale
+        plt.rcParams[key] = val
