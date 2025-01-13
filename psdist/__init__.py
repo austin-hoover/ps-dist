@@ -3,7 +3,6 @@ from . import density
 from . import distributions
 from . import hist
 from . import core
-from . import plot
 from . import utils
 
 from .cov import *
