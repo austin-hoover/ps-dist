@@ -93,6 +93,10 @@ class Histogram(Grid):
         coords: np.ndarray = None,
         edges: np.ndarray = None,
     ) -> None:
+        if (values is not None):
+            if (values.ndim == 1):
+                return Histogram1D(values=values, coords=coords, edges=edges)
+
         super().__init__(coords=coords, edges=edges)
 
         self.values = values
@@ -105,11 +109,16 @@ class Histogram(Grid):
     def max_indices(self) -> tuple[np.ndarray]:
         return np.unravel_index(np.argmax(self.values), self.shape)
 
+    def scale_max(self) -> None:
+        max_value = np.max(self.values)
+        if max_value > 0.0:
+            self.values = self.values / max_value
+
     def sample(self, size: int, noise: float = 0.0) -> np.ndarray:
         return sample_hist(self, size=size, noise=noise)
 
     def project(self, axis: int | tuple[int, ...]) -> Self:
-        return project(self, axis)
+        return project(self, axis, squeeze=True)
 
     def slice(
         self,
@@ -238,9 +247,9 @@ def slice_idx(
     # Make list if only one axis provided.
     if type(axis) is int:
         axis = [axis]
-        # Can also provide only one axis but provide a tuple for ind, which
-        # selects a range along that axis.
-        if type(ind) is tuple:
+        # Can also provide only one axis but provide a tuple (selects range of 
+        # indices) or list (selects specific indices) for ind.
+        if not (type(ind) is int):
             ind = [ind]
 
     # Make list if only one ind provided.
@@ -263,69 +272,6 @@ def slice_idx(
     return tuple(idx)
 
 
-def slice_idx_ellipsoid(
-    hist: Histogram,
-    axis: tuple[int, ...],
-    covariance_matrix: np.ndarray,
-    rmin: float,
-    rmax: float,
-) -> tuple[slice, ...]:
-    """Compute an ellipsoid slice from covariance matrix.
-
-    Parameters
-    ----------
-    values: ndarray
-        An n-dimensional hist.
-    axis: tuple[int, ...]
-        Specificies the subspace in which the ellipsoid slices are computed.
-        Example: in x-y-z space, we may define a circle in x-y. This could
-        select points within a cylinder in x-y-z.
-    rmin, rmax: float
-        We select the region between two nested ellipsoids with "radius"
-        rmin and rmax. The radius is r = x^T Sigma^-1 x, where Sigma is
-        the covariance matrix and x is the coordinate vector. r = 1 is
-        the covariance ellipsoid.
-
-    Returns
-    -------
-    np.ma.masked_array
-        A version of `values` in which elements outside the slice are masked.
-    """
-    # Will need to compute an (N - M)-dimensional mask (M = len(axis)), then
-    # copy the mask into the remaining dimensions with `copy_into_new_dim`.
-    raise NotImplementedError
-
-
-def slice_idx_contour(
-    hist: Histogram,
-    axis: tuple[int, ...],
-    lmin: float = 0.0,
-    lmax: float = 1.0,
-) -> tuple[slice, ...]:
-    """Compute a contour slice.
-
-    Parameters
-    ----------
-    hist: Histogram
-        Distribution on N-dimensional hist.
-    axis: tuple[int, ...]
-        Specificies the subspace in which the contours are computed. (See
-        `slice_idx_ellipsoid`.)
-    lmin, lmax: float
-        `values`is projected onto `axis` and the projection `values_proj` is normalized to
-        the range [0, 1]. Then, we find the points in this subspace such that
-        `values_proj` is within the range [lmin, lmax].
-
-    Returns
-    -------
-    np.ma.masked_array
-        A version of `values` in which elements outside the slice are masked.
-    """
-    # Will need to compute an (N - M)-dimensional mask (M = len(axis)), then
-    # copy the mask into the remaining dimensions with `copy_into_new_dim`.
-    raise NotImplementedError
-
-
 def slice_(
     hist: Histogram,
     axis: int | tuple[int, ...],
@@ -333,24 +279,43 @@ def slice_(
     return_indices: bool = False,
 ) -> Histogram | tuple[Histogram, list[slice]]:
 
+    # Get slice idx
     ndim = hist.ndim
     idx = slice_idx(ndim=hist.ndim, axis=axis, ind=ind)
 
-    coords_new = []
-    for axis in range(ndim):
-        ilo = idx[axis].start
-        if ilo is None:
-            ilo = 0
-
-        ihi = idx[axis].stop
-        if ihi is None:
-            ihi = hist.shape[axis]
-
-        if ihi - ilo > 1:
-            coords_new.append(hist.coords[axis][idx[axis]])
-
+    # Slice the array
     values_new = hist.values[idx]
     values_new = np.squeeze(values_new)
+
+    # Get remaining array coordinates
+    coords_new = []
+    for axis in range(ndim):
+        if type(idx[axis]) is slice:            
+            # Selects indices using slice object.
+            ilo = idx[axis].start
+            if ilo is None:
+                ilo = 0
+    
+            ihi = idx[axis].stop
+            if ihi is None:
+                ihi = hist.shape[axis]
+    
+            if ihi - ilo > 1:
+                coords_new.append(hist.coords[axis][idx[axis]])
+            
+        elif (type(idx[axis]) is tuple) and (len(idx[axis]) == 2):
+            # Selects indices using a tuple of ints (imin, imax).
+            ilo, ihi = idx[axis]
+
+        elif array_like(idx[axis]) and (len(idx[axis]) > 1):
+            # Selects indices using a list or ndarray.
+            coords_new.append(hist.coords[axis][list(idx[axis])])
+
+        else:
+            # Selects a single index; this axis is not in the sliced array.
+            continue
+    
+    # Return new histogram
     hist_new = Histogram(values=values_new, coords=coords_new)
 
     if return_indices:
@@ -358,83 +323,23 @@ def slice_(
     return hist_new
 
 
-def slice_ellipsoid(
-    hist: Histogram,
-    axis: tuple[int, ...],
-    rmin: float,
-    rmax: float,
-    return_indices: bool = False,
-) -> Histogram | tuple[Histogram, list[slice]]:
-
-    idx = slice_idx_ellipsoid(
-        axis=axis,
-        covariance_matrix=cov(hist),
-        rmin=rmin,
-        rmax=rmax,
-    )
-
-    values_new = hist.values[idx]
-    coords_new = [hist.coords[i] for i in range(hist.ndim) if i not in axis]
-
-    hist_new = hist(values=values_new, coords=coords_new)
-    if return_indices:
-        return hist_new, idx
-    return hist_new
-
-
-def slice_contour(
-    hist: Histogram,
-    axis: tuple[int, ...],
-    lmin: float = 0.0,
-    lmax: float = 1.0,
-    return_indices: bool = False,
-) -> Histogram | tuple[Histogram, list[slice]]:
-
-    idx = slice_idx_contour(hist, axis=axis, lmin=lmin, lmax=lmax)
-
-    values_new = hist.values[idx]
-    coords_new = [hist.coords[i] for i in range(hist.ndim) if i not in axis]
-
-    hist_new = hist(values=values_new, coords=coords_new)
-    if return_indices:
-        return hist_new, idx
-    return hist_new
-
-
-def project(
-    hist: Histogram, axis: int | tuple[int, ...], squeeze: bool = True
-) -> Histogram:
-    """Project hist onto axis.
-
-    Parameters
-    ----------
-    hist: Histogram
-        Distribution on N-dimensional hist.
-    axis: int | tuple[int, ...]
-        The axes onto which the hist is projected, i.e., the axes which are not summed over.
-        Array axes are swapped as required.
-    squeeze: bool
-        Whether to return Histogram1D if projecting onto integer axis.
-
-    Returns
-    -------
-    hist
-        The projection of hist onto the specified axis.
-    """
-    if hist.ndim == 1:
+def project_values(values: np.ndarray, axis: int | tuple[int, ...]) -> np.ndarray:
+    if values.ndim == 1:
         return hist
 
-    coords = hist.coords
-    values = hist.values
-
-    # Sum over specified axes.
+    # Sum over axes
     if type(axis) is int:
         axis = [axis]
     axis = tuple(axis)
     axis_sum = tuple([i for i in range(values.ndim) if i not in axis])
-    values_proj = np.sum(values, axis_sum)
 
-    # Order the remaining axes.
+    values_proj = None
+    if len(axis) != values.ndim:
+        values_proj = np.sum(values, axis_sum)
+    else:
+        values_proj = values
+
+    # Order the remaining axes
     loc = list(range(values_proj.ndim))
     destination = np.zeros(values_proj.ndim, dtype=int)
     for i, index in enumerate(np.argsort(axis)):
@@ -445,8 +350,14 @@ def project(
             values_proj = np.swapaxes(values_proj, i, j)
             (loc[i], loc[j]) = (loc[j], loc[i])
 
-    # Make new hist
-    hist_proj = None
+    return values_proj
+
+
+def project(
+    hist: Histogram, axis: int | tuple[int, ...], squeeze: bool = True
+) -> Histogram | Histogram1D:
+    
+    values_proj = project_values(hist.values, axis=axis)
     if (values_proj.ndim == 1) and squeeze:
         axis = int(np.squeeze(axis))
         coords_proj = hist.coords[axis]
@@ -490,21 +401,26 @@ def project_contour_slice_1d(
         The 1D projection of the (N-1)D slice.
     """
     axis_proj = [i for i in range(hist.ndim) if i != axis]
+    
     if hist_proj is None:
-        hist_proj = project(hist, axis=axis_proj)
-    values_proj = hist_proj.values / np.max(hist_proj.values)
+        hist_proj = hist.project(axis_proj)
+        
+    hist_proj.values = hist_proj.values / np.max(hist_proj.values)
 
-    hist_slice = _slice(
-        hist,
+    idx = slice_idx(
+        ndim=hist.ndim,
         axis=axis_proj,
-        ind=np.where(np.logical_and(values_proj >= lmin, values_proj <= lmax)),
+        ind=np.where(
+            np.logical_and(
+                hist_proj.values >= lmin, 
+                hist_proj.values <= lmax,
+            )
+        ),
     )
 
     # `values[idx]` will give a two-dimensional array. Normally we need to sum over
     # the first axis. If `axis == 0`, we need to sum over the second axis.
-
-    values_slice = hist_slice.values
-    values_proj_1d = np.sum(values_slice, axis=int(axis == 0))
+    values_proj_1d = np.sum(hist.values[idx], axis=int(axis == 0))
     coords_proj_1d = hist.coords[axis]
     return Histogram1D(values=values_proj_1d, coords=coords_proj_1d)
 
@@ -536,18 +452,23 @@ def project_contour_slice_2d(
     hist
         The 2D projection of the (N-2)D slice.
     """
-    axis_proj = [k for k in range(values.ndim) if k not in axis]
+    axis_proj = [k for k in range(hist.ndim) if k not in axis]
     axis_proj = tuple(axis_proj)
 
     if hist_proj is None:
         hist_proj = project(hist, axis=axis_proj)
 
-    values_proj = hist_proj.values / np.max(hist_proj.values)
+    hist_proj.scale_max()
 
-    hist_slice = _slice(
-        hist=hist,
+    idx = slice_idx(
+        ndim=hist.ndim,
         axis=axis_proj,
-        ind=np.where(np.logical_and(values_proj >= lmin, values_proj <= lmax)),
+        ind=np.where(
+            np.logical_and(
+                hist_proj.values >= lmin,
+                hist_proj.values <= lmax
+            )
+        )
     )
 
     # `values[idx]` will give a three-dimensional array. Normally we need to sum over
@@ -565,7 +486,9 @@ def project_contour_slice_2d(
     if axis[0] > axis[1]:
         _axis_proj = tuple(reversed(_axis_proj))
 
-    return project(hist_slice, axis=_axis_proj)
+    values_proj = project_values(hist.values[idx], axis=_axis_proj)
+    coords_proj = [hist.coords[_axis] for _axis in _axis_proj]
+    return Histogram(values_proj, coords_proj)
 
 
 def copy_values_into_new_dim(
