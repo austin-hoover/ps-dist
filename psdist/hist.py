@@ -128,28 +128,6 @@ class Histogram(Grid):
     ) -> Self | tuple[Self, list[slice]]:
         return slice_(self, axis=axis, ind=ind, return_indices=return_indices)
 
-    def slice_ellipsoid(
-        self,
-        axis: tuple[int, ...],
-        rmin: float,
-        rmax: float,
-        return_indices: bool = False,
-    ) -> Self | tuple[Self, list[slice]]:
-        return slice_ellipsoid(
-            self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices
-        )
-
-    def slice_contour(
-        self,
-        axis: tuple[int, ...],
-        rmin: float,
-        rmax: float,
-        return_indices: bool = False,
-    ) -> Self | tuple[Self, list[slice]]:
-        return slice_contour(
-            self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices
-        )
-
     def bin(self, points: np.ndarray, density: bool = True) -> np.ndarray:
         self.values, _ = np.histogramdd(points, bins=self.edges, density=density)
         return np.copy(self.values)
