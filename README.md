@@ -1,6 +1,6 @@
 # psdist
 
-Analysis tools for phase space distributions.
+This repository is a collection of tools to analyze particle distributions in phase space.
 
 
 ## Installation
