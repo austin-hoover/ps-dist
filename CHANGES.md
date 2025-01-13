@@ -1,5 +1,19 @@
 # Change Log
 
+## [2.0.0]
+
+* Renamed `image` module to `hist`.
+* New objects `Histogram`, `SparseHistogram`, and `Histogram1D`, which store histogram values and bin coords/edges.
+* Updated proplot dependency to ultraplot.
+* Added empty `distance` module.
+* Created `density` module for density estimation.
+* Removed `ap` module and rewrote `cov` module.
+* Renamed `dist` to `distributions` module.
+* Updated `plot` module to process `Histogram` objects.
+* Made functions and classes available from top-level module.
+* Fixed various bugs.
+
+
 ## [1.0.2]
 
 * Added cubehelix colormap function.

@@ -3,15 +3,18 @@ from typing import Callable
 from typing import Union
 
 import numpy as np
-import proplot as pplt
+import matplotlib.pyplot as plt
+import ultraplot as uplt
 
-import psdist.image
-import psdist.points
-import psdist.utils
-import psdist.plot.points as vis_points
-import psdist.plot.image as vis_image
-from psdist.plot.core import plot_profile
-from psdist.plot.core import scale_profile
+from ..hist import Histogram
+from ..hist import Histogram1D
+from ..core import histogram as _histogram
+from ..core import limits as _get_limits
+from ..hist import Histogram
+from ..utils import array_like
+from .hist import plot as _plot_hist, scale_hist
+from .hist import plot_1d as _plot_hist_1d
+from .points import plot as _plot_points
 
 
 class JointGrid:
@@ -23,134 +26,185 @@ class JointGrid:
         The main figure.
     ax : proplot.gridspec.SubplotGrid
         The main axis.
-    ax_marg_x, ax_marg_y : proplot.gridspec.SubplotGrid
+    ax_panel_x, ax_panel_y : proplot.gridspec.SubplotGrid
         The marginal (panel) axes on the top and right.
     """
 
     def __init__(
         self,
-        marg_kws: dict = None,
-        marg_fmt_kws: dict = None,
-        marg_fmt_kws_x: dict = None,
-        marg_fmt_kws_y: dict = None,
+        limits: np.ndarray = None,
+        panel_kws: dict = None,
+        panel_fmt_kws: dict = None,
+        panel_fmt_kws_x: dict = None,
+        panel_fmt_kws_y: dict = None,
         **fig_kws,
     ) -> None:
         """Constructor.
 
-        marg_kws : dict
+        panel_kws : dict
             Key word arguments for `ax.panel`.
-        marg_fmt_kws, marg_fmt_kws_x, marg_fmt_kws_y : dict
+        panel_fmt_kws, panel_fmt_kws_x, panel_fmt_kws_y : dict
             Key word arguments for `ax.format` for each of the marginal (panel) axs.
         **fig_kws
             Key word arguments passed to `proplot.subplots`.
         """
-        self.fig, self.ax = pplt.subplots(**fig_kws)
-        if marg_kws is None:
-            marg_kws = dict()
-        if marg_fmt_kws is None:
-            marg_fmt_kws = dict()
-        if marg_fmt_kws_x is None:
-            marg_fmt_kws_x = dict()
-        if marg_fmt_kws_y is None:
-            marg_fmt_kws_y = dict()
+        self.fig, self.ax = uplt.subplots(**fig_kws)
 
-        marg_fmt_kws_x.setdefault("xspineloc", "bottom")
-        marg_fmt_kws_x.setdefault("yspineloc", "left")
-        marg_fmt_kws_y.setdefault("xspineloc", "bottom")
-        marg_fmt_kws_y.setdefault("yspineloc", "left")
+        self.limits = limits
+        if self.limits is not None:
+            self.set_limits(self.limits)
 
-        self.ax_marg_x = self.ax.panel("t", **marg_kws)
-        self.ax_marg_y = self.ax.panel("r", **marg_kws)
-        self.marg_axs = [self.ax_marg_x, self.ax_marg_y]
-        for ax in self.marg_axs:
-            ax.format(**marg_fmt_kws)
-        self.marg_axs[0].format(**marg_fmt_kws_x)
-        self.marg_axs[1].format(**marg_fmt_kws_y)
+        if panel_kws is None:
+            panel_kws = {}
+        if panel_fmt_kws is None:
+            panel_fmt_kws = {}
+        if panel_fmt_kws_x is None:
+            panel_fmt_kws_x = {}
+        if panel_fmt_kws_y is None:
+            panel_fmt_kws_y = {}
 
-    def get_default_marg_kws(self, marg_kws: dict = None) -> None:
-        if marg_kws is None:
-            marg_kws = dict()
-        marg_kws.setdefault("color", "black")
-        marg_kws.setdefault("kind", "step")
-        marg_kws.setdefault("lw", 1.0)
-        marg_kws.setdefault("scale", "density")
-        return marg_kws
+        panel_fmt_kws_x.setdefault("xspineloc", "bottom")
+        panel_fmt_kws_x.setdefault("yspineloc", "left")
+        panel_fmt_kws_y.setdefault("xspineloc", "bottom")
+        panel_fmt_kws_y.setdefault("yspineloc", "left")
+
+        self.ax_panel_x = self.ax.panel("t", **panel_kws)
+        self.ax_panel_y = self.ax.panel("r", **panel_kws)
+        self.panel_axs = [self.ax_panel_x, self.ax_panel_y]
+        for ax in self.panel_axs:
+            ax.format(**panel_fmt_kws)
+        self.panel_axs[0].format(**panel_fmt_kws_x)
+        self.panel_axs[1].format(**panel_fmt_kws_y)
+
+        self.default_panel_plot_kws = {
+            "color": "black",
+            "kind": "step",
+            "lw": 1.5,
+            "scale": "density",
+        }
+
+        self.default_panel_hist_kws = {"bins": 64}
+
+        self.frozen_limits = False
+
+    def set_limits(self, limits: np.ndarray) -> None:
+        self.limits = limits
+        self.axs.format(xlim=limits[0], ylim=limits[1])
+
+    def reset_limits(self) -> None:
+        self.set_limits(self.limits)
+
+    def freeze_limits(self) -> None:
+        self.frozen_limits = True
+
+    def unfreeze_limits(self) -> None:
+        self.frozen_limits = False
+
+    def wrapup(self) -> None:
+        if self.frozen_limits:
+            self.reset_limits()
+
+    def plot(self, points: np.ndarray, **kws):
+        return self.plot_points(points, **kws)
 
     def plot_points(
         self,
         points: np.ndarray,
-        marg_hist_kws: dict = None,
-        marg_kws: dict = None,
+        panel_hist_kws: dict = None,
+        panel_plot_kws: dict = None,
         **kws,
     ) -> None:
         """Plot 2D points.
 
         Parameters
         ----------
-        points: np.ndarray, shape (..., n)
+        points: np.ndarray, shape (..., 2)
             Particle coordinates
-        marg_hist_kws : dict
-            Key word arguments passed to `np.histogram` for 1D histograms.
-        marg_kws : dict
-            Key word arguments passed to `plot.plot_profile`.
+        panel_hist_kws : dict
+            Key word arguments passed to `psdist.points.histogram`.
+        panel_plot_kws : dict
+            Key word arguments passed to `plot_hist_1d`.
         **kws
-            Key word arguments passed to `plot.image.plot.`
+            Key word arguments passed to `plot_points.`
         """
-        marg_kws = self.get_default_marg_kws(marg_kws)
-        if marg_hist_kws is None:
-            marg_hist_kws = dict()
-        marg_hist_kws.setdefault("bins", "auto")
+        if panel_plot_kws is None:
+            panel_plot_kws = {}
 
+        if panel_hist_kws is None:
+            panel_hist_kws = {}
+
+        for key, val in self.default_panel_hist_kws.items():
+            panel_hist_kws.setdefault(key, val)
+
+        for key, val in self.default_panel_plot_kws.items():
+            panel_plot_kws.setdefault(key, val)
+
+        # Plot marginal distributions
+        for axis in range(2):
+            hist_proj = _histogram(points[:, axis], **panel_hist_kws)
+            bins = hist_proj.size
+
+            _plot_hist_1d(
+                hist_proj,
+                ax=self.panel_axs[axis],
+                orientation=("horizontal" if bool(axis) else "vertical"),
+                **panel_plot_kws,
+            )
+
+        # Plot joint distribution
         kws.setdefault("kind", "hist")
-        if kws["kind"] == "hist":
-            kws.setdefault("mask", True)
-            kws.setdefault("bins", marg_hist_kws["bins"])
         if kws["kind"] != "scatter":
-            kws.setdefault("colorbar_kw", dict())
+            if "bins" in kws:
+                panel_hist_kws.setdefault("bins", kws["bins"])
+            kws.setdefault("bins", bins)
+            kws.setdefault("colorbar_kw", {})
             kws["colorbar_kw"].setdefault("pad", 2.0)
 
-        for axis in range(2):
-            profile, edges = np.histogram(points[:, axis], **marg_hist_kws)
-            plot_profile(
-                profile=profile,
-                edges=edges,
-                ax=self.marg_axs[axis],
-                orientation=("horizontal" if bool(axis) else "vertical"),
-                **marg_kws,
-            )
-        vis_points.plot(points, ax=self.ax, **kws)
+        _plot_points(points, ax=self.ax, **kws)
 
-    def plot_image(self, values: np.ndarray, coords: list[np.ndarray] = None, marg_kws=None, **kws):
-        """Plot a two-dimensional image.
+        self.wrapup()
+
+    def plot_hist(
+        self,
+        hist: Histogram,
+        panel_plot_kws: dict = None,
+        **kws,
+    ) -> None:
+        """Plot a two-dimensional histogram.
 
         Parameters
         ----------
-        values: np.ndarray
-            An n-dimensional image.
-        coords : list[ndarray]
-            Coordinates along each dimension of `f`.
-        marg_kws : dict
-            Key word arguments passed to `plot.plot_profile`.
+        hist: Histogram
+            A two-dimensional histogram.
+        panel_plot_kws : dict
+            Key word arguments passed to `plot_hist_1d`.
         **kws
-            Key word arguments passed to `plot.image.plot.`
+            Key word arguments passed to `plot_hist.`
         """
-        marg_kws = self.get_default_marg_kws(marg_kws)
+        if panel_plot_kws is None:
+            panel_plot_kws = {}
 
-        kws.setdefault("colorbar_kw", dict())
+        for key, val in self.default_panel_plot_kws.items():
+            panel_plot_kws.setdefault(key, val)
+
+        kws.setdefault("kind", "pcolor")
+        kws.setdefault("colorbar_kw", {})
         kws["colorbar_kw"].setdefault("pad", 2.0)
 
-        if coords is None:
-            coords = [np.arange(values.shape[axis]) for axis in range(values.ndim)]
-
+        # Plot marginal distributions
         for axis in range(2):
-            plot_profile(
-                profile=psdist.image.project(values, axis),
-                coords=coords[axis],
-                ax=self.marg_axs[axis],
+            hist_proj = hist.project(axis)
+            _plot_hist_1d(
+                hist_proj,
+                ax=self.panel_axs[axis],
                 orientation=("horizontal" if bool(axis) else "vertical"),
-                **marg_kws,
+                **panel_plot_kws,
             )
-        return vis_image.plot(values, coords=coords, ax=self.ax, **kws)
+
+        # Plot joint distribution
+        _plot_hist(hist, ax=self.ax, **kws)
+
+        self.wrapup()
 
     def colorbar(self, mappable, **kws):
         """Add a colorbar."""
@@ -180,11 +234,12 @@ class CornerGrid:
 
     def __init__(
         self,
-        ndim: int = 4,
+        ndim: int,
         diag: bool = True,
         diag_shrink: float = 1.0,
         diag_rspine: bool = False,
         diag_share: bool = False,
+        diag_frozen: bool = False,
         limits: list[tuple[float, float]] = None,
         labels: list[str] = None,
         corner: bool = True,
@@ -193,11 +248,11 @@ class CornerGrid:
         """
         Parameters
         ----------
-        d : int
+        ndim : int
             The number of rows/columns.
         diag : bool
             Whether to include diagonal subplots (univariate plots). If False,
-            we have an (n - 1) x (n - 1) grid instead of an n x n grid.
+            we have an (N - 1) x (N - 1) grid instead of an N x N grid.
         diag_shrink : float in range [0, 1]
             Scales the maximum y value of the diagonal profile plots.
         diag_rspine : bool
@@ -205,6 +260,10 @@ class CornerGrid:
         diag_share : bool
             Whether to share diagonal axis limits; i.e., whether we can compare
             the areas under the diagonal profile plots.
+        diag_frozen : bool
+            If true, don't adjust the y limits on diagonal axes after the first
+            distribution is plotted. Otherwise, always adjust to keep the
+            histograms in view.
         limits : list[tuple], length n
             The (min, max) for each dimension. (These can be set later.)
         labels : list[str]
@@ -212,25 +271,30 @@ class CornerGrid:
         corner : bool
             Whether to hide the upper-triangular subplots.
         **fig_kws
-            Key word arguments passed to `pplt.subplots()`.
+            Key word arguments passed to `uplt.subplots()`.
         """
         # Create figure.
         self.new = True
         self.ndim = self.nrows = self.ncols = ndim
         self.corner = corner
+
         self.diag = diag
         self.diag_shrink = diag_shrink
         self.diag_rspine = diag_rspine
         self.diag_share = diag_share
         self.diag_ymin = None
         self.diag_yscale = self.ndim * [None]
+        self.diag_frozen = diag_frozen
+
         if not self.diag:
             self.nrows = self.nrows - 1
             self.ncols = self.ncols - 1
+
         self.fig_kws = fig_kws
         self.fig_kws.setdefault("figwidth", 1.5 * self.nrows)
         self.fig_kws.setdefault("aligny", True)
-        self.fig, self.axs = pplt.subplots(
+
+        self.fig, self.axs = uplt.subplots(
             nrows=self.nrows,
             ncols=self.ncols,
             spanx=False,
@@ -244,9 +308,11 @@ class CornerGrid:
         self.diag_axs = []
         self.offdiag_axs = []
         self.offdiag_axs_u = []
+
         self.diag_indices = []
         self.offdiag_indices = []
         self.offdiag_indices_u = []
+
         if self.diag:
             for i in range(self.ndim):
                 self.diag_axs.append(self.axs[i, i])
@@ -267,6 +333,7 @@ class CornerGrid:
         self.limits = limits
         if limits is not None:
             self.set_limits(limits)
+
         self.labels = labels
         if labels is not None:
             self.set_labels(labels)
@@ -277,6 +344,7 @@ class CornerGrid:
                 for j in range(self.ncols):
                     if j > i:
                         self.axs[i, j].axis("off")
+
         self.axs[:-1, :].format(xticklabels=[])
         for i in range(self.nrows):
             for j in range(self.ncols):
@@ -286,6 +354,7 @@ class CornerGrid:
                 if j != 0:
                     if not (i == j and self.diag_rspine and self.corner and self.diag):
                         ax.format(yticklabels=[])
+
         self.axs.format(xspineloc="bottom", yspineloc="left")
         if self.corner:
             if self.diag_rspine:
@@ -339,7 +408,9 @@ class CornerGrid:
             limits = limits + [self.axs[-1, 0].get_ylim()]
         return limits
 
-    def set_limits(self, limits: list[tuple[float, float]], expand: bool = False) -> None:
+    def set_limits(
+        self, limits: list[tuple[float, float]], expand: bool = False
+    ) -> None:
         """Set the plot limits.
 
         Parameters
@@ -357,6 +428,7 @@ class CornerGrid:
                 mins = np.minimum(limits[:, 0], limits_old[:, 0])
                 maxs = np.maximum(limits[:, 1], limits_old[:, 1])
                 limits = list(zip(mins, maxs))
+
             if self.diag:
                 for i in range(self.ndim):
                     for j in range(self.ndim):
@@ -367,13 +439,15 @@ class CornerGrid:
                 for i in range(self.ndim - 1):
                     for ax in self.axs[i, :]:
                         ax.format(ylim=limits[i + 1])
+
             for i in range(self.ncols):
                 self.axs[:, i].format(xlim=limits[i])
+
         self.limits = self.get_limits()
 
     def get_default_diag_kws(self, diag_kws: dict = None) -> dict:
         if diag_kws is None:
-            diag_kws = dict()
+            diag_kws = {}
         diag_kws.setdefault("color", "black")
         diag_kws.setdefault("lw", 1.0)
         diag_kws.setdefault("kind", "step")
@@ -410,13 +484,15 @@ class CornerGrid:
             self.format_diag(ylim=0.0)
 
     def set_diag_scale(self, scale: str = "linear", pad: float = 0.05) -> None:
-        """Set diagonal y axis scale.
+        """Set diagonal axis scale.
 
         Parameters
         ----------
         scale : {"linear", "log"}
             If "linear", scale runs from 0 to 1. If "log", scale runs from half the
             minimum plotted value to 1.
+        pad: float
+            Padding applied to the y axis limit.
         """
         if scale == "linear":
             ymin = 0.0
@@ -434,47 +510,48 @@ class CornerGrid:
             ymax = 10.0 ** (log_ymin + log_delta * (1.0 + pad))
             self.format_diag(yscale="log", yformatter="log", ymin=ymin, ymax=ymax)
 
-    def _plot_diag(self, get_data: Callable, **kws) -> None:
-        # Compute one-dimensional probabiliy density functions.
+    def plot_diag(self, hists: list[Histogram1D], **kws) -> None:
+        """Compute one-dimensional histograms."""
         if "scale" in kws:
             kws.pop("scale")
 
-        profiles, edges_list = [], []
-        for axis in range(self.ndim):
-            profile, edges = get_data(axis)
-            profile = scale_profile(profile, edges=edges, scale="density")
-            profiles.append(profile)
-            edges_list.append(edges)
+        # Normalize histograms
+        for hist in hists:
+            hist.normalize()
 
-        # Update scaling factor for each profile, taking into account all existing plots.
-        for axis in range(self.ndim):
-            if self.diag_yscale[axis] is None:
-                self.diag_yscale[axis] = -np.inf
-        if self.diag_share:
-            max_value = max([np.max(profile) for profile in profiles])
+        # Update diag_yscale
+        if not (self.diag_frozen and not self.new):
             for axis in range(self.ndim):
-                self.diag_yscale[axis] = max(self.diag_yscale[axis], max_value)
-        else:
-            for axis in range(self.ndim):
-                self.diag_yscale[axis] = max(self.diag_yscale[axis], np.max(profiles[axis]))
+                if self.diag_yscale[axis] is None:
+                    self.diag_yscale[axis] = -np.inf
+            if self.diag_share:
+                max_value = np.max([np.max(hist.values) for hist in hists])
+                self.diag_yscale = np.maximum(self.diag_yscale, max_value)
+            else:
+                max_values = np.array([np.max(hist.values) for hist in hists])
+                self.diag_yscale = np.maximum(self.diag_yscale, max_values)
 
-        # Plot the profiles.
-        for axis in range(self.ndim):
-            if self.diag_yscale[axis]:
-                profiles[axis] = profiles[axis] / self.diag_yscale[axis]
-            plot_profile(profiles[axis], edges=edges_list[axis], ax=self.diag_axs[axis], **kws)
+        # Plot histograms
+        for axis, hist in enumerate(hists):
 
-        # Compute min positive value for log scaling.
-        for axis in range(self.ndim):
+            yscale = self.diag_yscale[axis]
+            if yscale is None:
+                yscale = 1.0
+
+            hist_scaled = hist.copy()
+            hist_scaled.values /= yscale
+
+            _plot_hist_1d(hist_scaled, ax=self.diag_axs[axis], **kws)
+
+        # Compute minimum positive value (for log scaling)
+        for axis, hist in enumerate(hists):
             if not self.diag_ymin:
                 self.diag_ymin = np.inf
-            self.diag_ymin = min(self.diag_ymin, np.min(profile[profile > 0.0]))
+            self.diag_ymin = min(self.diag_ymin, np.min(hist.values[hist.values > 0.0]))
 
-    def plot_image(
+    def plot_hist(
         self,
-        values: np.ndarray,
-        coords: list[np.ndarray] = None,
-        edges: list[np.ndarray] = None,
+        hist: Histogram,
         prof_edge_only: bool = False,
         lower: bool = True,
         upper: bool = True,
@@ -487,10 +564,8 @@ class CornerGrid:
 
         Parameters
         ----------
-        values: np.ndarray
-            An n-dimensional image.
-        coords : list[ndarray]
-            Coordinates along each axis of the grid (if `data` is an image).
+        hist: np.ndarray
+            An N-dimensional histogram.
         prof_edge_only : bool
             If plotting profiles on top of images (on off-diagonal subplots), whether
             to plot x profiles only in bottom row and y profiles only in left column.
@@ -499,70 +574,57 @@ class CornerGrid:
         update_limits : bool
             Whether to extend the existing plot limits.
         diag_kws : dict
-            Key word argument passed to `plot.plot_profile`.
+            Key word argument passed to `plot_hist_1d`.
         **kws
-            Key word arguments pass to `plot.image.plot`
+            Key word arguments pass to `plot_hist`
         """
-        diag_kws = self.get_default_diag_kws(diag_kws)
         kws.setdefault("kind", "pcolor")
-        kws.setdefault("profx", False)
-        kws.setdefault("profy", False)
-        kws.setdefault("process_kws", dict())
-        kws["process_kws"].setdefault("norm", "max")
 
-        if coords is None:
-            if edges is None:
-                coords = [np.arange(s) for s in values.shape]
-            else:
-                coords = [psdist.utils.coords_from_edges(e) for e in edges]
-        edges = [psdist.utils.edges_from_coords(c) for c in coords]
+        diag_kws = self.get_default_diag_kws(diag_kws)
 
         if update_limits:
-            limits = [(np.min(e), np.max(e)) for e in edges]
-            self.set_limits(limits, expand=(not self.new))
-        self.new = False
+            self.set_limits(hist.limits, expand=(not self.new))
 
-        # Univariate plots.
+        # Univariate plots
         if self.diag and diag:
-            self._plot_diag(
-                lambda axis: (psdist.image.project(values, axis=axis), edges[axis]),
-                **diag_kws,
-            )
+            hists = [hist.project(axis) for axis in range(hist.ndim)]
+            self.plot_diag(hists, **diag_kws)
 
-        # Bivariate plots.
-        profx = kws.pop("profx")
-        profy = kws.pop("profy")
+        # Bivariate plots
+        profx = kws.get("profx", False)
+        profy = kws.pop("profy", False)
+
         if lower:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
+                hist_proj = hist.project(axis)
+
                 if prof_edge_only:
                     if profx:
                         kws["profx"] = axis[1] == self.ndim - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
-                vis_image.plot(
-                    psdist.image.project(values, axis=axis),
-                    coords=[coords[k] for k in axis],
-                    ax=ax,
-                    **kws,
-                )
-        if not self.corner and upper:
+
+                _plot_hist(hist_proj, ax=ax, **kws)
+
+        if upper and not self.corner:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
-                values_proj = psdist.image.project(values, axis=axis)
-                values_proj = values_proj / np.max(values_proj)
-                coords_proj = [coords[k] for k in axis]
-                vis_image.plot(values_proj, coords=coords_proj, ax=ax, **kws)
-        self._cleanup()
+                _plot_hist(hist.project(axis), ax=ax, **kws)
+
+        self._post_plot()
+
+    def plot(self, points: np.ndarray, **kws) -> None:
+        return self.plot_points(points, **kws)
 
     def plot_points(
         self,
         points: np.ndarray,
         limits: list[tuple[float, float]] = None,
-        bins: str = "auto",
-        autolim_kws: dict = None,
+        bins: int = 50,
         prof_edge_only: bool = False,
         lower: bool = True,
         upper: bool = True,
         diag: bool = True,
+        autolim_kws: dict = None,
         update_limits: bool = True,
         diag_kws: dict = None,
         **kws,
@@ -571,15 +633,13 @@ class CornerGrid:
 
         Parameters
         ----------
-        points : np.ndarray, shape (..., n)
+        points : np.ndarray, shape (..., N)
             Particle coordinates.
-        limits : list[tuple], length d
+        limits : list[tuple[float, float]], length N
             The (min, max) axis limits.
         bins : 'auto', int, list[int]
             The number of bins along each dimension (if plot type requires histogram
-            computation). If int or 'auto', applies to all dimensions. Currently
-            the histogram is computed with limits based on the data min/max, not
-            the plot limits.
+            computation). If int or 'auto', applies to all dimensions.
         prof_edge_only : bool
             If plotting profiles on top of images (on off-diagonal subplots), whether
             to plot x profiles only in bottom row and y profiles only in left column.
@@ -593,58 +653,75 @@ class CornerGrid:
             Key word arguments pass to `plot.points.plot`
         """
         kws.setdefault("kind", "hist")
-        kws.setdefault("profx", False)
-        kws.setdefault("profy", False)
 
         diag_kws = self.get_default_diag_kws(diag_kws)
 
+        if autolim_kws is None:
+            autolim_kws = {}
+        autolim_kws.setdefault("pad", 0.25)
+
         if limits is None:
-            if autolim_kws is None:
-                autolim_kws = dict()
-            autolim_kws.setdefault("pad", 0.1)
-            limits = vis_points.auto_limits(points, **autolim_kws)
+            limits = _get_limits(points, **autolim_kws)
+
         if update_limits:
             self.set_limits(limits, expand=(not self.new))
+
         limits = self.get_limits()
 
-        self.new = False
-
-        if not psdist.utils.array_like(bins):
+        if not array_like(bins):
             bins = points.shape[1] * [bins]
 
         # Compute histogram bin edges.
-        edges = []
+        hists = []
         for axis in range(self.ndim):
-            if psdist.utils.array_like(bins[axis]):
-                edges.append(bins[axis])
+            if array_like(bins[axis]):
+                edges = bins[axis]
             else:
-                edges.append(np.histogram_bin_edges(points[:, axis], bins[axis], limits[axis]))
+                edges = np.histogram_bin_edges(
+                    points[:, axis], bins[axis], limits[axis]
+                )
+            hist = Histogram1D(edges=edges)
+            hist.bin(points[:, axis])
+            hists.append(hist)
 
         # Univariate plots.
         if self.diag and diag:
-            self._plot_diag(lambda axis: np.histogram(points[:, axis], edges[axis]), **diag_kws)
+            self.plot_diag(hists, **diag_kws)
 
         # Bivariate plots:
-        profx = kws.pop("profx")
-        profy = kws.pop("profy")
+        profx = kws.pop("profx", False)
+        profy = kws.pop("profy", False)
+
         if lower:
             for ax, axis in zip(self.offdiag_axs, self.offdiag_indices):
                 if prof_edge_only:
                     if profx:
-                        kws["profx"] = axis[1] == self.d - 1
+                        kws["profx"] = axis[1] == self.ndim - 1
                     if profy:
                         kws["profy"] = axis[0] == 0
+
                 if kws["kind"] in ["hist", "contour", "contourf"]:
-                    kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-                vis_points.plot(points[:, axis], ax=ax, **kws)
+                    kws["bins"] = [
+                        hists[axis[0]].edges,
+                        hists[axis[1]].edges,
+                    ]
+
+                _plot_points(points[:, axis], ax=ax, **kws)
+
         if upper and not self.corner:
             for ax, axis in zip(self.offdiag_axs_u, self.offdiag_indices_u):
                 if kws["kind"] in ["hist", "contour", "contourf"]:
-                    kws["bins"] = [edges[axis[0]], edges[axis[1]]]
-                vis_points.plot(points[:, axis], ax=ax, **kws)
-        self._cleanup()
+                    kws["bins"] = [
+                        hists[axis[0]].edges,
+                        hists[axis[1]].edges,
+                    ]
 
-    def _cleanup(self):
+                _plot_points(points[:, axis], ax=ax, **kws)
+
+        self._post_plot()
+
+    def _post_plot(self) -> None:
+        self.new = False
         self._fake_diag_yticks()
         self._force_non_negative_diag_ymin()
 
@@ -681,7 +758,7 @@ class SliceGrid:
         The subplot axes.
     _axs : proplot.figure.Figure
         The subplot axes on the main panel.
-    _axs_marg_x, _axs_marg_y, _axs_marg_xy : proplot.gridspec.SubplotGrid
+    _axs_panel_x, _axs_panel_y, _axs_panel_xy : proplot.gridspec.SubplotGrid
         The subplot axes on the marginal panels.
     """
 
@@ -719,7 +796,7 @@ class SliceGrid:
         slice_label_height : float
             Tweaks the position of slice labels. Need a better way to handle this.
         **fig_kws
-            Key word arguments for `pplt.subplots`.
+            Key word arguments for `uplt.subplots`.
         """
         self.nrows = nrows
         self.ncols = ncols
@@ -735,7 +812,7 @@ class SliceGrid:
 
         self.annotate_kws_view = annotate_kws_view
         if self.annotate_kws_view is None:
-            self.annotate_kws_view = dict()
+            self.annotate_kws_view = {}
         self.annotate_kws_view.setdefault("color", "black")
         self.annotate_kws_view.setdefault("xycoords", "axes fraction")
         self.annotate_kws_view.setdefault("horizontalalignment", "center")
@@ -743,12 +820,14 @@ class SliceGrid:
 
         self.annotate_kws_slice = annotate_kws_slice
         if self.annotate_kws_slice is None:
-            self.annotate_kws_slice = dict()
+            self.annotate_kws_slice = {}
         self.annotate_kws_slice.setdefault("color", "black")
         self.annotate_kws_slice.setdefault("xycoords", "axes fraction")
         self.annotate_kws_slice.setdefault("horizontalalignment", "center")
         self.annotate_kws_slice.setdefault("verticalalignment", "center")
-        self.annotate_kws_slice.setdefault("arrowprops", dict(arrowstyle="->", color="black"))
+        self.annotate_kws_slice.setdefault(
+            "arrowprops", dict(arrowstyle="->", color="black")
+        )
 
         fig_kws.setdefault("figwidth", 8.5 * (ncols / 13.0))
         fig_kws.setdefault("share", True)
@@ -764,15 +843,15 @@ class SliceGrid:
         fig_kws["hspace"] = hspace
         fig_kws["wspace"] = wspace
 
-        self.fig, self.axs = pplt.subplots(**fig_kws)
+        self.fig, self.axs = uplt.subplots(**fig_kws)
 
         self._axs = self.axs[:-1, :-1]
-        self._axs_marg_x = []
-        self._axs_marg_y = []
+        self._axs_panel_x = []
+        self._axs_panel_y = []
         if self.marginals:
-            self._axs_marg_x = self.axs[-1, :]
-            self._axs_marg_y = self.axs[:, -1]
-        self._ax_marg_xy = self.axs[-1, -1]
+            self._axs_panel_x = self.axs[-1, :]
+            self._axs_panel_y = self.axs[:, -1]
+        self._ax_panel_xy = self.axs[-1, -1]
 
     def _annotate(
         self,
@@ -795,8 +874,12 @@ class SliceGrid:
             self.axs[i, self.ncols // 2],
             self.axs[self.nrows // 2, i],
         )
-        anchors[0].annotate(labels[2], xy=(0.5, -slice_label_height), **annotate_kws_slice)
-        anchors[1].annotate(labels[3], xy=(1.0 + slice_label_height, 0.5), **annotate_kws_slice)
+        anchors[0].annotate(
+            labels[2], xy=(0.5, -slice_label_height), **annotate_kws_slice
+        )
+        anchors[1].annotate(
+            labels[3], xy=(1.0 + slice_label_height, 0.5), **annotate_kws_slice
+        )
         for arrow_direction in (1.0, -1.0):
             anchors[0].annotate(
                 "",
@@ -828,30 +911,27 @@ class SliceGrid:
         for ax in self.axs:
             ax.format(xlim=limits[0], ylim=limits[1])
 
-    def plot_image(
+    def plot_hist(
         self,
-        values: np.ndarray,
-        coords: list[np.ndarray] = None,
-        edges: list[np.ndarray] = None,
+        hist: Histogram,
+        axis_view: tuple[int, int] = (0, 1),
+        axis_slice: tuple[int, int] = (2, 3),
         labels: list[str] = None,
-        axis_view: tuple[int, ...] = (0, 1),
-        axis_slice: tuple[int, ...] = (2, 3),
         pad: float = 0.0,
         debug: bool = False,
         **kws,
     ) -> None:
-        """Plot an n-dimensional image.
+        """Plot a four-dimensional histogram.
+
+        The first two dimensions are plotted as the last two are sliced.
 
         Parameters
         ----------
-        values: np.ndarray
-            An n-dimensional image.
-        coords : list[ndarray]
-            Coordinates along each axis of the grid (if `data` is an image).
-        labels : list[str], length n
+        hist: Histogram
+            A four-dimensional histogram.
+        axis_view, axis_slice : tuple[int, int]
+        labels : list[str]
             Label for each dimension.
-        axis_view, axis_slice : 2-tuple of int
-            The axis to view (plot) and to slice.
         pad : int, float, list
             This determines the start/stop indices along the sliced dimensions. If
             0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
@@ -862,216 +942,104 @@ class SliceGrid:
         **kws
             Key word arguments pass to `plot.image.plot`
         """
+
         # Setup
         # -----------------------------------------------------------------------
-        if values.ndim < 4:
-            raise ValueError(f"values.ndim = {values.ndim} < 4")
-        if coords is None:
-            coords = [np.arange(s) for s in values.shape]
+        
+        if hist.ndim < 4:
+            raise ValueError(f"hist.ndim = {hist.ndim} < 4")
+
         self.axis_view = axis_view
         self.axis_slice = axis_slice
 
         # Compute 4D/3D/2D projections.
-        _values = psdist.image.project(values, axis_view + axis_slice)
-        _values_x = psdist.image.project(values, axis_view + axis_slice[:1])
-        _values_y = psdist.image.project(values, axis_view + axis_slice[1:])
-        _values_xy = psdist.image.project(values, axis_view)
+        _hist = hist.project(axis=(axis_view + axis_slice))
+        _hist_x = hist.project(axis=(axis_view + axis_slice[:1]))
+        _hist_y = hist.project(axis=(axis_view + axis_slice[1:]))
+        _hist_xy = hist.project(axis=axis_view)
 
-        # Compute new coords and labels.
-        _coords = [coords[i] for i in axis_view + axis_slice]
-        _labels = None
-        if labels is not None:
-            _labels = [labels[i] for i in axis_view + axis_slice]
-
-        # Select slice indices.
+        # Get slice indices
+        pad_factors = pad
         if type(pad) in [float, int]:
-            pad = len(axis_slice) * [pad]
+            pad_factors = len(axis_slice) * [pad_factors]
+
         ind_slice = []
-        for i, nsteps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
-            start = int(_pad * values.shape[i])
-            stop = values.shape[i] - 1 - start
-            if stop - start == nsteps - 1:
-                ind_slice.append(np.arange(nsteps))
-            elif (stop - start) < nsteps:
+        for axis, nsteps, pad_factor in zip(axis_slice, [self.nrows, self.ncols], pad_factors):
+            lo = hist.shape[axis] * pad_factor
+            lo = int(lo)
+            hi = hist.shape[axis] - 1 - lo
+
+            if (hi - lo) < nsteps:
                 raise ValueError(f"values.shape[{i}] < number of slice indices requested.")
-            ind_slice.append(np.linspace(start, stop, nsteps).astype(int))
+                
+            if (hi - lo) == (nsteps - 1):
+                ind_slice.append(
+                    [int(i) for i in np.arange(nsteps)]
+                )
+            else:
+                ind_slice.append(
+                    [int(i) for i in np.linspace(lo, hi, nsteps)]
+                )
+
         ind_slice = tuple(ind_slice)
         self.ind_slice = ind_slice
 
         if debug:
-            print("Slice indices:")
+            print("debug slice indices:")
             for ind in ind_slice:
                 print(ind)
 
-        # Slice the 4D projection. The axes order was already handled by `project`;
-        # the first two axes are the view axes and the last two axes are the
-        # slice axes.
-        axis_view = (0, 1)
-        axis_slice = (2, 3)
-        idx = 4 * [slice(None)]
+        # Slice the 4D histogram.
+        axis_view, axis_slice = (0, 1), (2, 3)
         for axis, ind in zip(axis_slice, ind_slice):
-            idx[axis] = ind
-            _values = _values[tuple(idx)]
-            idx[axis] = slice(None)
+            _hist = _hist.slice(axis=axis, ind=ind)
 
         # Slice the 3D projections.
-        _values_x = _values_x[:, :, ind_slice[0]]
-        _values_y = _values_y[:, :, ind_slice[1]]
+        _hist_x = _hist_x.slice(axis=2, ind=ind_slice[0])
+        _hist_y = _hist_y.slice(axis=2, ind=ind_slice[1])
 
-        # Slice coords.
-        for i, ind in zip(axis_slice, ind_slice):
-            _coords[i] = _coords[i][ind]
-
-        # Normalize each distribution.
-        _values = psdist.plot.image.process(_values, norm="max")
-        _values_x = psdist.plot.image.process(_values_x, norm="max")
-        _values_y = psdist.plot.image.process(_values_y, norm="max")
-        _values_xy = psdist.plot.image.process(_values_xy, norm="max")
+        # Scale all to unit maximum
+        _hist.scale_max()
+        _hist_x.scale_max()
+        _hist_y.scale_max()
+        _hist_xy.scale_max()
 
         if debug:
-            print("_values.shape =", _values.shape)
-            print("_values_x.shape =", _values_x.shape)
-            print("_values_y.shape =", _values_y.shape)
-            print("_values_xy.shape =", _values_xy.shape)
-            for i in range(_values.ndim):
-                assert _values.shape[i] == len(_coords[i])
+            print("debug _hist.shape =", _hist_x.shape)
+            print("debug _hist_x.shape =", _hist_x.shape)
+            print("debug _hist_y.shape =", _hist_y.shape)
+            print("debug _hist_xy.shape =", _hist_xy.shape)
 
+        # Get labels
+        if labels is not None:
+            labels = [labels[axis] for axis in axis_view + axis_slice]
+            
         # Add dimension labels to the figure.
-        if self.annotate and _labels is not None:
+        if self.annotate and labels is not None:
             self._annotate(
-                labels=_labels,
+                labels=labels,
                 slice_label_height=self.slice_label_height,
                 annotate_kws_view=self.annotate_kws_view,
                 annotate_kws_slice=self.annotate_kws_slice,
             )
 
+
         # Plotting
         # -----------------------------------------------------------------------
+        
         for i in range(self.nrows):
             for j in range(self.ncols):
                 ax = self.axs[self.nrows - 1 - i, j]
-                idx = psdist.image.slice_idx(
-                    _values.ndim, axis=axis_slice, ind=[(j, j + 1), (i, i + 1)]
-                )
-                vis_image.plot(
-                    psdist.image.project(_values[idx], axis_view),
-                    coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-                    ax=ax,
-                    **kws,
-                )
+                _hist_slice = _hist.slice(axis=axis_slice, ind=[j, i])
+                _plot_hist(_hist_slice, ax=ax, **kws)
+
         if self.marginals:
             for i, ax in enumerate(reversed(self.axs[:-1, -1])):
-                vis_image.plot(
-                    _values_y[:, :, i],
-                    coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-                    ax=ax,
-                    **kws,
-                )
+                _hist_y_slice = _hist_y.slice(axis=2, ind=i)
+                _plot_hist(_hist_y_slice, ax=ax, **kws)
+
             for i, ax in enumerate(self.axs[-1, :-1]):
-                vis_image.plot(
-                    _values_x[:, :, i],
-                    [_coords[axis_view[0]], _coords[axis_view[1]]],
-                    ax=ax,
-                    **kws,
-                )
-            vis_image.plot(
-                _values_xy,
-                coords=[_coords[axis_view[0]], _coords[axis_view[1]]],
-                ax=self.axs[-1, -1],
-                **kws,
-            )
+                _hist_x_slice = _hist_x.slice(axis=2, ind=i)
+                _plot_hist(_hist_x_slice, ax=ax, **kws)
 
-    def _plot_points(
-        self,
-        X,
-        labels=None,
-        bins_slice="auto",
-        axis_view=(0, 1),
-        axis_slice=(2, 3),
-        pad=0.0,
-        debug=False,
-        autolim_kws=None,
-        **kws,
-    ):
-        """Plot points.
-
-        NOTE: this is not currently working... for the time being, it is recommended
-        to generate a 4D histogram and then call `plot_image`.
-
-        Parameters
-        ----------
-        X : np.ndarray, shape (..., n)
-            Particle coordinates.
-        labels : list[str], length d
-            Label for each dimension.
-        bins_slice : int, list[int], list[ndarray]
-            Specifies the bins used for slicing in `axis_slice`. The bin range
-            is determined by the min/max point in `X`.
-        axis_view, axis_slice : 2-tuple of int
-            The axis to view (plot) and to slice.
-        pad : int, float, list
-            Fractional padding added to the start/stop indices for the bins in the sliced
-            dimensions.
-        debug : bool
-            Whether to print debugging messages.
-        **kws
-            Key word arguments pass to `plot.points.plot`
-        """
-
-        warnings.warn(
-            "This is not currently working. For the time being, it is recommended to generate a 4D histogram and call `plot_image`."
-        )
-
-        # Setup
-        # -----------------------------------------------------------------------
-        if X.shape[1] < 4:
-            raise ValueError(f"X.shape[1] = {X.shape[1]} < 4")
-        self.axis_view = axis_view
-        self.axis_slice = axis_slice
-
-        edges_slice = psdist.points.histogram_bin_edges(X[:, axis_slice], bins_slice)
-
-        # Select slice indices.
-        if type(pad) in [float, int]:
-            pad = len(axis_slice) * [pad]
-        ind_slice = []
-        for i, (steps, _pad) in enumerate(zip([self.nrows, self.ncols], pad)):
-            start = int(_pad * len(edges_slice[i]))
-            stop = len(edges_slice[i]) - 1 - start
-            if (stop - start) < steps:
-                raise ValueError(f"Too many slices requested.")
-            ind_slice.append(np.linspace(start, stop, steps + 1).astype(int))
-        ind_slice = tuple(ind_slice)
-        self.ind_slice = ind_slice
-
-        # Slice the bin indices.
-        edges_slice = [e[ind] for e, ind in zip(edges_slice, ind_slice)]
-
-        # Add dimension labels to the figure.
-        if labels is not None:
-            if self.annotate and labels is not None:
-                self._annotate(
-                    labels=[labels[k] for k in axis_view + axis_slice],
-                    slice_label_height=self.slice_label_height,
-                    annotate_kws_view=self.annotate_kws_view,
-                    annotate_kws_slice=self.annotate_kws_slice,
-                )
-
-        # Plotting
-        # -----------------------------------------------------------------------
-        for i in range(self.nrows):
-            for j in range(self.ncols):
-                ax = self.axs[self.nrows - 1 - i, j]
-                _X = psdist.points.slice_planar(
-                    X,
-                    axis=axis_slice,
-                    center=[
-                        0.5 * (edges_slice[0][j] + edges_slice[0][j + 1]),
-                        0.5 * (edges_slice[1][i] + edges_slice[1][i + 1]),
-                    ],
-                    width=[
-                        np.abs(edges_slice[0][j] - edges_slice[1][j + 1]),
-                        np.abs(edges_slice[1][i] - edges_slice[1][i + 1]),
-                    ],
-                )
-                vis_points.plot(_X[:, axis_slice], ax=ax, **kws)
+            _plot_hist(_hist_xy, ax=self.axs[-1, -1], **kws)

@@ -5,12 +5,11 @@ import numpy as np
 import scipy.special
 
 
-def array_like(array: Any) -> None:
-    """Return true if array like."""
+def array_like(array: Any) -> bool:
     return np.ndim(np.array(array, dtype=object)) > 0
 
 
-def symmetrize(a: np.ndarray) -> np.ndarray:
+def symmetrize(array: np.ndarray) -> np.ndarray:
     """Return a symmetrized version of array.
 
     array : A square upper or lower triangular matrix.
@@ -59,33 +58,12 @@ def rotation_matrix(angle: float) -> np.ndarray:
     return np.array([[c, s], [-s, c]])
 
 
-def coords_from_edges(edges: np.ndarray) -> np.ndarray:
-    """Compute bin center coordinates from evenly spaced bin edges."""
-    return 0.5 * (edges[:-1] + edges[1:])
-
-
-def edges_from_coords(coords: np.ndarray) -> np.ndarray:
-    """Compute bin edges from evenly spaced bin center coordinates."""
-    delta = np.diff(coords)[0]
-    return np.hstack([coords - 0.5 * delta, [coords[-1] + 0.5 * delta]])
-
-
-def coords_list_from_edges_list(edges_list: list[np.ndarray]) -> list[np.ndarray]:
-    return [coords_from_edges(edges) for edges in edges_list]
-
-
-def edges_list_from_coords_list(coords_list: list[np.ndarray]) -> list[np.ndarray]:
-    return [edges_from_coords(coords) for coords in coords_list]
-
-
-edges_to_coords = coords_from_edges
-coords_to_edges = edges_from_coords
-
-
 # The following three functions allow saving/loading ragged arrays in .npz format.
 # This is useful if we have multiple coordinate arrays with a different number of
 # points in each array.
 # (Source: https://tonysyu.github.io/ragged-arrays.html#.YKVwQy9h3OR)
+
+
 def stack_ragged(arrays: list[np.ndarray], axis: int = 0) -> tuple[np.ndarray]:
     """Stacks list of arrays along first axis.
 

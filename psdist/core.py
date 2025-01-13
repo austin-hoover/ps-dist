@@ -1,49 +1,33 @@
-import collections
+from collections import Counter
 from typing import Callable
-from typing import Union
 
 import numpy as np
 import scipy.interpolate
 import scipy.optimize
-import scipy.special
 import scipy.stats
 
-from . import ap
-from . import cov as cov_utils
-from . import utils
-from .cov import cov_to_corr
-from .cov import norm_matrix_from_twiss_2x2
+from . import cov
+from .hist import Histogram
+from .hist import Histogram1D
+from .hist import SparseHistogram
+from .hist import edges_to_coords
+from .hist import coords_to_edges
 from .utils import array_like
-from .utils import coords_from_edges
 from .utils import random_choice_no_replacement
+from .utils import sphere_shell_volume
 
 
-# Analysis
-# --------------------------------------------------------------------------------------
-def centroid(points: np.ndarray) -> np.ndarray:
-    return np.mean(points, axis=0)
+def get_radii(points: np.ndarray, covariance_matrix: np.ndarray = None) -> np.ndarray:
+    if covariance_matrix is None:
+        return np.linalg.norm(points, axis=1)
 
-
-def covariance_matrix(points: np.ndarray) -> np.ndarray:
-    return np.cov(points.T)
-
-
-def correlation_matrix(points: np.ndarray) -> np.ndarray:
-    return cov_to_corr(covariance_matrix(points))
-
-
-def get_radii(points: np.ndarray) -> np.ndarray:
-    return np.linalg.norm(points, axis=1)
-
-
-def get_ellipsoid_radii(points: np.ndarray) -> np.ndarray:
-    sigma = covariance_matrix(points)
+    sigma = covariance_matrix
     sigma_inv = np.linalg.inv(sigma)
 
     def function(point):
         return np.sqrt(np.linalg.multi_dot([point.T, sigma_inv, point]))
 
-    return transform(points, function)
+    return apply_along_axis(points, function)
 
 
 def enclosing_sphere_radius(points: np.ndarray, fraction: float = 1.0) -> float:
@@ -55,46 +39,50 @@ def enclosing_sphere_radius(points: np.ndarray, fraction: float = 1.0) -> float:
 
 def enclosing_ellipsoid_radius(points: np.ndarray, fraction: float = 1.0) -> float:
     """Scale the rms ellipsoid until it contains some fraction of points."""
-    radii = np.sort(get_ellipsoid_radii(points))
+    radii = np.sort(get_radii(points, np.cov(points.T)))
     index = int(np.round(points.shape[0] * fraction)) - 1
     return radii[index]
 
 
-def find_min_volume_bounding_ellipse(points: np.ndarray, **opt_kws) -> tuple[np.ndarray, float]:
+def find_min_volume_bounding_ellipse(
+    points: np.ndarray, **opt_kws
+) -> tuple[np.ndarray, float]:
     """Find the minimum-volume bounding ellipse."""
 
-    def normalize(_points: np.ndarray, _alpha: float, _beta: float) -> np.ndarray:
-        return transform_linear(_points, norm_matrix_from_twiss_2x2(_alpha, _beta))
+    def _normalize(_points: np.ndarray, _alpha: float, _beta: float) -> np.ndarray:
+        return transform_linear(
+            _points, normalization_matrix_from_twiss_2d(_alpha, _beta)
+        )
 
-    def bounding_ellipse_area(twiss_params: list[float], _points: np.ndarray) -> float:
+    def _bounding_ellipse_area(twiss_params: list[float], _points: np.ndarray) -> float:
         (_alpha, _beta) = twiss_params
-        return np.max(np.linalg.norm(normalize(_points, _alpha, _beta), axis=1))
+        return np.max(np.linalg.norm(_normalize(_points, _alpha, _beta), axis=1))
 
-    cov = covariance_matrix(points)
-    alpha, beta = cov_utils.twiss(cov)
+    S = covariance_matrix(points)
+    alpha, beta = cov.twiss(S)
     guess = [alpha, beta]
 
     result = scipy.optimize.least_squares(
-        bounding_ellipse_area,
+        _bounding_ellipse_area,
         guess,
         bounds=([-np.inf, 1.00e-08], [+np.inf, +np.inf]),
         args=(points,),
         **opt_kws,
     )
     (alpha, beta) = result.x
-    Vinv = norm_matrix_from_twiss_2x2(alpha, beta)
-    V = np.linalg.inv(Vinv)
-    emittance = bounding_ellipse_area([alpha, beta], points)
+    V_inv = normalization_matrix_from_twiss_2d(alpha, beta)
+    V = np.linalg.inv(V_inv)
+    emittance = _bounding_ellipse_area([alpha, beta], points)
     return (V, emittance)
 
 
-def get_limits(
+def limits(
     points: np.ndarray,
     rms: float = None,
     pad: float = 0.0,
     zero_center: bool = False,
-    share: Union[tuple[int, ...], list[tuple[int, ...]]] = None,
-) -> list[tuple[float, float]]:
+    share: tuple[int, ...] | list[tuple[int, ...]] = None,
+) -> np.ndarray:
     """Compute nice limits for binning/plotting.
 
     Parameters
@@ -115,7 +103,7 @@ def get_limits(
 
     Returns
     -------
-    list[tuple[float, float]]
+    np.ndarray
         The limits [(xmin, xmax), (ymin, ymax), ...].
     """
     if points.ndim == 1:
@@ -135,7 +123,7 @@ def get_limits(
     padding = deltas * pad
     mins = mins - padding
     maxs = maxs + padding
-    limits = [(_min, _max) for _min, _max in zip(mins, maxs)]
+    limits = list(zip(mins, maxs))
 
     if share:
         if np.ndim(share[0]) == 0:
@@ -153,24 +141,59 @@ def get_limits(
 
     if len(limits) == 1:
         limits = limits[0]
+
+    limits = np.array(limits)
+
     return limits
 
 
-limits = get_limits
+def global_limits(points_list: list[np.ndarray], **kwargs) -> np.ndarray:
+    limits_list = [limits(points, **kwargs) for points in points_list]
+    return combine_limits(limits_list)
 
 
-# Distances (https://journals.aps.org/pre/abstract/10.1103/PhysRevE.106.065302)
-# --------------------------------------------------------------------------------------
-## - Wasserstein
-## - MMD
+def combine_limits(limits: list[np.ndarray]) -> np.ndarray:
+    """Combine a stack of limits, keeping min/max values.
+
+    Example: [[(-1, 1), (-3, 2)], [(-1, 2), (-1, 3)]] --> [(-1, 2), (-3, 3)].
+    """
+    limits = np.array(limits)
+    mins = np.min(limits[:, :, 0], axis=0)
+    maxs = np.max(limits[:, :, 1], axis=0)
+    limits = list(zip(mins, maxs))
+    limits = np.array(limits)
+    return limits
+
+
+def center_limits(limits: np.ndarray) -> np.ndarray:
+    """Center limits at zero.
+
+    Example: [(-3, 1), (-4, 5)] --> [(-3, 3), (-5, 5)].
+
+    Parameters
+    ----------
+    limits : list[tuple]
+        A set of limits [(xmin, xmax), (ymin, ymax), ...].
+
+    Returns
+    -------
+    limits : list[tuple]
+        A new set of limits centered at zero [(-x, x), (-y, y), ...].
+    """
+    limits = np.array(limits)
+    mins = limits[:, 0]
+    maxs = limits[:, 1]
+    maxs = np.maximum(np.abs(mins), np.abs(maxs))
+    limits = list(zip(-maxs, maxs))
+    limits = np.array(limits)
+    return limits
 
 
 # Transforms
 # --------------------------------------------------------------------------------------
 
 
-def project(points: np.ndarray, axis: Union[int, tuple[int]]) -> np.ndarray:
-    """Axis-aligned projection (points[:, axis])."""
+def project(points: np.ndarray, axis: int | tuple[int]) -> np.ndarray:
     ndim = points.shape[1]
     if axis is None:
         axis = tuple(np.arange(ndim))
@@ -179,19 +202,17 @@ def project(points: np.ndarray, axis: Union[int, tuple[int]]) -> np.ndarray:
     return points[:, axis]
 
 
-def transform(points: np.ndarray, function: Callable) -> np.ndarray:
-    """Apply nonlinear transformation to points."""
+def apply_along_axis(points: np.ndarray, function: Callable) -> np.ndarray:
     return np.apply_along_axis(lambda point: function(point), 1, points)
 
 
 def transform_linear(points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
-    """Apply linear transformation to points."""
     return np.matmul(points, matrix.T)
 
 
-def slice_planar(
+def slice_(
     points: np.ndarray,
-    axis: Union[int, tuple[int]],
+    axis: int | tuple[int],
     center: np.ndarray = None,
     width: np.ndarray = None,
     limits: list[tuple[float, float]] = None,
@@ -241,7 +262,7 @@ def slice_planar(
         conditions.append(points[:, j] > umin)
         conditions.append(points[:, j] < umax)
     idx = np.logical_and.reduce(conditions)
-    
+
     if return_indices:
         return (points[idx, :], idx)
 
@@ -250,7 +271,7 @@ def slice_planar(
 
 def slice_sphere(
     points: np.ndarray,
-    axis: Union[int, tuple[int]] = None,
+    axis: int | tuple[int, ...] = None,
     rmin: float = 0.0,
     rmax: float = None,
     return_indices: bool = False,
@@ -275,7 +296,7 @@ def slice_sphere(
         rmax = np.inf
     radii = get_radii(project(points, axis))
     idx = np.logical_and(radii > rmin, radii < rmax)
-    
+
     if return_indices:
         return (points[idx, :], idx)
 
@@ -284,7 +305,7 @@ def slice_sphere(
 
 def slice_ellipsoid(
     points: np.ndarray,
-    axis: Union[int, tuple[int]] = None,
+    axis: int | tuple[int] = None,
     rmin: float = 0.0,
     rmax: float = None,
     return_indices: bool = False,
@@ -310,18 +331,21 @@ def slice_ellipsoid(
     """
     if rmax is None:
         rmax = np.inf
-    radii = get_ellipsoid_radii(project(points, axis))
+
+    points_proj = project(points, axis)
+    cov_matrix = np.cov(points_proj.T)
+    radii = get_radii(points_proj, cov_matrix)
     idx = np.logical_and(rmin < radii, radii < rmax)
 
     if return_indices:
-        return (points[idx, :])
+        return points[idx, :]
 
     return points[idx, :]
 
 
 def slice_contour(
     points: np.ndarray,
-    axis: Union[int, tuple[int]] = None,
+    axis: int | tuple[int] = None,
     lmin: float = 0.0,
     lmax: float = 1.0,
     interp: bool = True,
@@ -368,17 +392,23 @@ def slice_contour(
     interp_kws.setdefault("fill_value", 0.0)
 
     points_proj = project(points, axis)
-    hist, edges = histogram(points_proj, **hist_kws)
+    hist, edges = np.histogramdd(points_proj, **hist_kws)
     hist = hist / np.max(hist)
-    coords = [coords_from_edges(e) for e in edges]
+    coords = [edges_to_coords(e) for e in edges]
 
     if interp:
-        interpolator = scipy.interpolate.RegularGridInterpolator(coords, hist, **interp_kws)
+        interpolator = scipy.interpolate.RegularGridInterpolator(
+            coords, hist, **interp_kws
+        )
         values = interpolator(points_proj)
         idx = np.logical_and(lmin <= values, values <= lmax)
     else:
-        valid_indices = np.vstack(np.where(np.logical_and(lmin <= hist, hist <= lmax))).T
-        indices = np.vstack([np.digitize(points_proj[:, i], edges[i]) for i in range(len(axis))]).T
+        valid_indices = np.vstack(
+            np.where(np.logical_and(lmin <= hist, hist <= lmax))
+        ).T
+        indices = np.vstack(
+            [np.digitize(points_proj[:, i], edges[i]) for i in range(len(axis))]
+        ).T
         idx = []
         for i in range(len(indices)):
             if indices[i].tolist() in valid_indices.tolist():
@@ -390,44 +420,29 @@ def slice_contour(
     return points[idx, :]
 
 
-def normalize_2d_projections(points: np.ndarray, scale_emittance: bool = False) -> np.ndarray:
+def normalize_2d_projections(points: np.ndarray, scale: bool = False) -> np.ndarray:
     """Normalize two-dimensional phase space projections.
 
-    This transformation removes linear correlations between x-x', y-y', etc.
-    while preserving the rms emittance (rms area). The covariance matrix in
+    This transformation removes linear correlations between planes while
+    preserving the rms emittance (rms area). The covariance matrix in
     each 2 x 2 block after the transformation is [[eps_x, 0], [0, eps_x]].
 
-    Parameters
-    ----------
-    points: np.ndarray, shape (..., n)
-        Particle coordinates in n-dimensional phase space.
-    scale_emittance : bool
-        Whether to scale the coordinates by the square root of the rms emittance.
-        This makes each 2 x 2 covariance matrix the identity matrix.
+    If `scale` is true, the 2 x 2 block is the identity matrix after the
+    normalization.
 
     Returns
     -------
-    np.ndarray, shape (..., n)
-        Normalized phase space coordinates.
+    ndarray, shape (..., N)
+        Normalized coordinates.
     """
     ndim = points.shape[1]
 
     if (ndim % 2) != 0:
         raise ValueError("Must have even number of dimensions")
 
-    cov = covariance_matrix(points)
-    points_n = np.zeros(points.shape)
-    for i in range(0, ndim, 2):
-        cov_sub = cov[i : i + 2, i : i + 2]
-        (alpha, beta) = cov_utils.twiss(cov_sub)
-        points_n[:, i] = points[:, i] / np.sqrt(beta)
-        points_n[:, i + 1] = (np.sqrt(beta) * points[:, i + 1]) + (
-            alpha * points[:, i] / np.sqrt(beta)
-        )
-        if scale_emittance:
-            emittance = cov_utils.emittance(cov_sub)
-            points_n[:, i : i + 2] = points_n[:, i : i + 2] / np.sqrt(emittance)
-    return points_n
+    cov_matrix = np.cov(points.T)
+    norm_mat = cov.normalization_matrix(cov_matrix, scale=scale, block_diag=True)
+    return transform_linear(points, norm_mat)
 
 
 def decorrelate_x_y_z(points: np.ndarray) -> np.ndarray:
@@ -479,13 +494,13 @@ def downsample(points: np.ndarray, size: int = None, frac: float = None) -> np.n
     return points[idx, :]
 
 
-# Density estimation
+# Binning
 # --------------------------------------------------------------------------------------
 
 
 def histogram_bin_edges(
     points: np.ndarray,
-    bins: Union[int, str, np.ndarray],
+    bins: int | str | np.ndarray,
     limits: list[tuple[float, float]] = None,
 ) -> list[np.ndarray]:
     """Comopute histogram bin edges.
@@ -513,37 +528,33 @@ def histogram_bin_edges(
         limits = points.shape[1] * [limits]
 
     bin_edges = [
-        np.histogram_bin_edges(points[:, i], bins[i], limits[i]) for i in range(points.shape[1])
+        np.histogram_bin_edges(points[:, i], bins[i], limits[i])
+        for i in range(points.shape[1])
     ]
     return bin_edges
 
 
 def histogram(
     points: np.ndarray,
-    bins: Union[int, str, np.ndarray],
+    bins: int | str | np.ndarray = 10,
     limits: list[tuple[float, float]] = None,
-    return_bin_centers: bool = False,
+    density: bool = False,
 ) -> tuple[np.ndarray, list[np.ndarray]]:
     """Compute multidimensional histogram."""
+    hist = None
     if points.ndim == 1:
-        bins = np.histogram_bin_edges(points, bins, limits)
-        hist, _ = np.histogram(points, bins=bins)
-        if return_bin_centers:
-            bins = utils.coords_from_edges(bins)
-        return hist, bins
-
-    bin_edges = histogram_bin_edges(points, bins=bins, limits=limits)
-    hist, _ = np.histogramdd(points, bin_edges)
-    if return_bin_centers:
-        bin_centers = [coords_from_edges(e) for e in bin_edges]
-        return hist, bin_centers
+        edges = np.histogram_bin_edges(points, bins, limits)
+        hist = Histogram1D(edges=edges)
     else:
-        return hist, bin_edges
+        edges = histogram_bin_edges(points, bins=bins, limits=limits)
+        hist = Histogram(edges=edges)
+    hist.bin(points)
+    return hist
 
 
 def sparse_histogram(
     points: np.ndarray,
-    bins: Union[int, str, np.ndarray],
+    bins: int | str | np.ndarray,
     limits: list[tuple[float, float]] = None,
     return_bin_centers: bool = False,
     eps: float = 1.0e-12,
@@ -554,16 +565,11 @@ def sparse_histogram(
     ----------
     Same as `histogram`.
     eps : float
-        Small constant added to largest bin edge.
+        Small constant added to the largest bin edge.
 
     Returns
     ------
-    indices : ndarray, shape (k, d)
-        Indices of nonzero bins in d-dimensional histogram.
-    counts : ndarray, shape (k,)
-        Counts of nonzero bins in d-dimensional histogram.
-    bins : list(ndarray)
-        List of bin edges or centers along each axis.
+    SparseHistogram
     """
     bins = histogram_bin_edges(points, bins=bins, limits=limits)
     shape = [len(bins[axis]) for axis in range(points.shape[1])]
@@ -586,7 +592,7 @@ def sparse_histogram(
     indices = np.ravel_multi_index(indices, shape)
 
     # Count the indices/counts of each nonzero bin.
-    counter = collections.Counter(indices)
+    counter = Counter(indices)
     counts = np.array(list(counter.values()))
     indices = np.array(list(counter.keys()))
 
@@ -595,7 +601,8 @@ def sparse_histogram(
     indices = np.vstack(indices).T
     if return_bin_centers:
         bins = [coords_from_edges(bins[axis]) for axis in range(points.shape[1])]
-    return indices, counts, bins
+
+    return SparseHistogram(values=counts, edges=bins, indices=indices)
 
 
 def radial_histogram(points: np.ndarray, **kws) -> None:
@@ -603,27 +610,17 @@ def radial_histogram(points: np.ndarray, **kws) -> None:
 
     Parameters
     ----------
-    points: np.ndarray, shape (..., n)
-        Coordinates of n points in d-dimensional space.
+    points: np.ndarray, shape (..., N)
+        Coordinates of points in N-dimensional space.
     **kws
-        Key word arguments for `histogram`.
+        Key word arguments for `np.histogram`.
     """
     radii = get_radii(points)
-    hist, bins = histogram(radii, **kws)
+    values, edges = np.histogram(radii, **kws)
 
-    bin_edges = None
-    if "centers" in kws and kws["centers"]:
-        bin_edges = utils.edges_from_coords(bins)
-    else:
-        bin_edges = bins
+    for i in range(len(edges) - 1):
+        rmin = edges[i]
+        rmax = edges[i + 1]
+        values[i] /= sphere_shell_volume(rmin, rmax, points.shape[1])
 
-    for i in range(len(bin_edges) - 1):
-        rmin = bin_edges[i]
-        rmax = bin_edges[i + 1]
-        hist[i] = hist[i] / utils.sphere_shell_volume(rmin, rmax, points.shape[1])
-    return hist, bins
-
-
-def gaussian_kde(points: np.ndarray, **kws) -> Callable:
-    """Builde kernel density estimator (KDE)."""
-    return scipy.stats.gaussian_kde(points.T, **kws)
+    return Histogram1D(values=values, edges=edges)

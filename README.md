@@ -1,9 +1,11 @@
 # psdist
 
-Analysis tools for high-dimensional phase space distributions.
+Analysis tools for phase space distributions.
 
 
 ## Installation
+
+Install from cloned repository:
 
 ```shell
 git clone https://github.com/austin-hoover/psdist.git
