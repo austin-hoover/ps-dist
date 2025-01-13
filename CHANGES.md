@@ -3,7 +3,7 @@
 ## [2.0.0]
 
 * Renamed `image` module to `hist`.
-* New objects `Histogram` and `Histogram1D` which store histogram values and bin coords/edges.
+* New objects `Histogram`, `SparseHistogram`, and `Histogram1D`, which store histogram values and bin coords/edges.
 * Updated proplot dependency to ultraplot.
 * Added empty `distance` module.
 * Created `density` module for density estimation.
