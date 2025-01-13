@@ -3,7 +3,7 @@ import numpy as np
 from .utils import sphere_volume
 
 
-class Dist:
+class Distribution:
     def __init__(self, ndim: int) -> None:
         self.ndim = ndim
 
@@ -14,7 +14,7 @@ class Dist:
         raise NotImplementedError
 
 
-class Gaussian(Dist):
+class Gaussian(Distribution):
     def __init__(self, ndim: int) -> None:
         super().__init__(ndim=ndim)
 
@@ -28,7 +28,7 @@ class Gaussian(Dist):
         return np.random.normal(size=(size, self.ndim))
 
 
-class Waterbag(Dist):
+class Waterbag(Distribution):
     def __init__(self, ndim: int) -> None:
         super().__init__(ndim=ndim)
         self.r_max = np.sqrt(self.ndim + 2)
@@ -49,7 +49,7 @@ class Waterbag(Dist):
         return x
 
 
-def get_dist(name: str, ndim: int, *args, **kwargs) -> Dist:
+def get_distribution(name: str, ndim: int, *args, **kwargs) -> Distribution:
     constructors = {
         "gaussian": Gaussian,
         "waterbag": Waterbag,
