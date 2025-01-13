@@ -1,4 +1,5 @@
 """Plotting routines for points."""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import ultraplot as uplt
@@ -335,7 +336,7 @@ def plot_interactive_slice_2d(
     """
     if type(data) is not list:
         data = [data]
-        
+
     if type(data[0]) is not list:
         data = [data]
 
@@ -369,7 +370,7 @@ def plot_interactive_slice_2d(
     # Compute limits [(xmin, xmax), ...] for each bunch (data[i][j]).
     if autolim_kws is None:
         autolim_kws = {}
-        
+
     if limits is None:
         limits_list = np.zeros((nrows, ncols, ndims, 2))
         for i in range(nrows):
@@ -381,9 +382,7 @@ def plot_interactive_slice_2d(
                 for i in range(nrows):
                     limits_list[i, j] = limits
         elif share_limits == 2:
-            limits = combine_limits(
-                limits_list.reshape((nrows * ncols, ndims, 2))
-            )
+            limits = combine_limits(limits_list.reshape((nrows * ncols, ndims, 2)))
             for i in range(nrows):
                 for j in range(ncols):
                     limits_list[i, j] = limits
@@ -402,19 +401,13 @@ def plot_interactive_slice_2d(
     # Widgets
     _widgets = {}
     _widgets["dim1"] = widgets.Dropdown(
-        options=dims,
-        index=default_axis[0],
-        description="dim 1"
+        options=dims, index=default_axis[0], description="dim 1"
     )
     _widgets["dim2"] = widgets.Dropdown(
-        options=dims,
-        index=default_axis[1],
-        description="dim 2"
+        options=dims, index=default_axis[1], description="dim 2"
     )
     _widgets["frame"] = widgets.BoundedIntText(
-        min=0,
-        max=(ncols - 1),
-        description="frame"
+        min=0, max=(ncols - 1), description="frame"
     )
     _widgets["slice_res"] = widgets.BoundedIntText(
         value=slice_res,
@@ -521,7 +514,6 @@ def plot_interactive_slice_2d(
     plot_kws.setdefault("offset", 0.0)
     default_offset = plot_kws["offset"]
 
-
     def update(**kws):
         # Collect key word arguments.
         frame = kws["frame"]
@@ -565,9 +557,7 @@ def plot_interactive_slice_2d(
 
             _limits_list = [core.limits(_points, **autolim_kws) for _points in _data]
             if share_limits > 0:
-                _limits_list = [
-                    combine_limits(_limits_list) for _ in range(len(_data))
-                ]
+                _limits_list = [combine_limits(_limits_list) for _ in range(len(_data))]
 
         # Slice
         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
@@ -586,7 +576,9 @@ def plot_interactive_slice_2d(
 
                     slice_limits.append((edges[imin], edges[imax]))
 
-                _data[index] = core.slice_(_data[index], axis=axis_slice, limits=slice_limits)
+                _data[index] = core.slice_(
+                    _data[index], axis=axis_slice, limits=slice_limits
+                )
 
         # Handle empty slice (do nothing).
         for _points in _data:
@@ -779,7 +771,7 @@ def plot_interactive_slice_1d(
     legend_kws.setdefault("loc", "right")
     legend_kws.setdefault("framealpha", 0.0)
     legend_kws.setdefault("ncols", 1)
-    
+
     if labels is None:
         labels = [f"prof_{i}" for i in range(nrows)]
 
@@ -882,15 +874,15 @@ def plot_interactive_slice_1d(
             disp = None if valid else "none"
             for element in [_widgets["sliders"][k], _widgets["checks"][k]]:
                 element.layout.display = disp
-                
+
             # Uncheck boxes for dimensions being plotted.
             if not valid and _widgets["checks"][k].value:
                 _widgets["checks"][k].value = False
-                
+
             # Make sliders respond to check boxes.
             if not _widgets["checks"][k].value:
                 _widgets["sliders"][k].layout.display = "none"
-                
+
             _widgets["plot_res"].layout.display = (
                 "none" if _widgets["auto_plot_res"].value else None
             )

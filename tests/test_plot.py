@@ -44,7 +44,7 @@ def test_plot_rms_ellipse_cov():
 
 def test_plot_points_rms_ellipse():
     x = np.random.normal(size=(1000, 2))
-    
+
     fig, ax = uplt.subplots()
     psv.plot(x, kind="scatter", color="black", ax=ax)
     psv.plot_rms_ellipse(x, level=[0.5, 1.0], color="red", ax=ax)

@@ -93,8 +93,8 @@ class Histogram(Grid):
         coords: np.ndarray = None,
         edges: np.ndarray = None,
     ) -> None:
-        if (values is not None):
-            if (values.ndim == 1):
+        if values is not None:
+            if values.ndim == 1:
                 return Histogram1D(values=values, coords=coords, edges=edges)
 
         super().__init__(coords=coords, edges=edges)
@@ -135,7 +135,9 @@ class Histogram(Grid):
         rmax: float,
         return_indices: bool = False,
     ) -> Self | tuple[Self, list[slice]]:
-        return slice_ellipsoid(self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices)
+        return slice_ellipsoid(
+            self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices
+        )
 
     def slice_contour(
         self,
@@ -144,7 +146,9 @@ class Histogram(Grid):
         rmax: float,
         return_indices: bool = False,
     ) -> Self | tuple[Self, list[slice]]:
-        return slice_contour(self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices)
+        return slice_contour(
+            self, axis=axis, rmin=rmin, rmax=rmax, return_indices=return_indices
+        )
 
     def bin(self, points: np.ndarray, density: bool = True) -> np.ndarray:
         self.values, _ = np.histogramdd(points, bins=self.edges, density=density)
@@ -247,7 +251,7 @@ def slice_idx(
     # Make list if only one axis provided.
     if type(axis) is int:
         axis = [axis]
-        # Can also provide only one axis but provide a tuple (selects range of 
+        # Can also provide only one axis but provide a tuple (selects range of
         # indices) or list (selects specific indices) for ind.
         if not (type(ind) is int):
             ind = [ind]
@@ -290,19 +294,19 @@ def slice_(
     # Get remaining array coordinates
     coords_new = []
     for axis in range(ndim):
-        if type(idx[axis]) is slice:            
+        if type(idx[axis]) is slice:
             # Selects indices using slice object.
             ilo = idx[axis].start
             if ilo is None:
                 ilo = 0
-    
+
             ihi = idx[axis].stop
             if ihi is None:
                 ihi = hist.shape[axis]
-    
+
             if ihi - ilo > 1:
                 coords_new.append(hist.coords[axis][idx[axis]])
-            
+
         elif (type(idx[axis]) is tuple) and (len(idx[axis]) == 2):
             # Selects indices using a tuple of ints (imin, imax).
             ilo, ihi = idx[axis]
@@ -314,7 +318,7 @@ def slice_(
         else:
             # Selects a single index; this axis is not in the sliced array.
             continue
-    
+
     # Return new histogram
     hist_new = Histogram(values=values_new, coords=coords_new)
 
@@ -356,7 +360,7 @@ def project_values(values: np.ndarray, axis: int | tuple[int, ...]) -> np.ndarra
 def project(
     hist: Histogram, axis: int | tuple[int, ...], squeeze: bool = True
 ) -> Histogram | Histogram1D:
-    
+
     values_proj = project_values(hist.values, axis=axis)
     if (values_proj.ndim == 1) and squeeze:
         axis = int(np.squeeze(axis))
@@ -401,10 +405,10 @@ def project_contour_slice_1d(
         The 1D projection of the (N-1)D slice.
     """
     axis_proj = [i for i in range(hist.ndim) if i != axis]
-    
+
     if hist_proj is None:
         hist_proj = hist.project(axis_proj)
-        
+
     hist_proj.values = hist_proj.values / np.max(hist_proj.values)
 
     idx = slice_idx(
@@ -412,7 +416,7 @@ def project_contour_slice_1d(
         axis=axis_proj,
         ind=np.where(
             np.logical_and(
-                hist_proj.values >= lmin, 
+                hist_proj.values >= lmin,
                 hist_proj.values <= lmax,
             )
         ),
@@ -464,11 +468,8 @@ def project_contour_slice_2d(
         ndim=hist.ndim,
         axis=axis_proj,
         ind=np.where(
-            np.logical_and(
-                hist_proj.values >= lmin,
-                hist_proj.values <= lmax
-            )
-        )
+            np.logical_and(hist_proj.values >= lmin, hist_proj.values <= lmax)
+        ),
     )
 
     # `values[idx]` will give a three-dimensional array. Normally we need to sum over

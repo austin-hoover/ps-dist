@@ -29,14 +29,11 @@ def plot_ellipse(
     return ax
 
 
-def plot_circle(
-    r: float = 1.0, center: tuple[float, float] = None, ax=None, **kws
-):
+def plot_circle(r: float = 1.0, center: tuple[float, float] = None, ax=None, **kws):
     """Plot circle of radius r."""
     if center is None:
         center = (0.0, 0.0)
     return plot_ellipse(r, r, center=center, ax=ax, **kws)
-
 
 
 def plot_rms_ellipse_cov(
@@ -80,7 +77,3 @@ def cubehelix_cmap(color: str = "red", dark: float = 0.20):
     else:
         raise ValueError
     return cmap
-
-
-
-    

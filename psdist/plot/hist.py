@@ -1,4 +1,5 @@
 """Plotting routines for multi-dimensional images."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
@@ -466,6 +467,7 @@ def plot_slice_matrix(hist: Histogram, grid_kws: dict = None, **kws):
 # # [TO DO] Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
 # # `options` input; see the versions of these functions in `psdist.plot.points`.
 #
+
 
 def plot_interactive_slice_2d(
     hist: Histogram,

@@ -945,7 +945,7 @@ class SliceGrid:
 
         # Setup
         # -----------------------------------------------------------------------
-        
+
         if hist.ndim < 4:
             raise ValueError(f"hist.ndim = {hist.ndim} < 4")
 
@@ -964,22 +964,22 @@ class SliceGrid:
             pad_factors = len(axis_slice) * [pad_factors]
 
         ind_slice = []
-        for axis, nsteps, pad_factor in zip(axis_slice, [self.nrows, self.ncols], pad_factors):
+        for axis, nsteps, pad_factor in zip(
+            axis_slice, [self.nrows, self.ncols], pad_factors
+        ):
             lo = hist.shape[axis] * pad_factor
             lo = int(lo)
             hi = hist.shape[axis] - 1 - lo
 
             if (hi - lo) < nsteps:
-                raise ValueError(f"values.shape[{i}] < number of slice indices requested.")
-                
+                raise ValueError(
+                    f"values.shape[{i}] < number of slice indices requested."
+                )
+
             if (hi - lo) == (nsteps - 1):
-                ind_slice.append(
-                    [int(i) for i in np.arange(nsteps)]
-                )
+                ind_slice.append([int(i) for i in np.arange(nsteps)])
             else:
-                ind_slice.append(
-                    [int(i) for i in np.linspace(lo, hi, nsteps)]
-                )
+                ind_slice.append([int(i) for i in np.linspace(lo, hi, nsteps)])
 
         ind_slice = tuple(ind_slice)
         self.ind_slice = ind_slice
@@ -1013,7 +1013,7 @@ class SliceGrid:
         # Get labels
         if labels is not None:
             labels = [labels[axis] for axis in axis_view + axis_slice]
-            
+
         # Add dimension labels to the figure.
         if self.annotate and labels is not None:
             self._annotate(
@@ -1023,10 +1023,9 @@ class SliceGrid:
                 annotate_kws_slice=self.annotate_kws_slice,
             )
 
-
         # Plotting
         # -----------------------------------------------------------------------
-        
+
         for i in range(self.nrows):
             for j in range(self.ncols):
                 ax = self.axs[self.nrows - 1 - i, j]
