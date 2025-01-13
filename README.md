@@ -16,7 +16,7 @@ pip install -e .
 
 ## Examples
 
-See `/examples` folder.
+See [examples](https://github.com/austin-hoover/psdist/tree/main/examples) folder.
 
 
 ## Related packages
