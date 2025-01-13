@@ -914,23 +914,24 @@ class SliceGrid:
     def plot_hist(
         self,
         hist: Histogram,
+        axis_view: tuple[int, int] = (0, 1),
+        axis_slice: tuple[int, int] = (2, 3),
         labels: list[str] = None,
-        axis_view: tuple[int, ...] = (0, 1),
-        axis_slice: tuple[int, ...] = (2, 3),
         pad: float = 0.0,
         debug: bool = False,
         **kws,
     ) -> None:
-        """Plot an n-dimensional image.
+        """Plot a four-dimensional histogram.
+
+        The first two dimensions are plotted as the last two are sliced.
 
         Parameters
         ----------
         hist: Histogram
-            An N-dimensional histogram.
+            A four-dimensional histogram.
+        axis_view, axis_slice : tuple[int, int]
         labels : list[str]
             Label for each dimension.
-        axis_view, axis_slice : 2-tuple of int
-            The axis to view (plot) and to slice.
         pad : int, float, list
             This determines the start/stop indices along the sliced dimensions. If
             0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
@@ -944,6 +945,7 @@ class SliceGrid:
 
         # Setup
         # -----------------------------------------------------------------------
+        
         if hist.ndim < 4:
             raise ValueError(f"hist.ndim = {hist.ndim} < 4")
 
@@ -951,111 +953,93 @@ class SliceGrid:
         self.axis_slice = axis_slice
 
         # Compute 4D/3D/2D projections.
-        _hist = hist.project(axis_view + axis_slice)
-        _hist_x = hist.project(axis_view + axis_slice[:1])
-        _hist_y = hist.project(axis_view + axis_slice[1:])
-        _hist_xy = hist.project(axis_view)
-
-        _values = _hist.values
-        _values_x = _hist_x.values
-        _values_y = _hist_y.values
-        _values_xy = _hist_xy.values
-
-        _coords = _hist.coords
-        _coords_x = _hist_x.coords
-        _coords_y = _hist_y.coords
-        _coords_xy = _hist_xy.coords
-
-        # Get labels
-        _labels = None
-        if labels is not None:
-            _labels = [labels[i] for i in axis_view + axis_slice]
+        _hist = hist.project(axis=(axis_view + axis_slice))
+        _hist_x = hist.project(axis=(axis_view + axis_slice[:1]))
+        _hist_y = hist.project(axis=(axis_view + axis_slice[1:]))
+        _hist_xy = hist.project(axis=axis_view)
 
         # Get slice indices
+        pad_factors = pad
         if type(pad) in [float, int]:
-            pad = len(axis_slice) * [pad]
+            pad_factors = len(axis_slice) * [pad_factors]
 
         ind_slice = []
-        for i, nsteps, _pad in zip(axis_slice, [self.nrows, self.ncols], pad):
-            start = int(_pad * hist.shape[i])
-            stop = hist.shape[i] - 1 - start
-            if stop - start == nsteps - 1:
-                ind_slice.append(np.arange(nsteps))
-            elif (stop - start) < nsteps:
-                raise ValueError(
-                    f"values.shape[{i}] < number of slice indices requested."
+        for axis, nsteps, pad_factor in zip(axis_slice, [self.nrows, self.ncols], pad_factors):
+            lo = hist.shape[axis] * pad_factor
+            lo = int(lo)
+            hi = hist.shape[axis] - 1 - lo
+
+            if (hi - lo) < nsteps:
+                raise ValueError(f"values.shape[{i}] < number of slice indices requested.")
+                
+            if (hi - lo) == (nsteps - 1):
+                ind_slice.append(
+                    [int(i) for i in np.arange(nsteps)]
                 )
-            ind_slice.append(np.linspace(start, stop, nsteps).astype(int))
+            else:
+                ind_slice.append(
+                    [int(i) for i in np.linspace(lo, hi, nsteps)]
+                )
 
         ind_slice = tuple(ind_slice)
         self.ind_slice = ind_slice
 
         if debug:
-            print("Slice indices:")
+            print("debug slice indices:")
             for ind in ind_slice:
                 print(ind)
 
-        # Slice the 4D histogram. The axes order was already handled by `project`;
-        # the first two axes are the view axes and the last two axes are the
-        # slice axes.
-        axis_view = (0, 1)
-        axis_slice = (2, 3)
-        idx = 4 * [slice(None)]
+        # Slice the 4D histogram.
+        axis_view, axis_slice = (0, 1), (2, 3)
         for axis, ind in zip(axis_slice, ind_slice):
-            idx[axis] = ind
-            _values = _values[tuple(idx)]
-            idx[axis] = slice(None)
+            _hist = _hist.slice(axis=axis, ind=ind)
 
         # Slice the 3D projections.
-        _values_x = _values_x[:, :, ind_slice[0]]
-        _values_y = _values_y[:, :, ind_slice[1]]
+        _hist_x = _hist_x.slice(axis=2, ind=ind_slice[0])
+        _hist_y = _hist_y.slice(axis=2, ind=ind_slice[1])
 
-        # Slice coords.
-        for i, ind in zip(axis_slice, ind_slice):
-            _coords[i] = _coords[i][ind]
-
-        # Normalize each distribution to unit maximum.
-        _values /= np.max(_values)
-        _values_x /= np.max(_values_x)
-        _values_y /= np.max(_values_y)
-        _values_xy /= np.max(_values_xy)
-
-        # Reconstruct histograms
-        _hist = Histogram(_values, _coords)
-        _hist_x = Histogram(_values_x, _coords_x)
-        _hist_y = Histogram(_values_y, _coords_y)
-        _hist_xy = Histogram(_values_xy, _coords_xy)
+        # Scale all to unit maximum
+        _hist.scale_max()
+        _hist_x.scale_max()
+        _hist_y.scale_max()
+        _hist_xy.scale_max()
 
         if debug:
-            print("_values.shape =", _hist.shape)
-            print("_values_x.shape =", _hist_x.shape)
-            print("_values_y.shape =", _hist_y.shape)
-            print("_values_xy.shape =", _hist_xy.shape)
+            print("debug _hist.shape =", _hist_x.shape)
+            print("debug _hist_x.shape =", _hist_x.shape)
+            print("debug _hist_y.shape =", _hist_y.shape)
+            print("debug _hist_xy.shape =", _hist_xy.shape)
 
+        # Get labels
+        if labels is not None:
+            labels = [labels[axis] for axis in axis_view + axis_slice]
+            
         # Add dimension labels to the figure.
-        if self.annotate and _labels is not None:
+        if self.annotate and labels is not None:
             self._annotate(
-                labels=_labels,
+                labels=labels,
                 slice_label_height=self.slice_label_height,
                 annotate_kws_view=self.annotate_kws_view,
                 annotate_kws_slice=self.annotate_kws_slice,
             )
 
+
         # Plotting
         # -----------------------------------------------------------------------
+        
         for i in range(self.nrows):
             for j in range(self.ncols):
                 ax = self.axs[self.nrows - 1 - i, j]
-                _hist_slice = _hist.slice(axis=axis_slice, ind=[(j, j + 1), (i, i + 1)])
+                _hist_slice = _hist.slice(axis=axis_slice, ind=[j, i])
                 _plot_hist(_hist_slice, ax=ax, **kws)
 
         if self.marginals:
             for i, ax in enumerate(reversed(self.axs[:-1, -1])):
-                _hist_y_slice = _hist_y.slice(axis=2, ind=(i, i + 1))
+                _hist_y_slice = _hist_y.slice(axis=2, ind=i)
                 _plot_hist(_hist_y_slice, ax=ax, **kws)
 
             for i, ax in enumerate(self.axs[-1, :-1]):
-                _hist_x_slice = _hist_x.slice(axis=2, ind=(i, i + 1))
+                _hist_x_slice = _hist_x.slice(axis=2, ind=i)
                 _plot_hist(_hist_x_slice, ax=ax, **kws)
 
-            _plot_hist(_hist_xy, ax=ax, **kws)
+            _plot_hist(_hist_xy, ax=self.axs[-1, -1], **kws)

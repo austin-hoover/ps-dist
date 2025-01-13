@@ -38,7 +38,8 @@ def plot_circle(
     return plot_ellipse(r, r, center=center, ax=ax, **kws)
 
 
-def plot_rms_ellipse(
+
+def plot_rms_ellipse_cov(
     cov_matrix: np.ndarray,
     center: np.ndarray = None,
     level: float = 1.0,
@@ -79,3 +80,7 @@ def cubehelix_cmap(color: str = "red", dark: float = 0.20):
     else:
         raise ValueError
     return cmap
+
+
+
+    

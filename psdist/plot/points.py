@@ -12,7 +12,7 @@ from ..density import estimate_density as _estimate_density
 from ..hist import Histogram
 from ..hist import Histogram1D
 from .. import core
-from .core import plot_rms_ellipse as _plot_rms_ellipse
+from .core import plot_rms_ellipse_cov as _plot_rms_ellipse
 from .hist import plot as _plot_hist
 from .hist import plot_1d as _plot_hist_1d
 

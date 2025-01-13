@@ -1,5 +1,4 @@
 """Plotting routines for multi-dimensional images."""
-
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
@@ -8,8 +7,8 @@ from ipywidgets import interactive
 from ipywidgets import widgets
 
 import psdist as ps
-from psdist.hist import Histogram
-from psdist.hist import Histogram1D
+from ..hist import Histogram
+from ..hist import Histogram1D
 from . import core
 
 
@@ -251,7 +250,7 @@ def plot_hist_profiles_overlay(
 
     for axis, proceed in enumerate([profx, profy]):
         if proceed:
-            hist_proj = ps.hist.project(hist, axis)
+            hist_proj = hist.project(axis)
             hist_proj = scale_hist(hist_proj, scale="max")
 
             # Scale values based on coordinates on other axis
@@ -301,7 +300,7 @@ def plot_rms_ellipse(
     mean = (0.0, 0.0)
     if center_at_mean:
         mean = ps.hist.mean(hist)
-    return core.plot_rms_ellipse(cov_matrix, mean, level=level, ax=ax, **kws)
+    return core.plot_rms_ellipse_cov(cov_matrix, mean, level=level, ax=ax, **kws)
 
 
 def plot(
@@ -446,438 +445,380 @@ def plot_corner(hist: Histogram, grid_kws: dict = None, **kws):
     return grid
 
 
-# def slice_matrix(
-#     hist: Histogram,
-#     labels: list[str] = None,
-#     axis_view: tuple[int, int] = (0, 1),
-#     axis_slice: tuple[int, int] = (2, 3),
-#     pad: float = 0.0,
-#     debug: bool = False,
-#     grid_kws: dict = None,
-#     **kws,
-# ):
-#     """Slice matrix plot.
-#
-#     This is a convenience function; see `psdist.plot.grid.SliceGrid`.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     labels : list[str], length n
-#         Label for each dimension.
-#     axis_view, axis_slice : 2-tuple of int
-#         The axis to view (plot) and to slice.
-#     pad : int, float, list
-#         This determines the start/stop indices along the sliced dimensions. If
-#         0, space the indices along axis `i` uniformly between 0 and `values.shape[i]`.
-#         Otherwise, add a padding equal to `int(pad[i] * values.shape[i])`. So, if
-#         the shape=10 and pad=0.1, we would start from 1 and end at 9.
-#     debug : bool
-#         Whether to print debugging messages.
-#     grid_kws : dict
-#         Key word arguments passed to `plot.grid.SliceGrid`.
-#     **kws
-#         Key word arguments passed to `plot.image.plot`
-#
-#     Returns
-#     -------
-#     SliceGrid
-#         The `SliceGrid` on which the plot was drawn.
-#     """
-#     from psdist.plot.grid import SliceGrid
-#
-#     if grid_kws is None:
-#         grid_kws = dict()
-#     grid_kws.setdefault("space", 0.2)
-#     grid_kws.setdefault("annotate_kws_view", dict(color="white"))
-#     grid_kws.setdefault("annotate_kws_slice", dict(color="black"))
-#     grid_kws.setdefault("xticks", [])
-#     grid_kws.setdefault("yticks", [])
-#     grid_kws.setdefault("xspineloc", "neither")
-#     grid_kws.setdefault("yspineloc", "neither")
-#
-#     grid = SliceGrid(**grid_kws)
-#     grid.plot_image(
-#         values,
-#         coords=coords,
-#         edges=edges,
-#         labels=labels,
-#         axis_view=axis_view,
-#         axis_slice=axis_slice,
-#         pad=pad,
-#         debug=debug,
-#     )
-#     return grid
-#
+def plot_slice_matrix(hist: Histogram, grid_kws: dict = None, **kws):
+    from psdist.plot.grid import SliceGrid
+
+    if grid_kws is None:
+        grid_kws = {}
+    grid_kws.setdefault("space", 0.2)
+    grid_kws.setdefault("annotate_kws_view", dict(color="white"))
+    grid_kws.setdefault("annotate_kws_slice", dict(color="black"))
+    grid_kws.setdefault("xticks", [])
+    grid_kws.setdefault("yticks", [])
+    grid_kws.setdefault("xspineloc", "neither")
+    grid_kws.setdefault("yspineloc", "neither")
+
+    grid = SliceGrid(**grid_kws)
+    grid.plot_hist(hist, **kws)
+    return grid
+
+
 # # [TO DO] Update `proj2d_interactive_slice` and `proj1d_interactive_slice` to include
 # # `options` input; see the versions of these functions in `psdist.plot.points`.
 #
-# def interactive_slice_2d(
-#     hist: Histogram,
-#     default_ind: tuple[int, int] = (0, 1),
-#     slice_type: str = "int",
-#     dims: list[str] = None,
-#     units: list[str] = None,
-#     cmaps: list[str] = None,
-#     thresh_slider: bool = False,
-#     profiles_checkbox: bool = False,
-#     fig_kws: dict = None,
-#     **plot_kws,
-# ):
-#     """2D partial projection with interactive slicing.
-#
-#     The distribution is projected onto the specified axes. Sliders provide the
-#     option to slice the distribution before projecting.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     default_ind : (i, j)
-#         Default x and y index to plot.
-#     slice_type : {'int', 'range'}
-#         Whether to slice one index along the axis or a range of indices.
-#     dims, units : list[str], shape (n,)
-#         Dimension names and units.
-#     fig_kws : dict
-#         Key words for `uplt.subplots`.
-#     cmaps : list
-#         Color map options for dropdown menu.
-#     thresh_slider : bool
-#         Whether to include a threshold slider.
-#     profiles_checkbox : bool
-#         Whether to include a profiles checkbox.
-#     **plot_kws
-#         Key word arguments for `plot.image.plot`.
-#
-#     Returns
-#     -------
-#     ipywidgets.widgets.interaction.interactive
-#         This widget can be displayed by calling `IPython.display.display(gui)`.
-#     """
-#     if coords is None:
-#         if edges is not None:
-#             coords = [psdist.utils.coords_from_edges(e) for e in edges]
-#         else:
-#             coords = [np.arange(s) for s in values.shape]
-#
-#     if fig_kws is None:
-#         fig_kws = dict()
-#
-#     if dims is None:
-#         dims = [f"x{i + 1}" for i in range(values.ndim)]
-#
-#     if units is None:
-#         units = values.ndim * [""]
-#
-#     dims_units = []
-#     for dim, unit in zip(dims, units):
-#         if unit:
-#             dims_units.append(f"{dim} [{unit}]")
-#         else:
-#             dims_units.append(dim)
-#
-#     plot_kws.setdefault("colorbar", True)
-#     plot_kws["process_kws"] = dict(thresh_type="frac")
-#
-#     # Widgets
-#     cmap = None
-#     if cmaps is not None:
-#         cmap = widgets.Dropdown(options=cmaps, description="cmap")
-#     if thresh_slider:
-#         thresh_slider = widgets.FloatSlider(
-#             value=-3.3,
-#             min=-8.0,
-#             max=0.0,
-#             step=0.1,
-#             description="thresh (log)",
-#             continuous_update=True,
-#         )
-#     discrete = widgets.Checkbox(value=False, description="discrete")
-#     log = widgets.Checkbox(value=False, description="log")
-#     _profiles_checkbox = None
-#     if profiles_checkbox:
-#         _profiles_checkbox = widgets.Checkbox(value=False, description="profiles")
-#     dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
-#     dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
-#
-#     # Sliders and checkboxes (for slicing). Each unplotted dimension has a
-#     # checkbox which determine if that dimension is sliced. The slice
-#     # indices are determined by the slider.
-#     sliders, checks = [], []
-#     for k in range(values.ndim):
-#         if slice_type == "int":
-#             slider = widgets.IntSlider(
-#                 min=0,
-#                 max=values.shape[k],
-#                 value=(values.shape[k] // 2),
-#                 description=dims[k],
-#                 continuous_update=True,
-#             )
-#         elif slice_type == "range":
-#             slider = widgets.IntRangeSlider(
-#                 value=(0, values.shape[k]),
-#                 min=0,
-#                 max=values.shape[k],
-#                 description=dims[k],
-#                 continuous_update=True,
-#             )
-#         else:
-#             raise ValueError("`slice_type` must be 'int' or 'range'.")
-#         slider.layout.display = "none"
-#         sliders.append(slider)
-#         checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
-#
-#     def hide(button):
-#         """Hide/show sliders."""
-#         for k in range(values.ndim):
-#             # Hide elements for dimensions being plotted.
-#             valid = dims[k] not in (dim1.value, dim2.value)
-#             disp = None if valid else "none"
-#             for element in [sliders[k], checks[k]]:
-#                 element.layout.display = disp
-#
-#             # Uncheck boxes for dimensions being plotted.
-#             if not valid and checks[k].value:
-#                 checks[k].value = False
-#
-#             # Make sliders respond to check boxes.
-#             if not checks[k].value:
-#                 sliders[k].layout.display = "none"
-#
-#     # Update the slider list automatically.
-#     for element in (dim1, dim2, *checks):
-#         element.observe(hide, names="value")
-#
-#     # Initial hide
-#     for k in range(values.ndim):
-#         if k in default_ind:
-#             checks[k].layout.display = "none"
-#             sliders[k].layout.display = "none"
-#
-#     def update(**kws):
-#         """Update the figure."""
-#         dim1 = kws["dim1"]
-#         dim2 = kws["dim2"]
-#
-#         ind, checks = [], []
-#         for i in range(100):
-#             if f"check{i}" in kws:
-#                 checks.append(kws[f"check{i}"])
-#             if f"slider{i}" in kws:
-#                 ind.append(kws[f"slider{i}"])
-#
-#         # Return nothing if input does not make sense.
-#         for dim, check in zip(dims, checks):
-#             if check and dim in (dim1, dim2):
-#                 return
-#         if dim1 == dim2:
-#             return
-#
-#         # Slice and project the distribution.
-#         axis_view = [dims.index(dim) for dim in (dim1, dim2)]
-#         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-#         for k in range(values.ndim):
-#             if type(ind[k]) is int:
-#                 ind[k] = (ind[k], ind[k] + 1)
-#         ind = [ind[k] for k in axis_slice]
-#         idx = psdist.image.slice_idx(values.ndim, axis_slice, ind)
-#         values_proj = psdist.image.project(values[idx], axis_view)
-#
-#         # Update plotting key word arguments.
-#         if "cmap" in kws:
-#             plot_kws["cmap"] = kws["cmap"]
-#         if "profiles_checkbox" in kws:
-#             plot_kws["profx"] = plot_kws["profy"] = kws["profiles_checkbox"]
-#         plot_kws["norm"] = "log" if kws["log"] else None
-#         plot_kws["process_kws"]["fill_value"] = 0
-#         if "thresh_slider" in kws:
-#             plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh_slider"]
-#         else:
-#             plot_kws["process_kws"]["thresh"] = None
-#
-#         # Plot the projection onto the specified axes.
-#         fig, ax = uplt.subplots(**fig_kws)
-#         ax = plot(
-#             values_proj,
-#             coords=[coords[axis_view[0]], coords[axis_view[1]]],
-#             ax=ax,
-#             **plot_kws,
-#         )
-#         ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
-#         uplt.show()
-#
-#     # Pass key word arguments for `update`.
-#     kws = {}
-#     if cmap is not None:
-#         kws["cmap"] = cmap
-#     if profiles_checkbox:
-#         kws["profiles_checkbox"] = _profiles_checkbox
-#     kws["log"] = log
-#     kws["dim1"] = dim1
-#     kws["dim2"] = dim2
-#     if thresh_slider:
-#         kws["thresh_slider"] = thresh_slider
-#     for i, check in enumerate(checks, start=1):
-#         kws[f"check{i}"] = check
-#     for i, slider in enumerate(sliders, start=1):
-#         kws[f"slider{i}"] = slider
-#     return interactive(update, **kws)
-#
-#
-# def interactive_slice_1d(
-#     hist: Histogram,
-#     default_ind: int = 0,
-#     slice_type: str = "int",
-#     dims: list[str] = None,
-#     units: list[str] = None,
-#     fig_kws: dict = None,
-#     **plot_kws,
-# ):
-#     """1D partial projection with interactive slicing.
-#
-#     Parameters
-#     ----------
-#     hist : Histogram
-#         A two-dimensional histogram.
-#     default_ind : int
-#         Default index to plot.
-#     slice_type : {'int', 'range'}
-#         Whether to slice one index along the axis or a range of indices.
-#     dims, units : list[str], shape (n,)
-#         Dimension names and units.
-#     kind : {'bar', 'line'}
-#         The kind of plot to draw.
-#     fig_kws : dict
-#         Key word arguments passed to `proplot.subplots`.
-#     **plot_kws
-#         Key word arguments passed to 1D plotting function.
-#
-#     Returns
-#     -------
-#     gui : ipywidgets.widgets.interaction.interactive
-#         This widget can be displayed by calling `IPython.display.display(gui)`.
-#     """
-#     if coords is None:
-#         if edges is not None:
-#             coords = [psdist.utils.coords_from_edges(e) for e in edges]
-#         else:
-#             coords = [np.arange(s) for s in values.shape]
-#
-#     if dims is None:
-#         dims = [f"x{i + 1}" for i in range(values.ndim)]
-#
-#     if units is None:
-#         units = values.ndim * [""]
-#
-#     dims_units = []
-#     for dim, unit in zip(dims, units):
-#         if unit:
-#             dims_units.append(f"{dim} [{unit}]")
-#         else:
-#             dims_units.append(dim)
-#
-#     if fig_kws is None:
-#         fig_kws = dict()
-#     fig_kws.setdefault("figsize", (4.5, 1.5))
-#
-#     plot_kws.setdefault("color", "black")
-#     plot_kws.setdefault("kind", "stepfilled")
-#
-#     # Widgets
-#     dim1 = widgets.Dropdown(options=dims, index=default_ind, description="dim")
-#
-#     # Sliders
-#     sliders, checks = [], []
-#     for k in range(values.ndim):
-#         if slice_type == "int":
-#             slider = widgets.IntSlider(
-#                 min=0,
-#                 max=values.shape[k],
-#                 value=values.shape[k] // 2,
-#                 description=dims[k],
-#                 continuous_update=True,
-#             )
-#         elif slice_type == "range":
-#             slider = widgets.IntRangeSlider(
-#                 value=(0, values.shape[k]),
-#                 min=0,
-#                 max=values.shape[k],
-#                 description=dims[k],
-#                 continuous_update=True,
-#             )
-#         else:
-#             raise ValueError("Invalid `slice_type`.")
-#         slider.layout.display = "none"
-#         sliders.append(slider)
-#         checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
-#
-#     def hide(button):
-#         """Hide/show sliders based on checkboxes."""
-#         for k in range(values.ndim):
-#             # Hide elements for dimensions being plotted.
-#             valid = dims[k] != dim1.value
-#             disp = None if valid else "none"
-#             for element in [sliders[k], checks[k]]:
-#                 element.layout.display = disp
-#             # Uncheck boxes for dimensions being plotted.
-#             if not valid and checks[k].value:
-#                 checks[k].value = False
-#             # Make sliders respond to check boxes.
-#             if not checks[k].value:
-#                 sliders[k].layout.display = "none"
-#
-#     # Update the slider list automatically.
-#     for element in (dim1, *checks):
-#         element.observe(hide, names="value")
-#     # Initial hide
-#     for k in range(values.ndim):
-#         if k == default_ind:
-#             checks[k].layout.display = "none"
-#             sliders[k].layout.display = "none"
-#
-#     def update(**kws):
-#         """Update the figure."""
-#         dim1 = kws["dim1"]
-#         ind, checks = [], []
-#         for i in range(100):
-#             if f"check{i}" in kws:
-#                 checks.append(kws[f"check{i}"])
-#             if f"slider{i}" in kws:
-#                 ind.append(kws[f"slider{i}"])
-#
-#         # Return nothing if input does not make sense.
-#         for dim, check in zip(dims, checks):
-#             if check and dim == dim1:
-#                 return
-#
-#         # Slice, then project onto the specified axis.
-#         axis_view = dims.index(dim1)
-#         axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
-#         for k in range(values.ndim):
-#             if type(ind[k]) is int:
-#                 ind[k] = (ind[k], ind[k] + 1)
-#         ind = [ind[k] for k in axis_slice]
-#         idx = psdist.image.slice_idx(values.ndim, axis_slice, ind)
-#         profile = psdist.image.project(values[idx], axis_view)
-#
-#         # Make it a probability density function.
-#         profile = psdist.plot.scale_profile(
-#             profile, coords=coords[axis_view], scale="density"
-#         )
-#
-#         # Plot the projection.
-#         fig, ax = uplt.subplots(**fig_kws)
-#         ax.format(xlabel=dims_units[axis_view])
-#         psdist.plot.plot_profile(
-#             profile=profile, coords=coords[axis_view], ax=ax, **plot_kws
-#         )
-#         plt.show()
-#
-#     kws = {"dim1": dim1}
-#     for i, check in enumerate(checks, start=1):
-#         kws[f"check{i}"] = check
-#     for i, slider in enumerate(sliders, start=1):
-#         kws[f"slider{i}"] = slider
-#     return interactive(update, **kws)
+
+def plot_interactive_slice_2d(
+    hist: Histogram,
+    default_ind: tuple[int, int] = (0, 1),
+    slice_type: str = "int",
+    dims: list[str] = None,
+    units: list[str] = None,
+    cmaps: list[str] = None,
+    thresh_slider: bool = False,
+    profiles_checkbox: bool = False,
+    fig_kws: dict = None,
+    **plot_kws,
+):
+    """2D partial projection with interactive slicing.
+
+    The distribution is projected onto the specified axes. Sliders provide the
+    option to slice the distribution before projecting.
+
+    Parameters
+    ----------
+    hist : Histogram
+        A two-dimensional histogram.
+    default_ind : (i, j)
+        Default x and y index to plot.
+    slice_type : {'int', 'range'}
+        Whether to slice one index along the axis or a range of indices.
+    dims, units : list[str], shape (n,)
+        Dimension names and units.
+    fig_kws : dict
+        Key words for `uplt.subplots`.
+    cmaps : list
+        Color map options for dropdown menu.
+    thresh_slider : bool
+        Whether to include a threshold slider.
+    profiles_checkbox : bool
+        Whether to include a profiles checkbox.
+    **plot_kws
+        Key word arguments for `plot.image.plot`.
+
+    Returns
+    -------
+    ipywidgets.widgets.interaction.interactive
+        This widget can be displayed by calling `IPython.display.display(gui)`.
+    """
+    if fig_kws is None:
+        fig_kws = {}
+
+    if dims is None:
+        dims = [f"x{i + 1}" for i in range(hist.ndim)]
+
+    if units is None:
+        units = hist.ndim * [""]
+
+    dims_units = []
+    for dim, unit in zip(dims, units):
+        if unit:
+            dims_units.append(f"{dim} [{unit}]")
+        else:
+            dims_units.append(dim)
+
+    plot_kws.setdefault("colorbar", True)
+    plot_kws["process_kws"] = dict(thresh_type="frac")
+
+    # Widgets
+    cmap = None
+    if cmaps is not None:
+        cmap = widgets.Dropdown(options=cmaps, description="cmap")
+
+    if thresh_slider:
+        thresh_slider = widgets.FloatSlider(
+            value=-3.3,
+            min=-8.0,
+            max=0.0,
+            step=0.1,
+            description="thresh (log)",
+            continuous_update=True,
+        )
+
+    discrete = widgets.Checkbox(value=False, description="discrete")
+
+    log = widgets.Checkbox(value=False, description="log")
+
+    _profiles_checkbox = None
+    if profiles_checkbox:
+        _profiles_checkbox = widgets.Checkbox(value=False, description="profiles")
+
+    dim1 = widgets.Dropdown(options=dims, index=default_ind[0], description="dim 1")
+    dim2 = widgets.Dropdown(options=dims, index=default_ind[1], description="dim 2")
+
+    # Sliders and checkboxes (for slicing). Each unplotted dimension has a
+    # checkbox which determine if that dimension is sliced. The slice
+    # indices are determined by the slider.
+    sliders, checks = [], []
+    for k in range(hist.ndim):
+        if slice_type == "int":
+            slider = widgets.IntSlider(
+                min=0,
+                max=hist.shape[k],
+                value=(hist.shape[k] // 2),
+                description=dims[k],
+                continuous_update=True,
+            )
+        elif slice_type == "range":
+            slider = widgets.IntRangeSlider(
+                value=(0, hist.shape[k]),
+                min=0,
+                max=hist.shape[k],
+                description=dims[k],
+                continuous_update=True,
+            )
+        else:
+            raise ValueError("`slice_type` must be 'int' or 'range'.")
+
+        slider.layout.display = "none"
+        sliders.append(slider)
+        checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
+
+    def hide(button):
+        """Hide/show sliders."""
+        for k in range(hist.ndim):
+            # Hide elements for dimensions being plotted.
+            valid = dims[k] not in (dim1.value, dim2.value)
+            disp = None if valid else "none"
+            for element in [sliders[k], checks[k]]:
+                element.layout.display = disp
+
+            # Uncheck boxes for dimensions being plotted.
+            if not valid and checks[k].value:
+                checks[k].value = False
+
+            # Make sliders respond to check boxes.
+            if not checks[k].value:
+                sliders[k].layout.display = "none"
+
+    # Update the slider list automatically.
+    for element in (dim1, dim2, *checks):
+        element.observe(hide, names="value")
+
+    # Initial hide
+    for k in range(hist.ndim):
+        if k in default_ind:
+            checks[k].layout.display = "none"
+            sliders[k].layout.display = "none"
+
+    def update(**kws):
+        """Update the figure."""
+        dim1 = kws["dim1"]
+        dim2 = kws["dim2"]
+
+        ind, checks = [], []
+        for i in range(100):
+            if f"check{i}" in kws:
+                checks.append(kws[f"check{i}"])
+            if f"slider{i}" in kws:
+                ind.append(kws[f"slider{i}"])
+
+        # Return nothing if input does not make sense.
+        for dim, check in zip(dims, checks):
+            if check and dim in (dim1, dim2):
+                return
+        if dim1 == dim2:
+            return
+
+        # Slice and project the distribution.
+        axis_view = [dims.index(dim) for dim in (dim1, dim2)]
+        axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
+        for k in range(hist.ndim):
+            if type(ind[k]) is int:
+                ind[k] = (ind[k], ind[k] + 1)
+        ind = [ind[k] for k in axis_slice]
+
+        hist_proj = hist.slice(axis=axis_slice, ind=ind).project(axis_view)
+
+        # Update plotting key word arguments.
+        if "cmap" in kws:
+            plot_kws["cmap"] = kws["cmap"]
+        if "profiles_checkbox" in kws:
+            plot_kws["profx"] = plot_kws["profy"] = kws["profiles_checkbox"]
+        plot_kws["norm"] = "log" if kws["log"] else None
+        plot_kws["process_kws"]["fill_value"] = 0
+        if "thresh_slider" in kws:
+            plot_kws["process_kws"]["thresh"] = 10.0 ** kws["thresh_slider"]
+        else:
+            plot_kws["process_kws"]["thresh"] = None
+
+        # Plot the projection onto the specified axes.
+        fig, ax = uplt.subplots(**fig_kws)
+        plot(hist_proj, ax=ax, **plot_kws)
+        ax.format(xlabel=dims_units[axis_view[0]], ylabel=dims_units[axis_view[1]])
+        plt.show()
+
+    # Pass key word arguments for `update`.
+    kws = {}
+    if cmap is not None:
+        kws["cmap"] = cmap
+    if profiles_checkbox:
+        kws["profiles_checkbox"] = _profiles_checkbox
+    kws["log"] = log
+    kws["dim1"] = dim1
+    kws["dim2"] = dim2
+    if thresh_slider:
+        kws["thresh_slider"] = thresh_slider
+    for i, check in enumerate(checks, start=1):
+        kws[f"check{i}"] = check
+    for i, slider in enumerate(sliders, start=1):
+        kws[f"slider{i}"] = slider
+    return interactive(update, **kws)
+
+
+def plot_interactive_slice_1d(
+    hist: Histogram,
+    default_ind: int = 0,
+    slice_type: str = "int",
+    dims: list[str] = None,
+    units: list[str] = None,
+    fig_kws: dict = None,
+    **plot_kws,
+):
+    """1D partial projection with interactive slicing.
+
+    Parameters
+    ----------
+    hist : Histogram
+        A two-dimensional histogram.
+    default_ind : int
+        Default index to plot.
+    slice_type : {'int', 'range'}
+        Whether to slice one index along the axis or a range of indices.
+    dims, units : list[str], shape (n,)
+        Dimension names and units.
+    kind : {'bar', 'line'}
+        The kind of plot to draw.
+    fig_kws : dict
+        Key word arguments passed to `proplot.subplots`.
+    **plot_kws
+        Key word arguments passed to 1D plotting function.
+
+    Returns
+    -------
+    gui : ipywidgets.widgets.interaction.interactive
+        This widget can be displayed by calling `IPython.display.display(gui)`.
+    """
+    if dims is None:
+        dims = [f"x{i + 1}" for i in range(hist.ndim)]
+
+    if units is None:
+        units = hist.ndim * [""]
+
+    dims_units = []
+    for dim, unit in zip(dims, units):
+        if unit:
+            dims_units.append(f"{dim} [{unit}]")
+        else:
+            dims_units.append(dim)
+
+    if fig_kws is None:
+        fig_kws = {}
+    fig_kws.setdefault("figsize", (4.5, 1.5))
+
+    plot_kws.setdefault("color", "black")
+    plot_kws.setdefault("kind", "stepfilled")
+
+    # Widgets
+    dim1 = widgets.Dropdown(options=dims, index=default_ind, description="dim")
+
+    # Sliders
+    sliders, checks = [], []
+    for k in range(hist.ndim):
+        if slice_type == "int":
+            slider = widgets.IntSlider(
+                min=0,
+                max=hist.shape[k],
+                value=hist.shape[k] // 2,
+                description=dims[k],
+                continuous_update=True,
+            )
+        elif slice_type == "range":
+            slider = widgets.IntRangeSlider(
+                value=(0, hist.shape[k]),
+                min=0,
+                max=hist.shape[k],
+                description=dims[k],
+                continuous_update=True,
+            )
+        else:
+            raise ValueError("Invalid `slice_type`.")
+        slider.layout.display = "none"
+        sliders.append(slider)
+        checks.append(widgets.Checkbox(description=f"slice {dims[k]}"))
+
+    def hide(button):
+        """Hide/show sliders based on checkboxes."""
+        for k in range(hist.ndim):
+            # Hide elements for dimensions being plotted.
+            valid = dims[k] != dim1.value
+            disp = None if valid else "none"
+            for element in [sliders[k], checks[k]]:
+                element.layout.display = disp
+
+            # Uncheck boxes for dimensions being plotted.
+            if not valid and checks[k].value:
+                checks[k].value = False
+
+            # Make sliders respond to check boxes.
+            if not checks[k].value:
+                sliders[k].layout.display = "none"
+
+    # Update the slider list automatically.
+    for element in (dim1, *checks):
+        element.observe(hide, names="value")
+
+    # Initial hide
+    for k in range(hist.ndim):
+        if k == default_ind:
+            checks[k].layout.display = "none"
+            sliders[k].layout.display = "none"
+
+    def update(**kws):
+        """Update the figure."""
+        dim1 = kws["dim1"]
+
+        ind, checks = [], []
+        for i in range(100):
+            if f"check{i}" in kws:
+                checks.append(kws[f"check{i}"])
+            if f"slider{i}" in kws:
+                ind.append(kws[f"slider{i}"])
+
+        # Return nothing if input does not make sense.
+        for dim, check in zip(dims, checks):
+            if check and dim == dim1:
+                return
+
+        # Slice, then project onto the specified axis.
+        axis_view = dims.index(dim1)
+        axis_slice = [dims.index(dim) for dim, check in zip(dims, checks) if check]
+        for k in range(hist.ndim):
+            if type(ind[k]) is int:
+                ind[k] = (ind[k], ind[k] + 1)
+        ind = [ind[k] for k in axis_slice]
+
+        hist_proj = hist.slice(axis=axis_slice, ind=ind).project(axis_view)
+        hist_proj.normalize()
+
+        # Plot the projection.
+        fig, ax = uplt.subplots(**fig_kws)
+        plot_1d(hist_proj, ax=ax, **plot_kws)
+        ax.format(xlabel=dims_units[axis_view])
+        plt.show()
+
+    kws = {"dim1": dim1}
+    for i, check in enumerate(checks, start=1):
+        kws[f"check{i}"] = check
+    for i, slider in enumerate(sliders, start=1):
+        kws[f"slider{i}"] = slider
+    return interactive(update, **kws)
