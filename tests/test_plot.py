@@ -34,9 +34,20 @@ def test_plot_circle():
     plt.savefig(os.path.join(output_dir, "fig_plot_circle.png"))
 
 
-def test_plot_rms_ellipse():
+def test_plot_rms_ellipse_cov():
     fig, ax = uplt.subplots()
-    psv.plot_rms_ellipse(cov_matrix=np.eye(2), level=[0.5, 1.0], ax=ax)
+    psv.plot_rms_ellipse_cov(cov_matrix=np.eye(2), level=[0.5, 1.0], ax=ax)
+    ax.format(xlim=(-2.0, 2.0), ylim=(-2.0, 2.0))
+    plt.savefig(os.path.join(output_dir, "fig_plot_rms_ellipse.png"))
+    plt.close()
+
+
+def test_plot_points_rms_ellipse():
+    x = np.random.normal(size=(1000, 2))
+    
+    fig, ax = uplt.subplots()
+    psv.plot(x, kind="scatter", color="black", ax=ax)
+    psv.plot_rms_ellipse(x, level=[0.5, 1.0], color="red", ax=ax)
     ax.format(xlim=(-2.0, 2.0), ylim=(-2.0, 2.0))
     plt.savefig(os.path.join(output_dir, "fig_plot_rms_ellipse.png"))
     plt.close()
@@ -92,22 +103,22 @@ def test_plot_hist_rms_ellipse():
     plt.close()
 
 
-def test_plot_points_hist():
+def test_plot_hist():
     x = np.random.normal(size=(10_000, 2))
     bin_edges = [np.linspace(-4.0, 4.0, 51), np.linspace(-4.0, 4.0, 51)]
 
     fig, ax = uplt.subplots(figwidth=3.0)
-    psv.plot_points(x, bins=bin_edges, kind="hist", ax=ax)
-    plt.savefig(os.path.join(output_dir, "fig_plot_points_hist.png"))
+    psv.plot(x, bins=bin_edges, kind="hist", ax=ax)
+    plt.savefig(os.path.join(output_dir, "fig_plot_hist.png"))
     plt.close()
 
 
-def test_plot_points_scatter():
+def test_plot_scatter():
     x = np.random.normal(size=(10_000, 2))
 
     fig, ax = uplt.subplots(figwidth=3.0)
-    psv.plot_points(x, kind="scatter", ax=ax)
-    plt.savefig(os.path.join(output_dir, "fig_plot_points_scatter.png"))
+    psv.plot(x, kind="scatter", ax=ax)
+    plt.savefig(os.path.join(output_dir, "fig_plot_scatter.png"))
     plt.close()
 
 
