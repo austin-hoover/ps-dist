@@ -1,13 +1,13 @@
 from . import cov
 from . import density
-from . import dist
+from . import distributions
 from . import hist
 from . import core
 from . import plot
 from . import utils
 
 from .cov import *
-from .dist import *
+from .distributions import *
 from .core import *
 from .density import *
 from .distance import *
