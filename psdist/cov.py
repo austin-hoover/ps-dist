@@ -137,9 +137,8 @@ def normalization_matrix(
     block_diag : bool
         If true, normalize only 2x2 block-diagonal elements (x-x', y-y', etc.).
     """
-
     def _normalization_matrix(S: np.ndarray, scale: bool = False) -> np.ndarray:
-        U = unit_symplectic_matrix(ndim)
+        U = unit_symplectic_matrix(S.shape[0])
         SU = np.matmul(S, U)
         eigvals, eigvecs = np.linalg.eig(SU)
         eigvecs = normalize_eigvecs(eigvecs)
@@ -147,7 +146,7 @@ def normalization_matrix(
 
         if scale:
             V = np.linalg.inv(V_inv)
-            A = np.eye(ndim)
+            A = np.eye(V.shape[0])
             for i in range(0, ndim, 2):
                 emittance = rms_ellipsoid_volume(S[i : i + 2, i : i + 2])
                 A[i : i + 2, i : i + 2] *= np.sqrt(emittance)
