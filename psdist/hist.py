@@ -95,7 +95,7 @@ class Histogram(Grid):
     ) -> None:
         if values is not None:
             if values.ndim == 1:
-                return Histogram1D(values=values, coords=coords, edges=edges)
+                raise ValueError("values.ndim < 2")
 
         super().__init__(coords=coords, edges=edges)
 
