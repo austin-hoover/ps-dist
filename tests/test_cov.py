@@ -45,6 +45,13 @@ def test_normalization_matrix_from_twiss_2d():
     assert np.allclose(V_inv, expected)
 
 
+def test_normalization_matrix_cov():
+    ndim = 4
+    S = np.eye(ndim)
+    V_inv = ps.cov.normalization_matrix(S, scale=True)
+    assert np.all(np.isclose(V_inv, np.eye(ndim)))
+
+
 def test_cov_to_corr_identity():
     S = np.eye(2)
     assert np.allclose(ps.cov.cov_to_corr(S), S)
