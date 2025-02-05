@@ -3,28 +3,21 @@
 import numpy as np
 
 
-def rms_ellipsoid_volume(S: np.ndarray) -> float:
-    return np.sqrt(np.linalg.det(S))
+def rms_ellipsoid_volume(cov_matrix: np.ndarray) -> float:
+    return np.sqrt(np.linalg.det(cov_matrix))
 
 
-def projected_emittances(S: np.ndarray) -> tuple[float, ...]:
+def projected_emittances(cov_matrix: np.ndarray) -> tuple[float, ...]:
     emittances = []
-    for i in range(0, S.shape[0], 2):
-        emittance = rms_ellipsoid_volume(S[i : i + 2, i : i + 2])
+    for i in range(0, cov_matrix.shape[0], 2):
+        emittance = rms_ellipsoid_volume(cov_matrix[i : i + 2, i : i + 2])
         emittances.append(emittance)
     return emittances
 
 
-def intrinsic_emittances(S: np.ndarray) -> tuple[float, ...]:
-    S = S[:4, :4].copy()  # [to do]: expand to NxN
-    U = np.array(
-        [
-            [+0.0, +1.0, +0.0, +0.0],
-            [-1.0, +0.0, +0.0, +0.0],
-            [+0.0, +0.0, +0.0, +1.0],
-            [+0.0, +0.0, -1.0, +0.0],
-        ]
-    )
+def intrinsic_emittances(cov_matrix: np.ndarray) -> tuple[float, ...]:
+    S = cov_matrix[:4, :4].copy()  # [to do]: expand to NxN
+    U = unit_symplectic_matrix(4)
     tr_SU2 = np.trace(np.linalg.matrix_power(np.matmul(S, U), 2))
     det_S = np.linalg.det(S)
     eps_1 = 0.5 * np.sqrt(-tr_SU2 + np.sqrt(tr_SU2**2 - 16.0 * det_S))
@@ -32,24 +25,22 @@ def intrinsic_emittances(S: np.ndarray) -> tuple[float, ...]:
     return (eps_1, eps_2)
 
 
-def twiss_2d(S: np.ndarray) -> tuple[float, float, float]:
+def twiss_2d(cov_matrix: np.ndarray) -> tuple[float, float, float]:
     """Compute twiss parameters from 2 x 2 covariance matrix.
 
     alpha = -<xx'> / sqrt(<xx><x'x'> - <xx'><xx'>)
     beta  =  <xx>  / sqrt(<xx><x'x'> - <xx'><xx'>)
     """
-    emittance = rms_ellipsoid_volume(S)
-    beta = S[0, 0] / emittance
-    alpha = -S[0, 1] / emittance
+    emittance = rms_ellipsoid_volume(cov_matrix)
+    beta = cov_matrix[0, 0] / emittance
+    alpha = -cov_matrix[0, 1] / emittance
     return (alpha, beta, emittance)
 
 
-def twiss(
-    S: np.ndarray,
-) -> tuple[float, float, float] | list[tuple[float, float, float]]:
+def twiss(cov_matrix: np.ndarray) -> list[float] | list[list[float]]:
     parameters = []
-    for i in range(0, S.shape[0], 2):
-        parameters.append(twiss_2d(S[i : i + 2, i : i + 2]))
+    for i in range(0, cov_matrix.shape[0], 2):
+        parameters.append(twiss_2d(cov_matrix[i : i + 2, i : i + 2]))
 
     if len(parameters) == 1:
         parameters = parameters[0]
@@ -124,47 +115,44 @@ def normalization_matrix_from_twiss(
 
 
 def normalization_matrix(
-    S: np.ndarray, scale: bool = False, block_diag: bool = False
+    cov_matrix: np.ndarray, scale: bool = False, block_diag: bool = False
 ) -> np.ndarray:
     """Return normalization matrix V^{-1} from covariance matrix S.
 
     Parameters
     ----------
-    S : np.ndarray
+    cov_matrix : np.ndarray
         An N x N covariance matrix.
     scale : bool
         If True, normalize to unit rms emittance.
     block_diag : bool
         If true, normalize only 2x2 block-diagonal elements (x-x', y-y', etc.).
     """
-    def _normalization_matrix(S: np.ndarray, scale: bool = False) -> np.ndarray:
+    def _normalization_matrix(_cov_matrix: np.ndarray, scale: bool = False) -> np.ndarray:
+        S = _cov_matrix.copy()
         U = unit_symplectic_matrix(S.shape[0])
-        SU = np.matmul(S, U)
-        eigvals, eigvecs = np.linalg.eig(SU)
+        eigvals, eigvecs = np.linalg.eig(np.matmul(S, U))
         eigvecs = normalize_eigvecs(eigvecs)
         V_inv = normalization_matrix_from_eigvecs(eigvecs)
 
         if scale:
             V = np.linalg.inv(V_inv)
-            A = np.eye(V.shape[0])
-            for i in range(0, ndim, 2):
-                emittance = rms_ellipsoid_volume(S[i : i + 2, i : i + 2])
-                A[i : i + 2, i : i + 2] *= np.sqrt(emittance)
+            A = np.sqrt(np.diag(np.repeat(intrinsic_emittances(S), 2)))
             V = np.matmul(V, A)
             V_inv = np.linalg.inv(V)
 
         return V_inv
 
-    ndim = S.shape[0]
-    V_inv = np.eye(ndim)
+    ndim = cov_matrix.shape[0]
+    norm_matrix = np.eye(ndim)
     if block_diag:
-        V_inv = _normalization_matrix(S, scale=scale)
-    else:
         for i in range(0, ndim, 2):
-            V_inv[i : i + 2, i : i + 2] = _normalization_matrix(
-                S[i : i + 2, i : i + 2], scale=scale
+            norm_matrix[i: i + 2, i: i + 2] = _normalization_matrix(
+                cov_matrix[i: i + 2, i: i + 2], scale=scale
             )
-    return V_inv
+    else:
+        norm_matrix = _normalization_matrix(cov_matrix, scale=scale)
+    return norm_matrix
 
 
 def cov_to_corr(S: np.ndarray) -> np.ndarray:
