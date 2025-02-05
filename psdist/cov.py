@@ -1,5 +1,4 @@
 """Covariance matrix analysis."""
-
 import numpy as np
 
 
@@ -8,6 +7,10 @@ def rms_ellipsoid_volume(cov_matrix: np.ndarray) -> float:
 
 
 def projected_emittances(cov_matrix: np.ndarray) -> tuple[float, ...]:
+    ndim = cov_matrix.shape[0]
+    if ndim == 2:
+        return rms_ellipsoid_volume(cov_matrix)
+
     emittances = []
     for i in range(0, cov_matrix.shape[0], 2):
         emittance = rms_ellipsoid_volume(cov_matrix[i : i + 2, i : i + 2])
@@ -16,8 +19,15 @@ def projected_emittances(cov_matrix: np.ndarray) -> tuple[float, ...]:
 
 
 def intrinsic_emittances(cov_matrix: np.ndarray) -> tuple[float, ...]:
-    S = cov_matrix[:4, :4].copy()  # [to do]: expand to NxN
-    U = unit_symplectic_matrix(4)
+    ndim = cov_matrix.shape[0]
+    if ndim > 4:
+        raise ValueError("ndim > 4")
+
+    if ndim == 2:
+        return rms_ellipsoid_volume(cov_matrix)
+
+    S = cov_matrix.copy()  # [to do] expand to NxN using np.eig
+    U = unit_symplectic_matrix(ndim)
     tr_SU2 = np.trace(np.linalg.matrix_power(np.matmul(S, U), 2))
     det_S = np.linalg.det(S)
     eps_1 = 0.5 * np.sqrt(-tr_SU2 + np.sqrt(tr_SU2**2 - 16.0 * det_S))
@@ -26,11 +36,6 @@ def intrinsic_emittances(cov_matrix: np.ndarray) -> tuple[float, ...]:
 
 
 def twiss_2d(cov_matrix: np.ndarray) -> tuple[float, float, float]:
-    """Compute twiss parameters from 2 x 2 covariance matrix.
-
-    alpha = -<xx'> / sqrt(<xx><x'x'> - <xx'><xx'>)
-    beta  =  <xx>  / sqrt(<xx><x'x'> - <xx'><xx'>)
-    """
     emittance = rms_ellipsoid_volume(cov_matrix)
     beta = cov_matrix[0, 0] / emittance
     alpha = -cov_matrix[0, 1] / emittance
@@ -128,16 +133,22 @@ def normalization_matrix(
     block_diag : bool
         If true, normalize only 2x2 block-diagonal elements (x-x', y-y', etc.).
     """
-    def _normalization_matrix(_cov_matrix: np.ndarray, scale: bool = False) -> np.ndarray:
-        S = _cov_matrix.copy()
+    def _normalization_matrix(cov_matrix: np.ndarray, scale: bool = False) -> np.ndarray:
+        S = cov_matrix.copy()
         U = unit_symplectic_matrix(S.shape[0])
         eigvals, eigvecs = np.linalg.eig(np.matmul(S, U))
         eigvecs = normalize_eigvecs(eigvecs)
         V_inv = normalization_matrix_from_eigvecs(eigvecs)
 
         if scale:
+            ndim = S.shape[0]
             V = np.linalg.inv(V_inv)
-            A = np.sqrt(np.diag(np.repeat(intrinsic_emittances(S), 2)))
+            A = np.eye(ndim)
+            if ndim == 2:
+                emittance = np.sqrt(np.linalg.det(S))
+                A = np.diag(np.sqrt([emittance, emittance]))
+            else:
+                A = np.sqrt(np.diag(np.repeat(intrinsic_emittances(S), 2)))
             V = np.matmul(V, A)
             V_inv = np.linalg.inv(V)
 
