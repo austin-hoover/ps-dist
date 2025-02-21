@@ -148,10 +148,11 @@ def normalization_matrix(
                 emittance = np.sqrt(np.linalg.det(S))
                 A = np.diag(np.sqrt([emittance, emittance]))
             else:
-                A = np.sqrt(np.diag(np.repeat(intrinsic_emittances(S), 2)))
+                S_n = np.linalg.multi_dot([V_inv, S, V_inv.T])
+                A = np.sqrt(np.diag(np.repeat(projected_emittances(S_n), 2)))
             V = np.matmul(V, A)
             V_inv = np.linalg.inv(V)
-
+        
         return V_inv
 
     ndim = cov_matrix.shape[0]
